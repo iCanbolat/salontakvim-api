@@ -1,0 +1,690 @@
+import {
+  pgTable,
+  serial,
+  varchar,
+  timestamp,
+  text,
+  integer,
+  boolean,
+  decimal,
+  pgEnum,
+  json,
+  time,
+  date,
+  unique,
+  index,
+} from 'drizzle-orm/pg-core';
+import { relations } from 'drizzle-orm';
+
+// ================================
+// ENUMS
+// ================================
+export const userRoleEnum = pgEnum('user_role', ['admin', 'staff', 'customer']);
+export const paymentStatusEnum = pgEnum('payment_status', ['freemium', 'paid']);
+export const authProviderEnum = pgEnum('auth_provider', [
+  'local',
+  'google',
+  'facebook',
+  'apple',
+]);
+export const appointmentStatusEnum = pgEnum('appointment_status', [
+  'pending',
+  'confirmed',
+  'cancelled',
+  'completed',
+  'no_show',
+]);
+export const paymentMethodEnum = pgEnum('payment_method', [
+  'cash',
+  'card',
+  'online',
+  'stripe',
+  'paypal',
+]);
+export const widgetLayoutEnum = pgEnum('widget_layout', ['list', 'steps']);
+export const dayOfWeekEnum = pgEnum('day_of_week', [
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday',
+]);
+export const invitationStatusEnum = pgEnum('invitation_status', [
+  'pending',
+  'accepted',
+  'expired',
+  'cancelled',
+]);
+
+// ================================
+// USERS & AUTHENTICATION
+// ================================
+export const users = pgTable(
+  'users',
+  {
+    id: serial('id').primaryKey(),
+    email: varchar('email', { length: 255 }).notNull().unique(),
+    firstName: varchar('first_name', { length: 255 }),
+    lastName: varchar('last_name', { length: 255 }),
+    phone: varchar('phone', { length: 50 }),
+    password: text('password'), // nullable for social login and customers
+    role: userRoleEnum('role').default('admin').notNull(),
+    paymentStatus: paymentStatusEnum('payment_status')
+      .default('freemium')
+      .notNull(), // Only for admin role
+    authProvider: authProviderEnum('auth_provider').default('local').notNull(),
+    providerId: varchar('provider_id', { length: 255 }), // ID from social provider
+    avatar: text('avatar'),
+    isActive: boolean('is_active').default(true).notNull(),
+    emailVerified: boolean('email_verified').default(false).notNull(),
+    lastLogin: timestamp('last_login'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('users_email_idx').on(table.email),
+    index('users_role_idx').on(table.role),
+  ],
+);
+
+// ================================
+// STORES (Multi-tenant SaaS)
+// ================================
+export const stores = pgTable(
+  'stores',
+  {
+    id: serial('id').primaryKey(),
+    ownerId: integer('owner_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull()
+      .unique(), // Admin user who owns this store
+    name: varchar('name', { length: 255 }).notNull(),
+    slug: varchar('slug', { length: 255 }).notNull().unique(), // URL-friendly identifier
+    description: text('description'),
+    logo: text('logo'),
+    email: varchar('email', { length: 255 }),
+    phone: varchar('phone', { length: 50 }),
+
+    currency: varchar('currency', { length: 3 }).default('TRY'),
+
+    // Analytics & Stats
+    totalAppointments: integer('total_appointments').default(0),
+    // totalRevenue: decimal('total_revenue', { precision: 10, scale: 2 }).default(
+    //   '0',
+    // ),
+    totalCustomers: integer('total_customers').default(0),
+
+    // Settings
+    isActive: boolean('is_active').default(true).notNull(),
+
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('stores_owner_id_idx').on(table.ownerId),
+    index('stores_slug_idx').on(table.slug),
+  ],
+);
+
+export const refreshTokens = pgTable(
+  'refresh_tokens',
+  {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    token: text('token').notNull().unique(),
+    expiresAt: timestamp('expires_at').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('refresh_tokens_token_idx').on(table.token),
+    index('refresh_tokens_user_id_idx').on(table.userId),
+  ],
+);
+
+// Staff invitation system
+export const staffInvitations = pgTable(
+  'staff_invitations',
+  {
+    id: serial('id').primaryKey(),
+    storeId: integer('store_id')
+      .references(() => stores.id, { onDelete: 'cascade' })
+      .notNull(),
+    email: varchar('email', { length: 255 }).notNull(),
+    token: varchar('token', { length: 255 }).notNull().unique(),
+    status: invitationStatusEnum('status').default('pending').notNull(),
+    invitedBy: integer('invited_by').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    expiresAt: timestamp('expires_at').notNull(),
+    acceptedAt: timestamp('accepted_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('staff_invitations_store_id_idx').on(table.storeId),
+    index('staff_invitations_email_idx').on(table.email),
+    index('staff_invitations_token_idx').on(table.token),
+  ],
+);
+
+// ================================
+// BUSINESS ENTITIES
+// ================================
+export const categories = pgTable(
+  'categories',
+  {
+    id: serial('id').primaryKey(),
+    storeId: integer('store_id')
+      .references(() => stores.id, { onDelete: 'cascade' })
+      .notNull(),
+    name: varchar('name', { length: 255 }).notNull(),
+    description: text('description'),
+    color: varchar('color', { length: 7 }), // Hex color
+    icon: varchar('icon', { length: 50 }),
+    position: integer('position').default(0),
+    isVisible: boolean('is_visible').default(true).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [index('categories_store_id_idx').on(table.storeId)],
+);
+
+export const locations = pgTable(
+  'locations',
+  {
+    id: serial('id').primaryKey(),
+    storeId: integer('store_id')
+      .references(() => stores.id, { onDelete: 'cascade' })
+      .notNull(), // Store branch/location
+    name: varchar('name', { length: 255 }).notNull(),
+    address: text('address'),
+    city: varchar('city', { length: 100 }),
+    state: varchar('state', { length: 100 }),
+    zipCode: varchar('zip_code', { length: 20 }),
+    country: varchar('country', { length: 100 }),
+    phone: varchar('phone', { length: 50 }),
+    email: varchar('email', { length: 255 }),
+    latitude: decimal('latitude', { precision: 10, scale: 7 }),
+    longitude: decimal('longitude', { precision: 10, scale: 7 }),
+    isVisible: boolean('is_visible').default(true).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [index('locations_store_id_idx').on(table.storeId)],
+);
+
+export const services = pgTable(
+  'services',
+  {
+    id: serial('id').primaryKey(),
+    storeId: integer('store_id')
+      .references(() => stores.id, { onDelete: 'cascade' })
+      .notNull(),
+    categoryId: integer('category_id').references(() => categories.id, {
+      onDelete: 'set null',
+    }),
+    name: varchar('name', { length: 255 }).notNull(),
+    description: text('description'),
+    duration: integer('duration').notNull(), // minutes
+    price: decimal('price', { precision: 10, scale: 2 }).notNull(),
+    capacity: integer('capacity').default(1).notNull(), // max people per appointment
+    bufferTimeBefore: integer('buffer_time_before').default(0), // minutes
+    bufferTimeAfter: integer('buffer_time_after').default(0), // minutes
+    color: varchar('color', { length: 7 }), // Hex color
+    image: text('image'),
+    isVisible: boolean('is_visible').default(true).notNull(),
+    showBringingAnyoneOption: boolean('show_bringing_anyone_option').default(
+      false,
+    ),
+    allowRecurring: boolean('allow_recurring').default(false),
+    position: integer('position').default(0),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('services_store_id_idx').on(table.storeId),
+    index('services_category_id_idx').on(table.categoryId),
+  ],
+);
+
+export const serviceExtras = pgTable(
+  'service_extras',
+  {
+    id: serial('id').primaryKey(),
+    serviceId: integer('service_id')
+      .references(() => services.id, { onDelete: 'cascade' })
+      .notNull(),
+    name: varchar('name', { length: 255 }).notNull(),
+    description: text('description'),
+    price: decimal('price', { precision: 10, scale: 2 }).notNull(),
+    duration: integer('duration').default(0), // additional minutes
+    maxQuantity: integer('max_quantity').default(1),
+    position: integer('position').default(0),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [index('service_extras_service_id_idx').on(table.serviceId)],
+);
+
+// Staff assignments
+export const staffMembers = pgTable(
+  'staff_members',
+  {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull()
+      .unique(), // Staff user
+    storeId: integer('store_id')
+      .references(() => stores.id, { onDelete: 'cascade' })
+      .notNull(), // Store they belong to
+    locationId: integer('location_id').references(() => locations.id, {
+      onDelete: 'set null',
+    }), // Specific branch/location (optional)
+    bio: text('bio'),
+    title: varchar('title', { length: 255 }),
+    isVisible: boolean('is_visible').default(true).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('staff_members_store_id_idx').on(table.storeId),
+    index('staff_members_location_id_idx').on(table.locationId),
+  ],
+);
+
+// Service-Staff relationship (many-to-many)
+export const serviceStaff = pgTable(
+  'service_staff',
+  {
+    id: serial('id').primaryKey(),
+    serviceId: integer('service_id')
+      .references(() => services.id, { onDelete: 'cascade' })
+      .notNull(),
+    staffId: integer('staff_id')
+      .references(() => staffMembers.id, { onDelete: 'cascade' })
+      .notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    unique('unique_service_staff').on(table.serviceId, table.staffId),
+    index('service_staff_service_id_idx').on(table.serviceId),
+    index('service_staff_staff_id_idx').on(table.staffId),
+  ],
+);
+
+// Service-Location relationship (many-to-many)
+export const serviceLocations = pgTable(
+  'service_locations',
+  {
+    id: serial('id').primaryKey(),
+    serviceId: integer('service_id')
+      .references(() => services.id, { onDelete: 'cascade' })
+      .notNull(),
+    locationId: integer('location_id')
+      .references(() => locations.id, { onDelete: 'cascade' })
+      .notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    unique('unique_service_location').on(table.serviceId, table.locationId),
+    index('service_locations_service_id_idx').on(table.serviceId),
+    index('service_locations_location_id_idx').on(table.locationId),
+  ],
+);
+
+// Staff working hours
+export const staffWorkingHours = pgTable(
+  'staff_working_hours',
+  {
+    id: serial('id').primaryKey(),
+    staffId: integer('staff_id')
+      .references(() => staffMembers.id, { onDelete: 'cascade' })
+      .notNull(),
+    dayOfWeek: dayOfWeekEnum('day_of_week').notNull(),
+    startTime: time('start_time').notNull(),
+    endTime: time('end_time').notNull(),
+    isActive: boolean('is_active').default(true).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [index('staff_working_hours_staff_id_idx').on(table.staffId)],
+);
+
+// Staff breaks/time off
+export const staffBreaks = pgTable(
+  'staff_breaks',
+  {
+    id: serial('id').primaryKey(),
+    staffId: integer('staff_id')
+      .references(() => staffMembers.id, { onDelete: 'cascade' })
+      .notNull(),
+    startDate: date('start_date').notNull(),
+    endDate: date('end_date').notNull(),
+    startTime: time('start_time'),
+    endTime: time('end_time'),
+    reason: text('reason'),
+    isRecurring: boolean('is_recurring').default(false),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [index('staff_breaks_staff_id_idx').on(table.staffId)],
+);
+
+// ================================
+// APPOINTMENTS
+// ================================
+export const appointments = pgTable(
+  'appointments',
+  {
+    id: serial('id').primaryKey(),
+    storeId: integer('store_id')
+      .references(() => stores.id, { onDelete: 'cascade' })
+      .notNull(), // Store this appointment belongs to
+    customerId: integer('customer_id').references(() => users.id, {
+      onDelete: 'set null',
+    }), // Can be null for guest bookings
+    serviceId: integer('service_id').references(() => services.id, {
+      onDelete: 'set null',
+    }),
+    staffId: integer('staff_id').references(() => staffMembers.id, {
+      onDelete: 'set null',
+    }),
+    locationId: integer('location_id').references(() => locations.id, {
+      onDelete: 'set null',
+    }),
+
+    // Guest customer info (if customerId is null)
+    guestFirstName: varchar('guest_first_name', { length: 255 }),
+    guestLastName: varchar('guest_last_name', { length: 255 }),
+    guestEmail: varchar('guest_email', { length: 255 }),
+    guestPhone: varchar('guest_phone', { length: 50 }),
+
+    // Appointment details
+    startDateTime: timestamp('start_date_time').notNull(),
+    endDateTime: timestamp('end_date_time').notNull(),
+    numberOfPeople: integer('number_of_people').default(1),
+    status: appointmentStatusEnum('status').default('pending').notNull(),
+
+    // Payment
+    totalPrice: decimal('total_price', { precision: 10, scale: 2 }).notNull(),
+    paymentMethod: paymentMethodEnum('payment_method'),
+    isPaid: boolean('is_paid').default(false).notNull(),
+    paidAt: timestamp('paid_at'),
+
+    // Notes
+    customerNotes: text('customer_notes'),
+    internalNotes: text('internal_notes'), // Only visible to staff/admin
+
+    // Cancellation
+    cancelledAt: timestamp('cancelled_at'),
+    cancellationReason: text('cancellation_reason'),
+
+    // Recurring
+    parentAppointmentId: integer('parent_appointment_id').references(
+      () => appointments.id,
+      { onDelete: 'set null' },
+    ),
+    isRecurring: boolean('is_recurring').default(false),
+
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('appointments_store_id_idx').on(table.storeId),
+    index('appointments_customer_id_idx').on(table.customerId),
+    index('appointments_staff_id_idx').on(table.staffId),
+    index('appointments_start_date_time_idx').on(table.startDateTime),
+    index('appointments_status_idx').on(table.status),
+  ],
+);
+
+export const appointmentExtras = pgTable(
+  'appointment_extras',
+  {
+    id: serial('id').primaryKey(),
+    appointmentId: integer('appointment_id')
+      .references(() => appointments.id, { onDelete: 'cascade' })
+      .notNull(),
+    extraId: integer('extra_id')
+      .references(() => serviceExtras.id, { onDelete: 'cascade' })
+      .notNull(),
+    quantity: integer('quantity').default(1).notNull(),
+    price: decimal('price', { precision: 10, scale: 2 }).notNull(), // Price at time of booking
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('appointment_extras_appointment_id_idx').on(table.appointmentId),
+  ],
+);
+
+// ================================
+// WIDGET CUSTOMIZATION
+// ================================
+export const widgetSettings = pgTable(
+  'widget_settings',
+  {
+    id: serial('id').primaryKey(),
+    storeId: integer('store_id')
+      .references(() => stores.id, { onDelete: 'cascade' })
+      .notNull()
+      .unique(),
+
+    // Layout & Structure
+    layout: widgetLayoutEnum('layout').default('list').notNull(),
+    showCompanyEmail: boolean('show_company_email').default(true),
+    companyEmail: varchar('company_email', { length: 255 }),
+
+    // Sidebar Configuration
+    sidebarMenuItems: json('sidebar_menu_items')
+      .$type<{
+        service: boolean;
+        employee: boolean;
+        location: boolean;
+        extras: boolean;
+        dateTime: boolean;
+        customerInfo: boolean;
+        payment: boolean;
+      }>()
+      .default({
+        service: true,
+        employee: true,
+        location: true,
+        extras: true,
+        dateTime: true,
+        customerInfo: true,
+        payment: true,
+      }),
+
+    // Field Requirements
+    employeeRequired: boolean('employee_required').default(false),
+    locationRequired: boolean('location_required').default(false),
+    lastNameRequired: boolean('last_name_required').default(true),
+    emailRequired: boolean('email_required').default(true),
+    phoneRequired: boolean('phone_required').default(true),
+
+    // Colors & Styling
+    primaryColor: varchar('primary_color', { length: 7 }).default('#1A84EE'),
+    secondaryColor: varchar('secondary_color', { length: 7 }).default(
+      '#ffffff',
+    ),
+    sidebarBackgroundColor: varchar('sidebar_background_color', {
+      length: 7,
+    }).default('#F5F7FA'),
+    contentBackgroundColor: varchar('content_background_color', {
+      length: 7,
+    }).default('#ffffff'),
+    textColor: varchar('text_color', { length: 7 }).default('#333333'),
+    headingColor: varchar('heading_color', { length: 7 }).default('#1A1A1A'),
+
+    // Typography
+    fontFamily: varchar('font_family', { length: 100 }).default(
+      'Inter, sans-serif',
+    ),
+    fontSize: integer('font_size').default(14), // Base font size in px
+
+    // Button Styling
+    buttonBorderRadius: integer('button_border_radius').default(8), // px
+
+    // Other Settings
+    showProgressBar: boolean('show_progress_bar').default(true),
+    allowGuestBooking: boolean('allow_guest_booking').default(true),
+    redirectUrlAfterBooking: text('redirect_url_after_booking'),
+
+    // Widget embed code/key
+    widgetKey: varchar('widget_key', { length: 255 }).notNull().unique(),
+
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('widget_settings_widget_key_idx').on(table.widgetKey),
+    index('widget_settings_store_id_idx').on(table.storeId),
+  ],
+);
+
+// Custom fields for services
+export const customFields = pgTable(
+  'custom_fields',
+  {
+    id: serial('id').primaryKey(),
+    storeId: integer('store_id')
+      .references(() => stores.id, { onDelete: 'cascade' })
+      .notNull(),
+    serviceId: integer('service_id').references(() => services.id, {
+      onDelete: 'cascade',
+    }),
+    label: varchar('label', { length: 255 }).notNull(),
+    type: varchar('type', { length: 50 }).notNull(), // text, textarea, select, checkbox, radio, date, file
+    options: json('options').$type<string[]>(), // For select, radio, checkbox
+    placeholder: varchar('placeholder', { length: 255 }),
+    isRequired: boolean('is_required').default(false),
+    position: integer('position').default(0),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('custom_fields_store_id_idx').on(table.storeId),
+    index('custom_fields_service_id_idx').on(table.serviceId),
+  ],
+);
+
+export const appointmentCustomFieldValues = pgTable(
+  'appointment_custom_field_values',
+  {
+    id: serial('id').primaryKey(),
+    appointmentId: integer('appointment_id')
+      .references(() => appointments.id, { onDelete: 'cascade' })
+      .notNull(),
+    customFieldId: integer('custom_field_id')
+      .references(() => customFields.id, { onDelete: 'cascade' })
+      .notNull(),
+    value: text('value'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('appointment_custom_field_values_appointment_id_idx').on(
+      table.appointmentId,
+    ),
+  ],
+);
+
+// ================================
+// RELATIONS (for Drizzle ORM queries)
+// ================================
+export const usersRelations = relations(users, ({ one, many }) => ({
+  ownedStore: one(stores, { fields: [users.id], references: [stores.ownerId] }),
+  staffProfile: one(staffMembers, {
+    fields: [users.id],
+    references: [staffMembers.userId],
+  }),
+  appointments: many(appointments),
+  refreshTokens: many(refreshTokens),
+}));
+
+export const storesRelations = relations(stores, ({ one, many }) => ({
+  owner: one(users, { fields: [stores.ownerId], references: [users.id] }),
+  categories: many(categories),
+  locations: many(locations),
+  services: many(services),
+  staffMembers: many(staffMembers),
+  appointments: many(appointments),
+  widgetSettings: one(widgetSettings),
+  staffInvitations: many(staffInvitations),
+  customFields: many(customFields),
+}));
+
+export const categoriesRelations = relations(categories, ({ one, many }) => ({
+  store: one(stores, { fields: [categories.storeId], references: [stores.id] }),
+  services: many(services),
+}));
+
+export const locationsRelations = relations(locations, ({ one, many }) => ({
+  store: one(stores, { fields: [locations.storeId], references: [stores.id] }),
+  staffMembers: many(staffMembers),
+  appointments: many(appointments),
+  serviceLocations: many(serviceLocations),
+}));
+
+export const servicesRelations = relations(services, ({ one, many }) => ({
+  store: one(stores, { fields: [services.storeId], references: [stores.id] }),
+  category: one(categories, {
+    fields: [services.categoryId],
+    references: [categories.id],
+  }),
+  extras: many(serviceExtras),
+  serviceStaff: many(serviceStaff),
+  serviceLocations: many(serviceLocations),
+  appointments: many(appointments),
+  customFields: many(customFields),
+}));
+
+export const staffMembersRelations = relations(
+  staffMembers,
+  ({ one, many }) => ({
+    user: one(users, { fields: [staffMembers.userId], references: [users.id] }),
+    store: one(stores, {
+      fields: [staffMembers.storeId],
+      references: [stores.id],
+    }),
+    location: one(locations, {
+      fields: [staffMembers.locationId],
+      references: [locations.id],
+    }),
+    serviceStaff: many(serviceStaff),
+    workingHours: many(staffWorkingHours),
+    breaks: many(staffBreaks),
+    appointments: many(appointments),
+  }),
+);
+
+export const appointmentsRelations = relations(
+  appointments,
+  ({ one, many }) => ({
+    store: one(stores, {
+      fields: [appointments.storeId],
+      references: [stores.id],
+    }),
+    customer: one(users, {
+      fields: [appointments.customerId],
+      references: [users.id],
+    }),
+    service: one(services, {
+      fields: [appointments.serviceId],
+      references: [services.id],
+    }),
+    staff: one(staffMembers, {
+      fields: [appointments.staffId],
+      references: [staffMembers.id],
+    }),
+    location: one(locations, {
+      fields: [appointments.locationId],
+      references: [locations.id],
+    }),
+    extras: many(appointmentExtras),
+    customFieldValues: many(appointmentCustomFieldValues),
+  }),
+);
