@@ -58,6 +58,22 @@ export const invitationStatusEnum = pgEnum('invitation_status', [
   'cancelled',
 ]);
 
+export const notificationChannelEnum = pgEnum('notification_channel', [
+  'email',
+  'sms',
+  'both',
+]);
+
+export const templateTypeEnum = pgEnum('template_type', [
+  'appointment_confirmation',
+  'appointment_reminder_24h',
+  'appointment_reminder_1h',
+  'appointment_cancelled',
+  'appointment_rescheduled',
+  'staff_invitation',
+  'password_reset',
+]);
+
 // ================================
 // USERS & AUTHENTICATION
 // ================================
@@ -593,6 +609,96 @@ export const appointmentCustomFieldValues = pgTable(
 );
 
 // ================================
+// NOTIFICATIONS
+// ================================
+export const notificationSettings = pgTable(
+  'notification_settings',
+  {
+    id: serial('id').primaryKey(),
+    storeId: integer('store_id')
+      .references(() => stores.id, { onDelete: 'cascade' })
+      .notNull()
+      .unique(),
+
+    // Appointment Confirmation
+    appointmentConfirmationEnabled: boolean(
+      'appointment_confirmation_enabled',
+    ).default(true),
+    appointmentConfirmationChannel: notificationChannelEnum(
+      'appointment_confirmation_channel',
+    ).default('email'),
+
+    // Appointment Reminders
+    appointmentReminderEnabled: boolean('appointment_reminder_enabled').default(
+      true,
+    ),
+    appointmentReminderChannel: notificationChannelEnum(
+      'appointment_reminder_channel',
+    ).default('email'),
+    reminder24hEnabled: boolean('reminder_24h_enabled').default(true),
+    reminder1hEnabled: boolean('reminder_1h_enabled').default(false),
+
+    // Appointment Cancellation
+    appointmentCancellationEnabled: boolean(
+      'appointment_cancellation_enabled',
+    ).default(true),
+    appointmentCancellationChannel: notificationChannelEnum(
+      'appointment_cancellation_channel',
+    ).default('email'),
+
+    // Appointment Rescheduled
+    appointmentRescheduledEnabled: boolean(
+      'appointment_rescheduled_enabled',
+    ).default(true),
+    appointmentRescheduledChannel: notificationChannelEnum(
+      'appointment_rescheduled_channel',
+    ).default('email'),
+
+    // Staff Invitation
+    staffInvitationEnabled: boolean('staff_invitation_enabled').default(true),
+
+    // Email Configuration
+    senderEmail: varchar('sender_email', { length: 255 }),
+    senderName: varchar('sender_name', { length: 255 }),
+    replyToEmail: varchar('reply_to_email', { length: 255 }),
+    emailProvider: varchar('email_provider', { length: 50 }).default('smtp'), // sendgrid, aws-ses, smtp
+
+    // SMS Configuration
+    smsProvider: varchar('sms_provider', { length: 50 }), // twilio, aws-sns
+
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [index('notification_settings_store_id_idx').on(table.storeId)],
+);
+
+export const notificationTemplates = pgTable(
+  'notification_templates',
+  {
+    id: serial('id').primaryKey(),
+    storeId: integer('store_id')
+      .references(() => stores.id, { onDelete: 'cascade' })
+      .notNull(),
+    type: templateTypeEnum('type').notNull(),
+    name: varchar('name', { length: 255 }).notNull(),
+    description: text('description'),
+    subject: varchar('subject', { length: 500 }),
+    htmlContent: text('html_content'),
+    textContent: text('text_content'),
+    smsContent: text('sms_content'),
+    availableVariables: json('available_variables').$type<string[]>(),
+    isCustom: boolean('is_custom').default(false), // true if customized by user
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    unique('unique_store_template_type').on(table.storeId, table.type),
+    index('notification_templates_store_id_idx').on(table.storeId),
+    index('notification_templates_type_idx').on(table.type),
+  ],
+);
+
+// ================================
 // RELATIONS (for Drizzle ORM queries)
 // ================================
 export const usersRelations = relations(users, ({ one, many }) => ({
@@ -615,6 +721,8 @@ export const storesRelations = relations(stores, ({ one, many }) => ({
   widgetSettings: one(widgetSettings),
   staffInvitations: many(staffInvitations),
   customFields: many(customFields),
+  notificationSettings: one(notificationSettings),
+  notificationTemplates: many(notificationTemplates),
 }));
 
 export const categoriesRelations = relations(categories, ({ one, many }) => ({
