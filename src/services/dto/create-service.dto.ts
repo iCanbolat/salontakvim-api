@@ -1,0 +1,79 @@
+import {
+  IsString,
+  IsOptional,
+  MaxLength,
+  IsNotEmpty,
+  IsBoolean,
+  IsInt,
+  Min,
+  IsDecimal,
+  Matches,
+  IsNumber,
+} from 'class-validator';
+
+export class CreateServiceDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(255)
+  name: string;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @IsInt()
+  @IsOptional()
+  categoryId?: number;
+
+  @IsInt()
+  @Min(1)
+  duration: number; // minutes
+
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  price: number;
+
+  @IsInt()
+  @IsOptional()
+  @Min(1)
+  capacity?: number;
+
+  @IsInt()
+  @IsOptional()
+  @Min(0)
+  bufferTimeBefore?: number;
+
+  @IsInt()
+  @IsOptional()
+  @Min(0)
+  bufferTimeAfter?: number;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(7)
+  @Matches(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/, {
+    message: 'Color must be a valid hex color (e.g., #FF5733)',
+  })
+  color?: string;
+
+  @IsString()
+  @IsOptional()
+  image?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  isVisible?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  showBringingAnyoneOption?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  allowRecurring?: boolean;
+
+  @IsInt()
+  @IsOptional()
+  @Min(0)
+  position?: number;
+}

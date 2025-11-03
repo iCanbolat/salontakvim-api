@@ -1,0 +1,95 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  ParseIntPipe,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
+import { StoreService } from './services/store.service';
+import { CreateStoreDto, UpdateStoreDto, StoreResponseDto } from './dto';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import type { JwtPayload } from '../auth/interfaces/auth.interface';
+
+@Controller('stores')
+export class StoreController {
+  constructor(private readonly storeService: StoreService) {}
+
+  @Post()
+  @Roles('admin')
+  @HttpCode(HttpStatus.CREATED)
+  async create(
+    @CurrentUser() user: JwtPayload,
+    @Body() createStoreDto: CreateStoreDto,
+  ): Promise<StoreResponseDto> {
+    return this.storeService.create(user.sub, createStoreDto);
+  }
+
+  @Get('my-store')
+  @Roles('admin')
+  async getMyStore(@CurrentUser() user: JwtPayload): Promise<StoreResponseDto> {
+    return this.storeService.findMyStore(user.sub);
+  }
+
+  @Get(':id')
+  @Roles('admin', 'staff')
+  async findById(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<StoreResponseDto> {
+    return this.storeService.findById(id, user.sub);
+  }
+
+  @Get('slug/:slug')
+  @Roles('admin', 'staff')
+  async findBySlug(@Param('slug') slug: string): Promise<StoreResponseDto> {
+    return this.storeService.findBySlug(slug);
+  }
+
+  @Patch(':id')
+  @Roles('admin')
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+    @Body() updateStoreDto: UpdateStoreDto,
+  ): Promise<StoreResponseDto> {
+    return this.storeService.update(id, user.sub, updateStoreDto);
+  }
+
+  @Delete(':id/deactivate')
+  @Roles('admin')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deactivate(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<void> {
+    return this.storeService.deactivate(id, user.sub);
+  }
+
+  @Delete(':id')
+  @Roles('admin')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async delete(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<void> {
+    return this.storeService.delete(id, user.sub);
+  }
+
+  @Get(':id/analytics')
+  @Roles('admin', 'staff')
+  async getAnalytics(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<{
+    totalAppointments: number;
+    totalCustomers: number;
+  }> {
+    return this.storeService.getAnalytics(id, user.sub);
+  }
+}

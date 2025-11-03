@@ -1,0 +1,48 @@
+import {
+  IsString,
+  IsEmail,
+  IsOptional,
+  MaxLength,
+  MinLength,
+  Matches,
+  IsNotEmpty,
+} from 'class-validator';
+
+export class CreateStoreDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(255)
+  name: string;
+
+  @IsString()
+  @MinLength(3)
+  @MaxLength(255)
+  @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
+    message:
+      'Slug must be lowercase alphanumeric with hyphens (e.g., my-store-name)',
+  })
+  slug: string;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @IsString()
+  @IsOptional()
+  logo?: string;
+
+  @IsEmail()
+  @IsOptional()
+  @MaxLength(255)
+  email?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(50)
+  phone?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(3)
+  currency?: string;
+}

@@ -1,0 +1,45 @@
+import {
+  IsString,
+  IsOptional,
+  IsNotEmpty,
+  IsBoolean,
+  Matches,
+} from 'class-validator';
+
+export class CreateStaffBreakDto {
+  @IsString()
+  @IsNotEmpty()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'Start date must be in YYYY-MM-DD format',
+  })
+  startDate: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'End date must be in YYYY-MM-DD format',
+  })
+  endDate: string;
+
+  @IsString()
+  @IsOptional()
+  @Matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/, {
+    message: 'Start time must be in HH:MM or HH:MM:SS format',
+  })
+  startTime?: string;
+
+  @IsString()
+  @IsOptional()
+  @Matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/, {
+    message: 'End time must be in HH:MM or HH:MM:SS format',
+  })
+  endTime?: string;
+
+  @IsString()
+  @IsOptional()
+  reason?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  isRecurring?: boolean;
+}
