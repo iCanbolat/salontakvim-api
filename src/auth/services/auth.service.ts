@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  UnauthorizedException,
-  ConflictException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -15,6 +10,14 @@ import {
   JwtPayload,
   RefreshTokenPayload,
 } from '../interfaces/auth.interface';
+import {
+  InvalidCredentialsException,
+  EmailAlreadyExistsException,
+  UserNotFoundException,
+  InvalidRefreshTokenException,
+  InactiveAccountException,
+  InvalidSocialAuthException,
+} from '../exceptions';
 
 @Injectable()
 export class AuthService {
@@ -31,7 +34,7 @@ export class AuthService {
       registerDto.email,
     );
     if (existingUser) {
-      throw new ConflictException('User with this email already exists');
+      throw new EmailAlreadyExistsException(registerDto.email);
     }
 
     // Hash password
@@ -65,18 +68,19 @@ export class AuthService {
     // Find user
     const user = await this.userRepository.findByEmail(loginDto.email);
     if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new InvalidCredentialsException();
     }
 
     // Check if account is active
     if (!user.isActive) {
-      throw new UnauthorizedException('Account is deactivated');
+      throw new InactiveAccountException();
     }
 
     // Verify password
     if (!user.password) {
-      throw new UnauthorizedException(
-        'This account uses social login. Please use the appropriate login method.',
+      throw new InvalidSocialAuthException(
+        user.authProvider || 'social',
+        'Bu hesap sosyal giriş kullanıyor',
       );
     }
 
@@ -85,7 +89,7 @@ export class AuthService {
       user.password,
     );
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new InvalidCredentialsException();
     }
 
     // Update last login
@@ -113,9 +117,7 @@ export class AuthService {
         socialAuthDto.email,
       );
       if (existingUser) {
-        throw new ConflictException(
-          'An account with this email already exists. Please login with your existing method.',
-        );
+        throw new EmailAlreadyExistsException(socialAuthDto.email);
       }
 
       // Create new user
@@ -149,19 +151,19 @@ export class AuthService {
     const tokenRecord =
       await this.refreshTokenRepository.findByToken(refreshToken);
     if (!tokenRecord) {
-      throw new UnauthorizedException('Invalid refresh token');
+      throw new InvalidRefreshTokenException();
     }
 
     // Check if token is expired
     if (new Date() > tokenRecord.expiresAt) {
       await this.refreshTokenRepository.deleteByToken(refreshToken);
-      throw new UnauthorizedException('Refresh token expired');
+      throw new InvalidRefreshTokenException();
     }
 
     // Get user
     const user = await this.userRepository.findById(tokenRecord.userId);
     if (!user || !user.isActive) {
-      throw new UnauthorizedException('User not found or inactive');
+      throw new UserNotFoundException(tokenRecord.userId.toString());
     }
 
     // Delete old refresh token

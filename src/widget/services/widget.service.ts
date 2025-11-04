@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { WidgetSettingsRepository } from '../repositories/widget-settings.repository';
 import { StoreRepository } from '../../stores/repositories/store.repository';
 import { ServiceRepository } from '../../services/repositories/service.repository';
@@ -11,6 +11,11 @@ import {
   WidgetEmbedCodeResponseDto,
 } from '../dto';
 import { ConfigService } from '@nestjs/config';
+import {
+  WidgetSettingsNotFoundException,
+  WidgetKeyNotFoundException,
+} from '../exceptions';
+import { StoreNotFoundException } from '../../stores/exceptions';
 
 @Injectable()
 export class WidgetService {
@@ -109,12 +114,12 @@ export class WidgetService {
       await this.widgetSettingsRepository.findByWidgetKey(widgetKey);
 
     if (!widgetSettings) {
-      throw new NotFoundException('Widget not found');
+      throw new WidgetKeyNotFoundException(widgetKey);
     }
 
     const store = await this.storeRepository.findById(widgetSettings.storeId);
     if (!store) {
-      throw new NotFoundException('Store not found');
+      throw new StoreNotFoundException(widgetSettings.storeId.toString());
     }
 
     return new WidgetConfigResponseDto({
@@ -166,7 +171,7 @@ export class WidgetService {
       await this.widgetSettingsRepository.findByWidgetKey(widgetKey);
 
     if (!widgetSettings) {
-      throw new NotFoundException('Widget not found');
+      throw new WidgetKeyNotFoundException(widgetKey);
     }
 
     return await this.serviceRepository.findVisibleByStoreId(
@@ -179,7 +184,7 @@ export class WidgetService {
       await this.widgetSettingsRepository.findByWidgetKey(widgetKey);
 
     if (!widgetSettings) {
-      throw new NotFoundException('Widget not found');
+      throw new WidgetKeyNotFoundException(widgetKey);
     }
 
     return await this.locationRepository.findVisibleByStoreId(
@@ -192,7 +197,7 @@ export class WidgetService {
       await this.widgetSettingsRepository.findByWidgetKey(widgetKey);
 
     if (!widgetSettings) {
-      throw new NotFoundException('Widget not found');
+      throw new WidgetKeyNotFoundException(widgetKey);
     }
 
     return await this.staffMemberRepository.findVisibleByStoreId(
@@ -206,7 +211,7 @@ export class WidgetService {
     // Verify store exists
     const store = await this.storeRepository.findById(storeId);
     if (!store) {
-      throw new NotFoundException('Store not found');
+      throw new StoreNotFoundException(storeId.toString());
     }
 
     const widgetKey = this.widgetSettingsRepository.generateWidgetKey();
