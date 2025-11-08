@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { WidgetSettingsRepository } from '../repositories/widget-settings.repository';
 import { StoreRepository } from '../../stores/repositories/store.repository';
 import { ServiceRepository } from '../../services/repositories/service.repository';
+import { CategoryRepository } from '../../categories/repositories/category.repository';
 import { LocationRepository } from '../../locations/repositories/location.repository';
 import { StaffMemberRepository } from '../../staff/repositories/staff-member.repository';
 import {
@@ -23,6 +24,7 @@ export class WidgetService {
     private readonly widgetSettingsRepository: WidgetSettingsRepository,
     private readonly storeRepository: StoreRepository,
     private readonly serviceRepository: ServiceRepository,
+    private readonly categoryRepository: CategoryRepository,
     private readonly locationRepository: LocationRepository,
     private readonly staffMemberRepository: StaffMemberRepository,
     private readonly configService: ConfigService,
@@ -174,9 +176,18 @@ export class WidgetService {
       throw new WidgetKeyNotFoundException(widgetKey);
     }
 
-    return await this.serviceRepository.findVisibleByStoreId(
+    const services = await this.serviceRepository.findVisibleByStoreId(
       widgetSettings.storeId,
     );
+
+    const categories = await this.categoryRepository.findByStoreId(
+      widgetSettings.storeId,
+    );
+
+    return {
+      services,
+      categories,
+    };
   }
 
   async getWidgetLocations(widgetKey: string) {
@@ -187,9 +198,13 @@ export class WidgetService {
       throw new WidgetKeyNotFoundException(widgetKey);
     }
 
-    return await this.locationRepository.findVisibleByStoreId(
+    const locations = await this.locationRepository.findVisibleByStoreId(
       widgetSettings.storeId,
     );
+
+    return {
+      locations,
+    };
   }
 
   async getWidgetStaff(widgetKey: string) {
@@ -200,9 +215,13 @@ export class WidgetService {
       throw new WidgetKeyNotFoundException(widgetKey);
     }
 
-    return await this.staffMemberRepository.findVisibleByStoreId(
+    const staff = await this.staffMemberRepository.findVisibleByStoreId(
       widgetSettings.storeId,
     );
+
+    return {
+      staff,
+    };
   }
 
   // ============= Private Helper Methods =============

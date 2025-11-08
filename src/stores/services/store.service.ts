@@ -195,4 +195,20 @@ export class StoreService {
     }
     return store;
   }
+
+  // Customers endpoint - get unique customers from appointments
+  async getCustomers(storeId: number, userId: number) {
+    await this.verifyStoreOwnership(storeId, userId);
+    return this.storeRepository.getCustomers(storeId);
+  }
+
+  // Get customer profile with stats
+  async getCustomerProfile(
+    storeId: number,
+    customerId: number,
+    userId: number,
+  ) {
+    await this.verifyStoreOwnership(storeId, userId);
+    return this.storeRepository.getCustomerProfile(storeId, customerId);
+  }
 }

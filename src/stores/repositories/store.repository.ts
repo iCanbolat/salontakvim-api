@@ -114,4 +114,72 @@ export class StoreRepository implements IStoreRepository {
 
     return updatedStore;
   }
+
+  async getCustomers(storeId: number) {
+    const customers = await this.db
+      .select({
+        id: schema.users.id,
+        email: schema.users.email,
+        firstName: schema.users.firstName,
+        lastName: schema.users.lastName,
+        phone: schema.users.phone,
+        avatar: schema.users.avatar,
+        createdAt: schema.users.createdAt,
+        totalAppointments: sql<number>`COUNT(DISTINCT ${schema.appointments.id})`,
+        lastAppointmentDate: sql<Date>`MAX(${schema.appointments.startDateTime})`,
+      })
+      .from(schema.appointments)
+      .innerJoin(
+        schema.users,
+        eq(schema.appointments.customerId, schema.users.id),
+      )
+      .where(eq(schema.appointments.storeId, storeId))
+      .groupBy(
+        schema.users.id,
+        schema.users.email,
+        schema.users.firstName,
+        schema.users.lastName,
+        schema.users.phone,
+        schema.users.avatar,
+        schema.users.createdAt,
+      )
+      .orderBy(sql`MAX(${schema.appointments.startDateTime}) DESC`);
+
+    return customers;
+  }
+
+  async getCustomerProfile(storeId: number, customerId: number) {
+    const [customer] = await this.db
+      .select({
+        id: schema.users.id,
+        email: schema.users.email,
+        firstName: schema.users.firstName,
+        lastName: schema.users.lastName,
+        phone: schema.users.phone,
+        avatar: schema.users.avatar,
+        createdAt: schema.users.createdAt,
+        totalAppointments: sql<number>`COUNT(DISTINCT ${schema.appointments.id})`,
+        completedAppointments: sql<number>`COUNT(DISTINCT CASE WHEN ${schema.appointments.status} = 'completed' THEN ${schema.appointments.id} END)`,
+        cancelledAppointments: sql<number>`COUNT(DISTINCT CASE WHEN ${schema.appointments.status} = 'cancelled' THEN ${schema.appointments.id} END)`,
+        totalSpent: sql<number>`COALESCE(SUM(${schema.appointments.totalPrice}), 0)`,
+        lastAppointmentDate: sql<Date>`MAX(${schema.appointments.startDateTime})`,
+      })
+      .from(schema.users)
+      .leftJoin(
+        schema.appointments,
+        sql`${schema.appointments.customerId} = ${schema.users.id} AND ${schema.appointments.storeId} = ${storeId}`,
+      )
+      .where(eq(schema.users.id, customerId))
+      .groupBy(
+        schema.users.id,
+        schema.users.email,
+        schema.users.firstName,
+        schema.users.lastName,
+        schema.users.phone,
+        schema.users.avatar,
+        schema.users.createdAt,
+      );
+
+    return customer || null;
+  }
 }

@@ -6,6 +6,7 @@ import { DrizzleModule } from '../db/drizzle.module';
 import { AuthModule } from '../auth/auth.module';
 import { StoreModule } from '../stores/store.module';
 import { ServiceModule } from '../services/service.module';
+import { CategoryModule } from '../categories/category.module';
 import { LocationModule } from '../locations/location.module';
 import { StaffModule } from '../staff/staff.module';
 import { AppointmentsModule } from '../appointments/appointments.module';
@@ -17,6 +18,7 @@ import { ConfigModule } from '@nestjs/config';
     AuthModule,
     StoreModule,
     ServiceModule,
+    CategoryModule,
     LocationModule,
     StaffModule,
     AppointmentsModule,

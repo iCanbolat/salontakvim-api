@@ -42,8 +42,8 @@ export class AnalyticsRepository {
 
     if (dateRange) {
       conditions.push(
-        gte(schema.appointments.startTime, dateRange.startDate),
-        lte(schema.appointments.startTime, dateRange.endDate),
+        gte(schema.appointments.startDateTime, dateRange.startDate),
+        lte(schema.appointments.startDateTime, dateRange.endDate),
       );
     }
 
@@ -66,8 +66,8 @@ export class AnalyticsRepository {
 
     if (dateRange) {
       conditions.push(
-        gte(schema.appointments.startTime, dateRange.startDate),
-        lte(schema.appointments.startTime, dateRange.endDate),
+        gte(schema.appointments.startDateTime, dateRange.startDate),
+        lte(schema.appointments.startDateTime, dateRange.endDate),
       );
     }
 
@@ -97,8 +97,8 @@ export class AnalyticsRepository {
 
     if (dateRange) {
       conditions.push(
-        gte(schema.appointments.startTime, dateRange.startDate),
-        lte(schema.appointments.startTime, dateRange.endDate),
+        gte(schema.appointments.startDateTime, dateRange.startDate),
+        lte(schema.appointments.startDateTime, dateRange.endDate),
       );
     }
 
@@ -125,19 +125,24 @@ export class AnalyticsRepository {
 
     if (dateRange) {
       conditions.push(
-        gte(schema.appointments.startTime, dateRange.startDate),
-        lte(schema.appointments.startTime, dateRange.endDate),
+        gte(schema.appointments.startDateTime, dateRange.startDate),
+        lte(schema.appointments.startDateTime, dateRange.endDate),
       );
     }
 
+    const hourColumn =
+      sql<number>`EXTRACT(HOUR FROM ${schema.appointments.startDateTime})`.as(
+        'hour',
+      );
+
     const result = await this.db
       .select({
-        hour: sql<number>`EXTRACT(HOUR FROM ${schema.appointments.startTime})`,
+        hour: hourColumn,
         count: count(),
       })
       .from(schema.appointments)
       .where(and(...conditions))
-      .groupBy(sql`EXTRACT(HOUR FROM ${schema.appointments.startTime})`)
+      .groupBy(hourColumn)
       .orderBy(desc(count()))
       .limit(1);
 
@@ -166,9 +171,14 @@ export class AnalyticsRepository {
         dateFormat = 'YYYY-MM-DD';
     }
 
+    const dateColumn =
+      sql<string>`TO_CHAR(${schema.appointments.startDateTime}, ${dateFormat})`.as(
+        'date_group',
+      );
+
     const result = await this.db
       .select({
-        date: sql<string>`TO_CHAR(${schema.appointments.startTime}, ${dateFormat})`,
+        date: dateColumn,
         count: count(),
         revenue: sum(schema.appointments.totalPrice),
       })
@@ -176,14 +186,12 @@ export class AnalyticsRepository {
       .where(
         and(
           eq(schema.appointments.storeId, storeId),
-          gte(schema.appointments.startTime, dateRange.startDate),
-          lte(schema.appointments.startTime, dateRange.endDate),
+          gte(schema.appointments.startDateTime, dateRange.startDate),
+          lte(schema.appointments.startDateTime, dateRange.endDate),
         ),
       )
-      .groupBy(sql`TO_CHAR(${schema.appointments.startTime}, ${dateFormat})`)
-      .orderBy(
-        asc(sql`TO_CHAR(${schema.appointments.startTime}, ${dateFormat})`),
-      );
+      .groupBy(dateColumn)
+      .orderBy(asc(dateColumn));
 
     return result.map((row) => ({
       date: row.date,
@@ -196,21 +204,26 @@ export class AnalyticsRepository {
     storeId: number,
     dateRange: DateRange,
   ): Promise<AppointmentByTimeSlot[]> {
+    const hourColumn =
+      sql<number>`EXTRACT(HOUR FROM ${schema.appointments.startDateTime})`.as(
+        'hour',
+      );
+
     const result = await this.db
       .select({
-        hour: sql<number>`EXTRACT(HOUR FROM ${schema.appointments.startTime})`,
+        hour: hourColumn,
         count: count(),
       })
       .from(schema.appointments)
       .where(
         and(
           eq(schema.appointments.storeId, storeId),
-          gte(schema.appointments.startTime, dateRange.startDate),
-          lte(schema.appointments.startTime, dateRange.endDate),
+          gte(schema.appointments.startDateTime, dateRange.startDate),
+          lte(schema.appointments.startDateTime, dateRange.endDate),
         ),
       )
-      .groupBy(sql`EXTRACT(HOUR FROM ${schema.appointments.startTime})`)
-      .orderBy(asc(sql`EXTRACT(HOUR FROM ${schema.appointments.startTime})`));
+      .groupBy(hourColumn)
+      .orderBy(asc(hourColumn));
 
     return result.map((row) => ({
       timeSlot: `${row.hour}:00 - ${row.hour + 1}:00`,
@@ -237,8 +250,8 @@ export class AnalyticsRepository {
       .where(
         and(
           eq(schema.appointments.storeId, storeId),
-          gte(schema.appointments.startTime, dateRange.startDate),
-          lte(schema.appointments.startTime, dateRange.endDate),
+          gte(schema.appointments.startDateTime, dateRange.startDate),
+          lte(schema.appointments.startDateTime, dateRange.endDate),
         ),
       )
       .groupBy(schema.services.id, schema.services.name)
@@ -272,8 +285,8 @@ export class AnalyticsRepository {
       .where(
         and(
           eq(schema.appointments.storeId, storeId),
-          gte(schema.appointments.startTime, dateRange.startDate),
-          lte(schema.appointments.startTime, dateRange.endDate),
+          gte(schema.appointments.startDateTime, dateRange.startDate),
+          lte(schema.appointments.startDateTime, dateRange.endDate),
         ),
       )
       .groupBy(
@@ -310,9 +323,14 @@ export class AnalyticsRepository {
         dateFormat = 'YYYY-MM-DD';
     }
 
+    const dateColumn =
+      sql<string>`TO_CHAR(${schema.appointments.startDateTime}, ${dateFormat})`.as(
+        'date_group',
+      );
+
     const result = await this.db
       .select({
-        date: sql<string>`TO_CHAR(${schema.appointments.startTime}, ${dateFormat})`,
+        date: dateColumn,
         revenue: sum(schema.appointments.totalPrice),
         appointmentCount: count(),
       })
@@ -321,14 +339,12 @@ export class AnalyticsRepository {
         and(
           eq(schema.appointments.storeId, storeId),
           eq(schema.appointments.isPaid, true),
-          gte(schema.appointments.startTime, dateRange.startDate),
-          lte(schema.appointments.startTime, dateRange.endDate),
+          gte(schema.appointments.startDateTime, dateRange.startDate),
+          lte(schema.appointments.startDateTime, dateRange.endDate),
         ),
       )
-      .groupBy(sql`TO_CHAR(${schema.appointments.startTime}, ${dateFormat})`)
-      .orderBy(
-        asc(sql`TO_CHAR(${schema.appointments.startTime}, ${dateFormat})`),
-      );
+      .groupBy(dateColumn)
+      .orderBy(asc(dateColumn));
 
     return result.map((row) => ({
       date: row.date,
@@ -357,8 +373,8 @@ export class AnalyticsRepository {
         and(
           eq(schema.appointments.storeId, storeId),
           eq(schema.appointments.isPaid, true),
-          gte(schema.appointments.startTime, dateRange.startDate),
-          lte(schema.appointments.startTime, dateRange.endDate),
+          gte(schema.appointments.startDateTime, dateRange.startDate),
+          lte(schema.appointments.startDateTime, dateRange.endDate),
         ),
       )
       .groupBy(schema.services.id, schema.services.name)
@@ -393,8 +409,8 @@ export class AnalyticsRepository {
         and(
           eq(schema.appointments.storeId, storeId),
           eq(schema.appointments.isPaid, true),
-          gte(schema.appointments.startTime, dateRange.startDate),
-          lte(schema.appointments.startTime, dateRange.endDate),
+          gte(schema.appointments.startDateTime, dateRange.startDate),
+          lte(schema.appointments.startDateTime, dateRange.endDate),
         ),
       )
       .groupBy(
@@ -427,8 +443,8 @@ export class AnalyticsRepository {
         and(
           eq(schema.appointments.storeId, storeId),
           eq(schema.appointments.isPaid, true),
-          gte(schema.appointments.startTime, dateRange.startDate),
-          lte(schema.appointments.startTime, dateRange.endDate),
+          gte(schema.appointments.startDateTime, dateRange.startDate),
+          lte(schema.appointments.startDateTime, dateRange.endDate),
         ),
       )
       .groupBy(schema.appointments.paymentMethod)
@@ -454,8 +470,8 @@ export class AnalyticsRepository {
       .where(
         and(
           eq(schema.appointments.storeId, storeId),
-          gte(schema.appointments.startTime, dateRange.startDate),
-          lte(schema.appointments.startTime, dateRange.endDate),
+          gte(schema.appointments.startDateTime, dateRange.startDate),
+          lte(schema.appointments.startDateTime, dateRange.endDate),
         ),
       )
       .groupBy(schema.appointments.isPaid);
@@ -530,7 +546,7 @@ export class AnalyticsRepository {
         customerEmail: schema.users.email,
         appointmentCount: count(),
         totalSpent: sum(schema.appointments.totalPrice),
-        lastAppointmentDate: sql<Date>`MAX(${schema.appointments.startTime})`,
+        lastAppointmentDate: sql<Date>`MAX(${schema.appointments.startDateTime})`,
       })
       .from(schema.appointments)
       .innerJoin(
@@ -540,8 +556,8 @@ export class AnalyticsRepository {
       .where(
         and(
           eq(schema.appointments.storeId, storeId),
-          gte(schema.appointments.startTime, dateRange.startDate),
-          lte(schema.appointments.startTime, dateRange.endDate),
+          gte(schema.appointments.startDateTime, dateRange.startDate),
+          lte(schema.appointments.startDateTime, dateRange.endDate),
         ),
       )
       .groupBy(
@@ -574,8 +590,8 @@ export class AnalyticsRepository {
       .where(
         and(
           eq(schema.appointments.storeId, storeId),
-          gte(schema.appointments.startTime, dateRange.startDate),
-          lte(schema.appointments.startTime, dateRange.endDate),
+          gte(schema.appointments.startDateTime, dateRange.startDate),
+          lte(schema.appointments.startDateTime, dateRange.endDate),
         ),
       );
 
@@ -583,15 +599,21 @@ export class AnalyticsRepository {
     const newCustomers = await this.db
       .select({
         customerId: schema.appointments.customerId,
-        firstAppointment: sql<Date>`MIN(${schema.appointments.startTime})`,
+        firstAppointment: sql<Date>`MIN(${schema.appointments.startDateTime})`,
       })
       .from(schema.appointments)
       .where(eq(schema.appointments.storeId, storeId))
       .groupBy(schema.appointments.customerId)
       .having(
         and(
-          gte(sql`MIN(${schema.appointments.startTime})`, dateRange.startDate),
-          lte(sql`MIN(${schema.appointments.startTime})`, dateRange.endDate),
+          gte(
+            sql`MIN(${schema.appointments.startDateTime})`,
+            dateRange.startDate,
+          ),
+          lte(
+            sql`MIN(${schema.appointments.startDateTime})`,
+            dateRange.endDate,
+          ),
         ),
       );
 
@@ -655,8 +677,8 @@ export class AnalyticsRepository {
       .where(
         and(
           eq(schema.appointments.storeId, storeId),
-          gte(schema.appointments.startTime, dateRange.startDate),
-          lte(schema.appointments.startTime, dateRange.endDate),
+          gte(schema.appointments.startDateTime, dateRange.startDate),
+          lte(schema.appointments.startDateTime, dateRange.endDate),
         ),
       )
       .groupBy(
@@ -735,8 +757,8 @@ export class AnalyticsRepository {
       .where(
         and(
           eq(schema.appointments.storeId, storeId),
-          gte(schema.appointments.startTime, dateRange.startDate),
-          lte(schema.appointments.startTime, dateRange.endDate),
+          gte(schema.appointments.startDateTime, dateRange.startDate),
+          lte(schema.appointments.startDateTime, dateRange.endDate),
         ),
       )
       .groupBy(schema.services.id, schema.services.name, schema.categories.name)
@@ -775,9 +797,14 @@ export class AnalyticsRepository {
         dateFormat = 'YYYY-MM-DD';
     }
 
+    const dateColumn =
+      sql<string>`TO_CHAR(${schema.appointments.startDateTime}, ${dateFormat})`.as(
+        'date_group',
+      );
+
     const result = await this.db
       .select({
-        date: sql<string>`TO_CHAR(${schema.appointments.startTime}, ${dateFormat})`,
+        date: dateColumn,
         serviceId: schema.services.id,
         serviceName: schema.services.name,
         count: count(),
@@ -791,18 +818,12 @@ export class AnalyticsRepository {
       .where(
         and(
           eq(schema.appointments.storeId, storeId),
-          gte(schema.appointments.startTime, dateRange.startDate),
-          lte(schema.appointments.startTime, dateRange.endDate),
+          gte(schema.appointments.startDateTime, dateRange.startDate),
+          lte(schema.appointments.startDateTime, dateRange.endDate),
         ),
       )
-      .groupBy(
-        sql`TO_CHAR(${schema.appointments.startTime}, ${dateFormat})`,
-        schema.services.id,
-        schema.services.name,
-      )
-      .orderBy(
-        asc(sql`TO_CHAR(${schema.appointments.startTime}, ${dateFormat})`),
-      );
+      .groupBy(dateColumn, schema.services.id, schema.services.name)
+      .orderBy(asc(dateColumn));
 
     return result.map((row) => ({
       date: row.date,
@@ -837,8 +858,8 @@ export class AnalyticsRepository {
       .where(
         and(
           eq(schema.appointments.storeId, storeId),
-          gte(schema.appointments.startTime, dateRange.startDate),
-          lte(schema.appointments.startTime, dateRange.endDate),
+          gte(schema.appointments.startDateTime, dateRange.startDate),
+          lte(schema.appointments.startDateTime, dateRange.endDate),
         ),
       )
       .groupBy(schema.categories.id, schema.categories.name)
@@ -881,8 +902,8 @@ export class AnalyticsRepository {
       .where(
         and(
           eq(schema.appointments.storeId, storeId),
-          gte(schema.appointments.startTime, dateRange.startDate),
-          lte(schema.appointments.startTime, dateRange.endDate),
+          gte(schema.appointments.startDateTime, dateRange.startDate),
+          lte(schema.appointments.startDateTime, dateRange.endDate),
         ),
       )
       .groupBy(
@@ -899,8 +920,8 @@ export class AnalyticsRepository {
       .where(
         and(
           eq(schema.appointments.storeId, storeId),
-          gte(schema.appointments.startTime, dateRange.startDate),
-          lte(schema.appointments.startTime, dateRange.endDate),
+          gte(schema.appointments.startDateTime, dateRange.startDate),
+          lte(schema.appointments.startDateTime, dateRange.endDate),
         ),
       );
 

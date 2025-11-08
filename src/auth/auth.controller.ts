@@ -62,14 +62,15 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Post('logout-all')
   @HttpCode(HttpStatus.OK)
-  async logoutAll(@CurrentUser('id') userId: number) {
+  async logoutAll(@CurrentUser('sub') userId: number) {
     await this.authService.logoutAll(userId);
     return { message: 'Logged out from all devices successfully' };
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
-  async getProfile(@CurrentUser() user: any) {
-    return { user };
+  async getProfile(@CurrentUser('sub') userId: number) {
+    // Fetch full user from database
+    return this.authService.getProfile(userId);
   }
 }

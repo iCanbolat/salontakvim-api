@@ -92,4 +92,23 @@ export class StoreController {
   }> {
     return this.storeService.getAnalytics(id, user.sub);
   }
+
+  @Get(':storeId/customers')
+  @Roles('admin', 'staff')
+  async getCustomers(
+    @Param('storeId', ParseIntPipe) storeId: number,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.storeService.getCustomers(storeId, user.sub);
+  }
+
+  @Get(':storeId/customers/:customerId')
+  @Roles('admin', 'staff')
+  async getCustomerProfile(
+    @Param('storeId', ParseIntPipe) storeId: number,
+    @Param('customerId', ParseIntPipe) customerId: number,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.storeService.getCustomerProfile(storeId, customerId, user.sub);
+  }
 }

@@ -186,6 +186,33 @@ export class AuthService {
     await this.refreshTokenRepository.deleteAllByUserId(userId);
   }
 
+  async getProfile(userId: number): Promise<{ user: any }> {
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new UserNotFoundException(userId.toString());
+    }
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        phone: user.phone,
+        role: user.role,
+        paymentStatus: user.paymentStatus,
+        authProvider: user.authProvider,
+        providerId: user.providerId,
+        avatar: user.avatar,
+        isActive: user.isActive,
+        emailVerified: user.emailVerified,
+        lastLogin: user.lastLogin,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
+    };
+  }
+
   async validateUser(email: string, password: string): Promise<any> {
     const user = await this.userRepository.findByEmail(email);
     if (!user || !user.password) {

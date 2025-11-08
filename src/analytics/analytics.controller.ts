@@ -22,7 +22,7 @@ export class AnalyticsController {
   @Roles('admin', 'staff')
   async getDashboard(
     @Param('storeId', ParseIntPipe) storeId: number,
-    @CurrentUser('id') userId: number,
+    @CurrentUser('sub') userId: number,
     @Query() query: AnalyticsQueryDto,
   ) {
     return this.analyticsService.getDashboard(storeId, userId, query);
@@ -32,7 +32,7 @@ export class AnalyticsController {
   @Roles('admin', 'staff')
   async getAppointmentAnalytics(
     @Param('storeId', ParseIntPipe) storeId: number,
-    @CurrentUser('id') userId: number,
+    @CurrentUser('sub') userId: number,
     @Query() query: AnalyticsQueryDto,
   ) {
     return this.analyticsService.getAppointmentAnalytics(
@@ -46,7 +46,7 @@ export class AnalyticsController {
   @Roles('admin', 'staff')
   async getRevenueAnalytics(
     @Param('storeId', ParseIntPipe) storeId: number,
-    @CurrentUser('id') userId: number,
+    @CurrentUser('sub') userId: number,
     @Query() query: AnalyticsQueryDto,
   ) {
     return this.analyticsService.getRevenueAnalytics(storeId, userId, query);
@@ -56,7 +56,7 @@ export class AnalyticsController {
   @Roles('admin', 'staff')
   async getCustomerAnalytics(
     @Param('storeId', ParseIntPipe) storeId: number,
-    @CurrentUser('id') userId: number,
+    @CurrentUser('sub') userId: number,
     @Query() query: AnalyticsQueryDto,
   ) {
     return this.analyticsService.getCustomerAnalytics(storeId, userId, query);
@@ -66,7 +66,7 @@ export class AnalyticsController {
   @Roles('admin')
   async getStaffAnalytics(
     @Param('storeId', ParseIntPipe) storeId: number,
-    @CurrentUser('id') userId: number,
+    @CurrentUser('sub') userId: number,
     @Query() query: AnalyticsQueryDto,
   ) {
     return this.analyticsService.getStaffAnalytics(storeId, userId, query);
@@ -76,7 +76,7 @@ export class AnalyticsController {
   @Roles('admin', 'staff')
   async getServiceAnalytics(
     @Param('storeId', ParseIntPipe) storeId: number,
-    @CurrentUser('id') userId: number,
+    @CurrentUser('sub') userId: number,
     @Query() query: AnalyticsQueryDto,
   ) {
     return this.analyticsService.getServiceAnalytics(storeId, userId, query);

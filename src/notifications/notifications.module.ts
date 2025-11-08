@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { DrizzleModule } from '../db/drizzle.module';
 import { AuthModule } from '../auth/auth.module';
+import { StoreModule } from '../stores/store.module';
 import { NotificationsController } from './notifications.controller';
 import { NotificationService } from './services/notification.service';
 import { EmailService } from './services/email.service';
@@ -10,7 +11,7 @@ import { TemplateService } from './services/template.service';
 import { NotificationRepository } from './repositories/notification.repository';
 
 @Module({
-  imports: [ConfigModule, DrizzleModule, AuthModule],
+  imports: [ConfigModule, DrizzleModule, AuthModule, StoreModule],
   controllers: [NotificationsController],
   providers: [
     NotificationService,

@@ -27,10 +27,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     return {
-      id: user.id,
+      sub: user.id, // Must be 'sub' to match JwtPayload interface
       email: user.email,
       role: user.role,
-      paymentStatus: user.paymentStatus,
     };
   }
 }

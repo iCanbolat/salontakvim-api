@@ -18,11 +18,15 @@ import {
   UpdateTemplateDto,
   TestNotificationDto,
 } from './dto';
+import { StoreService } from '../stores/services/store.service';
 
 @Controller('stores/:storeId/notifications')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class NotificationsController {
-  constructor(private readonly notificationService: NotificationService) {}
+  constructor(
+    private readonly notificationService: NotificationService,
+    private readonly storeService: StoreService,
+  ) {}
 
   /**
    * Get notification settings
@@ -32,12 +36,9 @@ export class NotificationsController {
   @Roles('owner', 'admin')
   async getSettings(
     @Param('storeId', ParseIntPipe) storeId: number,
-    @CurrentUser('storeId') userStoreId: number,
+    @CurrentUser('sub') userId: number,
   ) {
-    if (storeId !== userStoreId) {
-      throw new Error('Unauthorized');
-    }
-
+    await this.storeService.verifyStoreOwnership(storeId, userId);
     return this.notificationService.getSettings(storeId);
   }
 
@@ -49,13 +50,10 @@ export class NotificationsController {
   @Roles('owner', 'admin')
   async updateSettings(
     @Param('storeId', ParseIntPipe) storeId: number,
-    @CurrentUser('storeId') userStoreId: number,
+    @CurrentUser('sub') userId: number,
     @Body() dto: UpdateNotificationSettingsDto,
   ) {
-    if (storeId !== userStoreId) {
-      throw new Error('Unauthorized');
-    }
-
+    await this.storeService.verifyStoreOwnership(storeId, userId);
     return this.notificationService.updateSettings(storeId, dto);
   }
 
@@ -67,12 +65,9 @@ export class NotificationsController {
   @Roles('owner', 'admin')
   async getTemplates(
     @Param('storeId', ParseIntPipe) storeId: number,
-    @CurrentUser('storeId') userStoreId: number,
+    @CurrentUser('sub') userId: number,
   ) {
-    if (storeId !== userStoreId) {
-      throw new Error('Unauthorized');
-    }
-
+    await this.storeService.verifyStoreOwnership(storeId, userId);
     return this.notificationService.getAllTemplates(storeId);
   }
 
@@ -85,12 +80,9 @@ export class NotificationsController {
   async getTemplate(
     @Param('storeId', ParseIntPipe) storeId: number,
     @Param('type') type: string,
-    @CurrentUser('storeId') userStoreId: number,
+    @CurrentUser('sub') userId: number,
   ) {
-    if (storeId !== userStoreId) {
-      throw new Error('Unauthorized');
-    }
-
+    await this.storeService.verifyStoreOwnership(storeId, userId);
     return this.notificationService.getTemplate(storeId, type);
   }
 
@@ -103,13 +95,10 @@ export class NotificationsController {
   async updateTemplate(
     @Param('storeId', ParseIntPipe) storeId: number,
     @Param('type') type: string,
-    @CurrentUser('storeId') userStoreId: number,
+    @CurrentUser('sub') userId: number,
     @Body() dto: UpdateTemplateDto,
   ) {
-    if (storeId !== userStoreId) {
-      throw new Error('Unauthorized');
-    }
-
+    await this.storeService.verifyStoreOwnership(storeId, userId);
     return this.notificationService.updateTemplate(storeId, type, dto);
   }
 
@@ -122,12 +111,9 @@ export class NotificationsController {
   async resetTemplate(
     @Param('storeId', ParseIntPipe) storeId: number,
     @Param('type') type: string,
-    @CurrentUser('storeId') userStoreId: number,
+    @CurrentUser('sub') userId: number,
   ) {
-    if (storeId !== userStoreId) {
-      throw new Error('Unauthorized');
-    }
-
+    await this.storeService.verifyStoreOwnership(storeId, userId);
     return this.notificationService.resetTemplate(storeId, type);
   }
 
@@ -139,13 +125,10 @@ export class NotificationsController {
   @Roles('owner', 'admin')
   async testNotification(
     @Param('storeId', ParseIntPipe) storeId: number,
-    @CurrentUser('storeId') userStoreId: number,
+    @CurrentUser('sub') userId: number,
     @Body() dto: TestNotificationDto,
   ) {
-    if (storeId !== userStoreId) {
-      throw new Error('Unauthorized');
-    }
-
+    await this.storeService.verifyStoreOwnership(storeId, userId);
     return this.notificationService.testNotification(storeId, dto);
   }
 }
