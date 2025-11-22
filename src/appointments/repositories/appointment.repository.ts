@@ -1,5 +1,5 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { eq, and, gte, lte, sql } from 'drizzle-orm';
+import { eq, and, gte, lte, lt, gt, ne, sql } from 'drizzle-orm';
 import { DRIZZLE_ORM } from '../../db/drizzle.module';
 import * as schema from '../../db/schema';
 import {
@@ -109,15 +109,13 @@ export class AppointmentRepository {
   ): Promise<Appointment[]> {
     const conditions = [
       eq(schema.appointments.staffId, staffId),
-      sql`${schema.appointments.status} != 'cancelled'`,
-      sql`${schema.appointments.startDateTime} < ${endDateTime}`,
-      sql`${schema.appointments.endDateTime} > ${startDateTime}`,
+      ne(schema.appointments.status, 'cancelled'),
+      lt(schema.appointments.startDateTime, endDateTime),
+      gt(schema.appointments.endDateTime, startDateTime),
     ];
 
     if (excludeAppointmentId) {
-      conditions.push(
-        sql`${schema.appointments.id} != ${excludeAppointmentId}`,
-      );
+      conditions.push(ne(schema.appointments.id, excludeAppointmentId));
     }
 
     return await this.db

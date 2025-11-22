@@ -30,30 +30,40 @@ export class AnalyticsService {
   } {
     const now = new Date();
     let startDate: Date;
-    let endDate: Date = now;
+    let endDate: Date = new Date();
 
     if (query.dateRange && query.dateRange !== DateRangePreset.CUSTOM) {
       switch (query.dateRange) {
         case DateRangePreset.TODAY:
-          startDate = new Date(now.setHours(0, 0, 0, 0));
-          endDate = new Date(now.setHours(23, 59, 59, 999));
+          startDate = new Date(now);
+          startDate.setHours(0, 0, 0, 0);
+          endDate = new Date(now);
+          endDate.setHours(23, 59, 59, 999);
           break;
         case DateRangePreset.YESTERDAY:
-          const yesterday = new Date(now);
-          yesterday.setDate(yesterday.getDate() - 1);
-          startDate = new Date(yesterday.setHours(0, 0, 0, 0));
-          endDate = new Date(yesterday.setHours(23, 59, 59, 999));
+          startDate = new Date(now);
+          startDate.setDate(startDate.getDate() - 1);
+          startDate.setHours(0, 0, 0, 0);
+          endDate = new Date(now);
+          endDate.setDate(endDate.getDate() - 1);
+          endDate.setHours(23, 59, 59, 999);
           break;
         case DateRangePreset.LAST_7_DAYS:
           startDate = new Date(now);
           startDate.setDate(startDate.getDate() - 7);
+          startDate.setHours(0, 0, 0, 0);
+          endDate = new Date(now);
+          endDate.setHours(23, 59, 59, 999);
           break;
         case DateRangePreset.LAST_30_DAYS:
           startDate = new Date(now);
           startDate.setDate(startDate.getDate() - 30);
+          startDate.setHours(0, 0, 0, 0);
+          endDate = new Date(now);
+          endDate.setHours(23, 59, 59, 999);
           break;
         case DateRangePreset.THIS_MONTH:
-          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
           endDate = new Date(
             now.getFullYear(),
             now.getMonth() + 1,
@@ -65,7 +75,7 @@ export class AnalyticsService {
           );
           break;
         case DateRangePreset.LAST_MONTH:
-          startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0);
           endDate = new Date(
             now.getFullYear(),
             now.getMonth(),
@@ -77,12 +87,15 @@ export class AnalyticsService {
           );
           break;
         case DateRangePreset.THIS_YEAR:
-          startDate = new Date(now.getFullYear(), 0, 1);
+          startDate = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
           endDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
           break;
         default:
           startDate = new Date(now);
           startDate.setDate(startDate.getDate() - 30);
+          startDate.setHours(0, 0, 0, 0);
+          endDate = new Date(now);
+          endDate.setHours(23, 59, 59, 999);
       }
     } else if (query.startDate && query.endDate) {
       startDate = new Date(query.startDate);
@@ -91,6 +104,9 @@ export class AnalyticsService {
       // Default to last 30 days
       startDate = new Date(now);
       startDate.setDate(startDate.getDate() - 30);
+      startDate.setHours(0, 0, 0, 0);
+      endDate = new Date(now);
+      endDate.setHours(23, 59, 59, 999);
     }
 
     return { startDate, endDate };
@@ -124,11 +140,11 @@ export class AnalyticsService {
       tomorrowAppointments,
       todayRevenue,
     ] = await Promise.all([
-      this.analyticsRepository.getTotalAppointments(storeId, dateRange),
-      this.analyticsRepository.getTotalRevenue(storeId, dateRange),
+      this.analyticsRepository.getTotalAppointments(storeId), // All time
+      this.analyticsRepository.getTotalRevenue(storeId), // All time
       this.analyticsRepository.getTotalCustomers(storeId),
       this.getTotalStaff(storeId),
-      this.analyticsRepository.getAppointmentsByStatus(storeId, dateRange),
+      this.analyticsRepository.getAppointmentsByStatus(storeId), // All time
       this.analyticsRepository.getPopularTimeSlot(storeId, dateRange),
       this.getAppointmentsForDate(storeId, new Date()),
       this.getAppointmentsForDate(storeId, new Date(Date.now() + 86400000)), // Tomorrow

@@ -16,6 +16,7 @@ import { Public } from '../auth/decorators/public.decorator';
 import { WidgetService } from './services/widget.service';
 import { UpdateWidgetSettingsDto } from './dto';
 import { AppointmentsService } from '../appointments/services/appointments.service';
+import { CreateGuestAppointmentDto } from '../appointments/dto';
 
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -96,5 +97,19 @@ export class WidgetController {
       date,
       locationIdNum,
     );
+  }
+
+  @Post('public/widget/:widgetKey/appointments')
+  @Public()
+  async createWidgetAppointment(
+    @Param('widgetKey') widgetKey: string,
+    @Body() dto: CreateGuestAppointmentDto,
+  ) {
+    // Get store ID from widget key
+    const widgetSettings = await this.widgetService.getWidgetConfig(widgetKey);
+    const storeId = widgetSettings.store.id;
+
+    // Create guest appointment
+    return await this.appointmentsService.createGuestAppointment(storeId, dto);
   }
 }

@@ -27,7 +27,8 @@ export class CreateAppointmentDto {
 
   @IsInt()
   @IsPositive()
-  staffId: number;
+  @IsOptional()
+  staffId?: number;
 
   @IsInt()
   @IsPositive()
@@ -47,6 +48,12 @@ export class CreateAppointmentDto {
   @Type(() => AppointmentExtraDto)
   @IsOptional()
   extras?: AppointmentExtraDto[];
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AppointmentExtraDto)
+  @IsOptional()
+  extrasData?: AppointmentExtraDto[];
 
   @IsString()
   @IsOptional()

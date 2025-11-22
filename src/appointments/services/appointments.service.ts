@@ -10,6 +10,7 @@ import { AvailabilityService } from './availability.service';
 import { ServiceRepository } from '../../services/repositories/service.repository';
 import { ServiceExtraRepository } from '../../services/repositories/service-extra.repository';
 import { StaffMemberRepository } from '../../staff/repositories/staff-member.repository';
+import { LocationRepository } from '../../locations/repositories/location.repository';
 import { UserRepository } from '../../auth/repositories/user.repository';
 import {
   CreateAppointmentDto,
@@ -18,8 +19,16 @@ import {
   UpdateAppointmentStatusDto,
   AppointmentResponseDto,
 } from '../dto';
+import { Appointment } from '../interfaces/repository.interface';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
+
+type AppointmentResponseCacheBundle = {
+  userNames: Map<number, string | null>;
+  serviceNames: Map<number, string | null>;
+  staffNames: Map<number, string | null>;
+  locationNames: Map<number, string | null>;
+};
 
 @Injectable()
 export class AppointmentsService {
@@ -30,6 +39,7 @@ export class AppointmentsService {
     private readonly serviceRepository: ServiceRepository,
     private readonly serviceExtraRepository: ServiceExtraRepository,
     private readonly staffMemberRepository: StaffMemberRepository,
+    private readonly locationRepository: LocationRepository,
     private readonly userRepository: UserRepository,
   ) {}
 
@@ -49,13 +59,32 @@ export class AppointmentsService {
       throw new NotFoundException('Service not found');
     }
 
-    // Validate staff exists and belongs to store
-    const staff = await this.staffMemberRepository.findByIdAndStoreId(
-      dto.staffId,
-      storeId,
-    );
-    if (!staff) {
-      throw new NotFoundException('Staff member not found');
+    // Validate staff exists and belongs to store (if provided)
+    let assignedStaffId = dto.staffId;
+
+    if (dto.staffId) {
+      const staff = await this.staffMemberRepository.findByIdAndStoreId(
+        dto.staffId,
+        storeId,
+      );
+      if (!staff) {
+        throw new NotFoundException('Staff member not found');
+      }
+    } else {
+      // If no staff specified, assign to first available staff for this service
+      // TODO: Implement smart staff assignment based on availability
+      // For now, we'll get the first staff member that can perform this service
+      const serviceStaff = await this.serviceRepository.findById(dto.serviceId);
+      if (serviceStaff) {
+        // Get first visible staff member from store
+        const availableStaff =
+          await this.staffMemberRepository.findVisibleByStoreId(storeId);
+        if (availableStaff.length > 0) {
+          assignedStaffId = availableStaff[0].id;
+        } else {
+          throw new BadRequestException('No available staff members found');
+        }
+      }
     }
 
     // Calculate end time
@@ -64,24 +93,27 @@ export class AppointmentsService {
       startDateTime.getTime() + service.duration * 60 * 1000,
     );
 
-    // Check for conflicts
-    await this.checkAppointmentConflicts(
-      dto.staffId,
-      startDateTime,
-      endDateTime,
-    );
+    // Check for conflicts with assigned staff
+    if (assignedStaffId) {
+      await this.checkAppointmentConflicts(
+        assignedStaffId,
+        startDateTime,
+        endDateTime,
+      );
+    }
 
     // Calculate total price
     let totalPrice = parseFloat(service.price);
 
-    // Handle extras
+    // Handle extras (support both 'extras' and 'extrasData' for backward compatibility)
+    const extrasToProcess = dto.extrasData || dto.extras || [];
     const extrasData: Array<{
       extraId: number;
       quantity: number;
       price: string;
     }> = [];
-    if (dto.extras && dto.extras.length > 0) {
-      for (const extra of dto.extras) {
+    if (extrasToProcess.length > 0) {
+      for (const extra of extrasToProcess) {
         const serviceExtra = await this.serviceExtraRepository.findById(
           extra.extraId,
         );
@@ -105,7 +137,7 @@ export class AppointmentsService {
       storeId,
       customerId,
       serviceId: dto.serviceId,
-      staffId: dto.staffId,
+      staffId: assignedStaffId,
       locationId: dto.locationId,
       startDateTime,
       endDateTime,
@@ -170,15 +202,8 @@ export class AppointmentsService {
     const appointments =
       await this.appointmentRepository.findByCustomerId(customerId);
 
-    return Promise.all(
-      appointments.map(async (appointment) => {
-        const extras =
-          await this.appointmentExtraRepository.findByAppointmentId(
-            appointment.id,
-          );
-        return new AppointmentResponseDto({ ...appointment, extras } as any);
-      }),
-    );
+    const cacheBundle = this.createAppointmentCacheBundle();
+    return this.buildAppointmentResponses(appointments, cacheBundle);
   }
 
   async getAppointmentById(
@@ -194,10 +219,8 @@ export class AppointmentsService {
       throw new NotFoundException('Appointment not found');
     }
 
-    const extras =
-      await this.appointmentExtraRepository.findByAppointmentId(id);
-
-    return new AppointmentResponseDto({ ...appointment, extras } as any);
+    const cacheBundle = this.createAppointmentCacheBundle();
+    return this.buildAppointmentResponse(appointment, cacheBundle);
   }
 
   async updateAppointment(
@@ -325,15 +348,8 @@ export class AppointmentsService {
     const appointments =
       await this.appointmentRepository.findByStoreId(storeId);
 
-    return Promise.all(
-      appointments.map(async (appointment) => {
-        const extras =
-          await this.appointmentExtraRepository.findByAppointmentId(
-            appointment.id,
-          );
-        return new AppointmentResponseDto({ ...appointment, extras } as any);
-      }),
-    );
+    const cacheBundle = this.createAppointmentCacheBundle();
+    return this.buildAppointmentResponses(appointments, cacheBundle);
   }
 
   async deleteAppointment(id: number, storeId: number): Promise<void> {
@@ -406,5 +422,149 @@ export class AppointmentsService {
         'This time slot is not available. Please choose another time.',
       );
     }
+  }
+
+  private createAppointmentCacheBundle(): AppointmentResponseCacheBundle {
+    return {
+      userNames: new Map<number, string | null>(),
+      serviceNames: new Map<number, string | null>(),
+      staffNames: new Map<number, string | null>(),
+      locationNames: new Map<number, string | null>(),
+    };
+  }
+
+  private async buildAppointmentResponse(
+    appointment: Appointment,
+    cacheBundle?: AppointmentResponseCacheBundle,
+  ): Promise<AppointmentResponseDto> {
+    const bundle = cacheBundle ?? this.createAppointmentCacheBundle();
+    const extras = await this.appointmentExtraRepository.findByAppointmentId(
+      appointment.id,
+    );
+    const customerName = await this.resolveUserName(
+      appointment.customerId,
+      bundle.userNames,
+    );
+    const serviceName = await this.resolveServiceName(
+      appointment.serviceId,
+      bundle.serviceNames,
+    );
+    const staffName = await this.resolveStaffName(
+      appointment.staffId,
+      bundle.staffNames,
+      bundle.userNames,
+    );
+    const locationName = await this.resolveLocationName(
+      appointment.locationId,
+      bundle.locationNames,
+    );
+
+    return new AppointmentResponseDto({
+      ...appointment,
+      extras,
+      customerName,
+      serviceName,
+      staffName,
+      locationName,
+    } as any);
+  }
+
+  private async buildAppointmentResponses(
+    appointments: Appointment[],
+    cacheBundle?: AppointmentResponseCacheBundle,
+  ): Promise<AppointmentResponseDto[]> {
+    const bundle = cacheBundle ?? this.createAppointmentCacheBundle();
+    return Promise.all(
+      appointments.map((appointment) =>
+        this.buildAppointmentResponse(appointment, bundle),
+      ),
+    );
+  }
+
+  private async resolveServiceName(
+    serviceId?: number | null,
+    cache?: Map<number, string | null>,
+  ): Promise<string | undefined> {
+    if (!serviceId) {
+      return undefined;
+    }
+
+    if (cache?.has(serviceId)) {
+      const cached = cache.get(serviceId);
+      return cached ?? undefined;
+    }
+
+    const service = await this.serviceRepository.findById(serviceId);
+    const name = service?.name;
+
+    cache?.set(serviceId, name ?? null);
+    return name;
+  }
+
+  private async resolveStaffName(
+    staffId?: number | null,
+    staffCache?: Map<number, string | null>,
+    userCache?: Map<number, string | null>,
+  ): Promise<string | undefined> {
+    if (!staffId) {
+      return undefined;
+    }
+
+    if (staffCache?.has(staffId)) {
+      const cached = staffCache.get(staffId);
+      return cached ?? undefined;
+    }
+
+    const staff = await this.staffMemberRepository.findById(staffId);
+    if (!staff?.userId) {
+      staffCache?.set(staffId, null);
+      return undefined;
+    }
+
+    const userName = await this.resolveUserName(staff.userId, userCache);
+    staffCache?.set(staffId, userName ?? null);
+    return userName;
+  }
+
+  private async resolveLocationName(
+    locationId?: number | null,
+    cache?: Map<number, string | null>,
+  ): Promise<string | undefined> {
+    if (!locationId) {
+      return undefined;
+    }
+
+    if (cache?.has(locationId)) {
+      const cached = cache.get(locationId);
+      return cached ?? undefined;
+    }
+
+    const location = await this.locationRepository.findById(locationId);
+    const name = location?.name;
+    cache?.set(locationId, name ?? null);
+    return name;
+  }
+
+  private async resolveUserName(
+    userId?: number | null,
+    cache?: Map<number, string | null>,
+  ): Promise<string | undefined> {
+    if (!userId) {
+      return undefined;
+    }
+
+    if (cache?.has(userId)) {
+      const cached = cache.get(userId);
+      return cached ?? undefined;
+    }
+
+    const user = await this.userRepository.findById(userId);
+    const name =
+      user && (user.firstName || user.lastName)
+        ? `${user.firstName || ''} ${user.lastName || ''}`.trim()
+        : user?.email || undefined;
+
+    cache?.set(userId, name ?? null);
+    return name;
   }
 }

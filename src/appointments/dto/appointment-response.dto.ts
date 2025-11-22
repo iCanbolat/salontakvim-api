@@ -55,6 +55,18 @@ export class AppointmentResponseDto {
   guestInfo?: GuestInfo;
 
   @Expose()
+  customerName?: string;
+
+  @Expose()
+  serviceName?: string;
+
+  @Expose()
+  staffName?: string;
+
+  @Expose()
+  locationName?: string;
+
+  @Expose()
   startDateTime: Date;
 
   @Expose()

@@ -1,5 +1,5 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, and } from 'drizzle-orm';
 import { DRIZZLE_ORM } from '../../db/drizzle.module';
 import * as schema from '../../db/schema';
 import {
@@ -124,16 +124,30 @@ export class StoreRepository implements IStoreRepository {
         lastName: schema.users.lastName,
         phone: schema.users.phone,
         avatar: schema.users.avatar,
+        role: schema.users.role,
+        paymentStatus: schema.users.paymentStatus,
+        authProvider: schema.users.authProvider,
+        providerId: schema.users.providerId,
+        isActive: schema.users.isActive,
+        emailVerified: schema.users.emailVerified,
+        lastLogin: schema.users.lastLogin,
         createdAt: schema.users.createdAt,
-        totalAppointments: sql<number>`COUNT(DISTINCT ${schema.appointments.id})`,
-        lastAppointmentDate: sql<Date>`MAX(${schema.appointments.startDateTime})`,
+        updatedAt: schema.users.updatedAt,
+        totalAppointments: sql<number>`COUNT(${schema.appointments.id})`,
+        completedAppointments: sql<number>`COUNT(CASE WHEN ${schema.appointments.status} = 'completed' THEN 1 END)`,
+        cancelledAppointments: sql<number>`COUNT(CASE WHEN ${schema.appointments.status} = 'cancelled' THEN 1 END)`,
+        totalSpent: sql<string>`COALESCE(SUM(CASE WHEN ${schema.appointments.status} = 'completed' THEN ${schema.appointments.totalPrice}::numeric ELSE 0 END), 0)::text`,
+        lastAppointmentDate: sql<Date | null>`MAX(${schema.appointments.startDateTime})`,
+        nextAppointmentDate: sql<Date | null>`MIN(CASE WHEN ${schema.appointments.startDateTime} > NOW() THEN ${schema.appointments.startDateTime} END)`,
       })
-      .from(schema.appointments)
+      .from(schema.users)
       .innerJoin(
-        schema.users,
-        eq(schema.appointments.customerId, schema.users.id),
+        schema.appointments,
+        and(
+          eq(schema.appointments.customerId, schema.users.id),
+          eq(schema.appointments.storeId, storeId),
+        ),
       )
-      .where(eq(schema.appointments.storeId, storeId))
       .groupBy(
         schema.users.id,
         schema.users.email,
@@ -141,7 +155,15 @@ export class StoreRepository implements IStoreRepository {
         schema.users.lastName,
         schema.users.phone,
         schema.users.avatar,
+        schema.users.role,
+        schema.users.paymentStatus,
+        schema.users.authProvider,
+        schema.users.providerId,
+        schema.users.isActive,
+        schema.users.emailVerified,
+        schema.users.lastLogin,
         schema.users.createdAt,
+        schema.users.updatedAt,
       )
       .orderBy(sql`MAX(${schema.appointments.startDateTime}) DESC`);
 
@@ -157,12 +179,21 @@ export class StoreRepository implements IStoreRepository {
         lastName: schema.users.lastName,
         phone: schema.users.phone,
         avatar: schema.users.avatar,
+        role: schema.users.role,
+        paymentStatus: schema.users.paymentStatus,
+        authProvider: schema.users.authProvider,
+        providerId: schema.users.providerId,
+        isActive: schema.users.isActive,
+        emailVerified: schema.users.emailVerified,
+        lastLogin: schema.users.lastLogin,
         createdAt: schema.users.createdAt,
-        totalAppointments: sql<number>`COUNT(DISTINCT ${schema.appointments.id})`,
-        completedAppointments: sql<number>`COUNT(DISTINCT CASE WHEN ${schema.appointments.status} = 'completed' THEN ${schema.appointments.id} END)`,
-        cancelledAppointments: sql<number>`COUNT(DISTINCT CASE WHEN ${schema.appointments.status} = 'cancelled' THEN ${schema.appointments.id} END)`,
-        totalSpent: sql<number>`COALESCE(SUM(${schema.appointments.totalPrice}), 0)`,
-        lastAppointmentDate: sql<Date>`MAX(${schema.appointments.startDateTime})`,
+        updatedAt: schema.users.updatedAt,
+        totalAppointments: sql<number>`COUNT(${schema.appointments.id})`,
+        completedAppointments: sql<number>`COUNT(CASE WHEN ${schema.appointments.status} = 'completed' THEN 1 END)`,
+        cancelledAppointments: sql<number>`COUNT(CASE WHEN ${schema.appointments.status} = 'cancelled' THEN 1 END)`,
+        totalSpent: sql<string>`COALESCE(SUM(CASE WHEN ${schema.appointments.status} = 'completed' THEN ${schema.appointments.totalPrice}::numeric ELSE 0 END), 0)::text`,
+        lastAppointmentDate: sql<Date | null>`MAX(${schema.appointments.startDateTime})`,
+        nextAppointmentDate: sql<Date | null>`MIN(CASE WHEN ${schema.appointments.startDateTime} > NOW() THEN ${schema.appointments.startDateTime} END)`,
       })
       .from(schema.users)
       .leftJoin(
@@ -177,9 +208,82 @@ export class StoreRepository implements IStoreRepository {
         schema.users.lastName,
         schema.users.phone,
         schema.users.avatar,
+        schema.users.role,
+        schema.users.paymentStatus,
+        schema.users.authProvider,
+        schema.users.providerId,
+        schema.users.isActive,
+        schema.users.emailVerified,
+        schema.users.lastLogin,
         schema.users.createdAt,
+        schema.users.updatedAt,
       );
 
-    return customer || null;
+    if (!customer) {
+      return null;
+    }
+
+    const appointments = await this.db
+      .select({
+        id: schema.appointments.id,
+        storeId: schema.appointments.storeId,
+        customerId: schema.appointments.customerId,
+        serviceId: schema.appointments.serviceId,
+        staffId: schema.appointments.staffId,
+        locationId: schema.appointments.locationId,
+        guestFirstName: schema.appointments.guestFirstName,
+        guestLastName: schema.appointments.guestLastName,
+        guestEmail: schema.appointments.guestEmail,
+        guestPhone: schema.appointments.guestPhone,
+        startDateTime: schema.appointments.startDateTime,
+        endDateTime: schema.appointments.endDateTime,
+        numberOfPeople: schema.appointments.numberOfPeople,
+        status: schema.appointments.status,
+        totalPrice: schema.appointments.totalPrice,
+        paymentMethod: schema.appointments.paymentMethod,
+        isPaid: schema.appointments.isPaid,
+        paidAt: schema.appointments.paidAt,
+        customerNotes: schema.appointments.customerNotes,
+        internalNotes: schema.appointments.internalNotes,
+        cancelledAt: schema.appointments.cancelledAt,
+        cancellationReason: schema.appointments.cancellationReason,
+        isRecurring: schema.appointments.isRecurring,
+        parentAppointmentId: schema.appointments.parentAppointmentId,
+        createdAt: schema.appointments.createdAt,
+        updatedAt: schema.appointments.updatedAt,
+      })
+      .from(schema.appointments)
+      .where(
+        and(
+          eq(schema.appointments.storeId, storeId),
+          eq(schema.appointments.customerId, customerId),
+        ),
+      )
+      .orderBy(sql`${schema.appointments.startDateTime} DESC`);
+
+    const formattedAppointments = appointments.map((appointment) => {
+      const { guestFirstName, guestLastName, guestEmail, guestPhone, ...rest } =
+        appointment;
+
+      const guestInfo =
+        guestFirstName || guestLastName || guestEmail
+          ? {
+              firstName: guestFirstName || '',
+              lastName: guestLastName || '',
+              email: guestEmail || '',
+              phone: guestPhone || undefined,
+            }
+          : undefined;
+
+      return {
+        ...rest,
+        guestInfo,
+      };
+    });
+
+    return {
+      customer,
+      appointments: formattedAppointments,
+    };
   }
 }

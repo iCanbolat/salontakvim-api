@@ -8,9 +8,16 @@ import { DrizzleModule } from '../db/drizzle.module';
 import { AuthModule } from '../auth/auth.module';
 import { StaffModule } from '../staff/staff.module';
 import { ServiceModule } from '../services/service.module';
+import { LocationModule } from '../locations/location.module';
 
 @Module({
-  imports: [DrizzleModule, AuthModule, StaffModule, ServiceModule],
+  imports: [
+    DrizzleModule,
+    AuthModule,
+    StaffModule,
+    ServiceModule,
+    LocationModule,
+  ],
   controllers: [AppointmentsController],
   providers: [
     AppointmentsService,

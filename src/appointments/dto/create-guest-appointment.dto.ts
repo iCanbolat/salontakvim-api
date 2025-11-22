@@ -16,10 +16,10 @@ export class CreateGuestAppointmentDto extends CreateAppointmentDto {
   guestFirstName: string;
 
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   @MinLength(2)
   @MaxLength(255)
-  guestLastName: string;
+  guestLastName?: string;
 
   @IsEmail()
   @IsNotEmpty()
