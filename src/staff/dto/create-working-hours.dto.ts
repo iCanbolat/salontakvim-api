@@ -1,24 +1,26 @@
-import { IsEnum, IsNotEmpty, IsString, Matches } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Matches,
+} from 'class-validator';
+
+export enum DayOfWeekEnum {
+  Monday = 'monday',
+  Tuesday = 'tuesday',
+  Wednesday = 'wednesday',
+  Thursday = 'thursday',
+  Friday = 'friday',
+  Saturday = 'saturday',
+  Sunday = 'sunday',
+}
 
 export class CreateWorkingHoursDto {
-  @IsEnum([
-    'monday',
-    'tuesday',
-    'wednesday',
-    'thursday',
-    'friday',
-    'saturday',
-    'sunday',
-  ])
+  @IsEnum(DayOfWeekEnum)
   @IsNotEmpty()
-  dayOfWeek:
-    | 'monday'
-    | 'tuesday'
-    | 'wednesday'
-    | 'thursday'
-    | 'friday'
-    | 'saturday'
-    | 'sunday';
+  dayOfWeek: DayOfWeekEnum;
 
   @IsString()
   @IsNotEmpty()
@@ -33,4 +35,8 @@ export class CreateWorkingHoursDto {
     message: 'End time must be in HH:MM or HH:MM:SS format',
   })
   endTime: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 }

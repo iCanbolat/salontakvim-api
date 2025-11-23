@@ -1,11 +1,12 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, asc } from 'drizzle-orm';
 import { DRIZZLE_ORM } from '../../db/drizzle.module';
 import * as schema from '../../db/schema';
 import {
   ServiceStaff,
   NewServiceStaff,
 } from '../interfaces/repository.interface';
+import type { Service } from '../../services/interfaces/repository.interface';
 
 @Injectable()
 export class ServiceStaffRepository {
@@ -27,6 +28,20 @@ export class ServiceStaffRepository {
       .select()
       .from(schema.serviceStaff)
       .where(eq(schema.serviceStaff.staffId, staffId));
+  }
+
+  async findServicesByStaffId(staffId: number): Promise<Service[]> {
+    const rows = await this.db
+      .select({ service: schema.services })
+      .from(schema.serviceStaff)
+      .innerJoin(
+        schema.services,
+        eq(schema.serviceStaff.serviceId, schema.services.id),
+      )
+      .where(eq(schema.serviceStaff.staffId, staffId))
+      .orderBy(asc(schema.services.position));
+
+    return rows.map((row: { service: Service }) => row.service);
   }
 
   async findByServiceId(serviceId: number): Promise<ServiceStaff[]> {

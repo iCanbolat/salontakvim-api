@@ -41,4 +41,10 @@ export class StaffMemberResponseDto {
 
   @Expose()
   avatar?: string;
+
+  @Expose()
+  fullName?: string | null;
+
+  @Expose()
+  locationName?: string | null;
 }

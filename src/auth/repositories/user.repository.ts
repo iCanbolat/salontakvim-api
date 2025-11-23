@@ -1,7 +1,7 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { DRIZZLE_ORM } from '../../db/drizzle.module';
 import { users } from '../../db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { IUserRepository } from '../interfaces/repository.interface';
 
@@ -89,5 +89,15 @@ export class UserRepository implements IUserRepository {
       .update(users)
       .set({ lastLogin: new Date() })
       .where(eq(users.id, id));
+  }
+
+  async findByIds(ids: number[]) {
+    if (!ids.length) {
+      return [];
+    }
+    return await this.db
+      .select()
+      .from(users)
+      .where(inArray(users.id, Array.from(new Set(ids))));
   }
 }

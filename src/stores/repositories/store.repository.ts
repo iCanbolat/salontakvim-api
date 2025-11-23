@@ -229,7 +229,10 @@ export class StoreRepository implements IStoreRepository {
         storeId: schema.appointments.storeId,
         customerId: schema.appointments.customerId,
         serviceId: schema.appointments.serviceId,
+        serviceName: schema.services.name,
         staffId: schema.appointments.staffId,
+        staffFirstName: schema.users.firstName,
+        staffLastName: schema.users.lastName,
         locationId: schema.appointments.locationId,
         guestFirstName: schema.appointments.guestFirstName,
         guestLastName: schema.appointments.guestLastName,
@@ -253,6 +256,15 @@ export class StoreRepository implements IStoreRepository {
         updatedAt: schema.appointments.updatedAt,
       })
       .from(schema.appointments)
+      .leftJoin(
+        schema.services,
+        eq(schema.appointments.serviceId, schema.services.id),
+      )
+      .leftJoin(
+        schema.staffMembers,
+        eq(schema.appointments.staffId, schema.staffMembers.id),
+      )
+      .leftJoin(schema.users, eq(schema.staffMembers.userId, schema.users.id))
       .where(
         and(
           eq(schema.appointments.storeId, storeId),
@@ -262,8 +274,15 @@ export class StoreRepository implements IStoreRepository {
       .orderBy(sql`${schema.appointments.startDateTime} DESC`);
 
     const formattedAppointments = appointments.map((appointment) => {
-      const { guestFirstName, guestLastName, guestEmail, guestPhone, ...rest } =
-        appointment;
+      const {
+        guestFirstName,
+        guestLastName,
+        guestEmail,
+        guestPhone,
+        staffFirstName,
+        staffLastName,
+        ...rest
+      } = appointment;
 
       const guestInfo =
         guestFirstName || guestLastName || guestEmail
@@ -275,8 +294,14 @@ export class StoreRepository implements IStoreRepository {
             }
           : undefined;
 
+      const staffName =
+        staffFirstName || staffLastName
+          ? `${staffFirstName || ''} ${staffLastName || ''}`.trim() || undefined
+          : undefined;
+
       return {
         ...rest,
+        staffName,
         guestInfo,
       };
     });

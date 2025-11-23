@@ -1,4 +1,4 @@
-import type { ServiceStaff } from '../interfaces/repository.interface';
+import type { StaffMember } from '../interfaces/repository.interface';
 import {
   Injectable,
   NotFoundException,
@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import * as bcrypt from 'bcrypt';
+import { plainToInstance } from 'class-transformer';
 import { StaffMemberRepository } from '../repositories/staff-member.repository';
 import { StaffInvitationRepository } from '../repositories/staff-invitation.repository';
 import { StaffWorkingHoursRepository } from '../repositories/staff-working-hours.repository';
@@ -20,6 +21,8 @@ import { UpdateWorkingHoursDto } from '../dto/update-working-hours.dto';
 import { CreateStaffBreakDto } from '../dto/create-staff-break.dto';
 import { UpdateStaffBreakDto } from '../dto/update-staff-break.dto';
 import { AssignServicesDto } from '../dto/assign-services.dto';
+import { LocationRepository } from '../../locations/repositories/location.repository';
+import { ServiceResponseDto } from '../../services/dto';
 
 @Injectable()
 export class StaffService {
@@ -30,7 +33,84 @@ export class StaffService {
     private readonly staffBreakRepository: StaffBreakRepository,
     private readonly serviceStaffRepository: ServiceStaffRepository,
     private readonly userRepository: UserRepository,
+    private readonly locationRepository: LocationRepository,
   ) {}
+
+  private async buildLocationNameMap(
+    storeId: number,
+  ): Promise<Map<number, string>> {
+    const locations = await this.locationRepository.findByStoreId(storeId);
+    return new Map(locations.map((location) => [location.id, location.name]));
+  }
+
+  private async buildUserMap(userIds: number[]) {
+    const uniqueIds = Array.from(new Set(userIds.filter(Boolean)));
+    if (!uniqueIds.length) {
+      return new Map<number, any>();
+    }
+    const users = await this.userRepository.findByIds(uniqueIds);
+    return new Map(users.map((user) => [user.id, user]));
+  }
+
+  private formatStaffResponse(
+    staff: StaffMember,
+    locationMap: Map<number, string>,
+    userMap: Map<number, any>,
+  ) {
+    const user = userMap.get(staff.userId);
+    const fullName = [user?.firstName, user?.lastName]
+      .filter((part) => Boolean(part))
+      .join(' ')
+      .trim();
+
+    const locationName =
+      staff.locationId != null
+        ? (locationMap.get(staff.locationId) ?? null)
+        : null;
+
+    return {
+      ...staff,
+      email: user?.email ?? null,
+      firstName: user?.firstName ?? null,
+      lastName: user?.lastName ?? null,
+      avatar: user?.avatar ?? null,
+      fullName: fullName || null,
+      locationName,
+    };
+  }
+
+  private async hydrateStaffList(storeId: number, staff: StaffMember[]) {
+    if (!staff.length) {
+      return [];
+    }
+
+    const [locationMap, userMap] = await Promise.all([
+      this.buildLocationNameMap(storeId),
+      this.buildUserMap(staff.map((member) => member.userId)),
+    ]);
+
+    return staff.map((member) =>
+      this.formatStaffResponse(member, locationMap, userMap),
+    );
+  }
+
+  private async hydrateSingleStaff(storeId: number, staff: StaffMember) {
+    const [locationMap, userMap] = await Promise.all([
+      this.buildLocationNameMap(storeId),
+      this.buildUserMap([staff.userId]),
+    ]);
+
+    return this.formatStaffResponse(staff, locationMap, userMap);
+  }
+
+  private async buildAssignedServicesResponse(staffId: number) {
+    const services =
+      await this.serviceStaffRepository.findServicesByStaffId(staffId);
+
+    return plainToInstance(ServiceResponseDto, services, {
+      excludeExtraneousValues: true,
+    });
+  }
 
   // ============= Invitations =============
 
@@ -148,10 +228,11 @@ export class StaffService {
   // ============= Staff Management =============
 
   async getStaffMembers(storeId: number, includeHidden = false) {
-    if (includeHidden) {
-      return await this.staffMemberRepository.findByStoreId(storeId);
-    }
-    return await this.staffMemberRepository.findVisibleByStoreId(storeId);
+    const staffList = includeHidden
+      ? await this.staffMemberRepository.findByStoreId(storeId)
+      : await this.staffMemberRepository.findVisibleByStoreId(storeId);
+
+    return await this.hydrateStaffList(storeId, staffList);
   }
 
   async getStaffMember(storeId: number, staffId: number) {
@@ -164,7 +245,7 @@ export class StaffService {
       throw new NotFoundException('Staff member not found');
     }
 
-    return staff;
+    return await this.hydrateSingleStaff(storeId, staff);
   }
 
   async updateStaffProfile(
@@ -173,7 +254,8 @@ export class StaffService {
     dto: UpdateStaffProfileDto,
   ) {
     const staff = await this.getStaffMember(storeId, staffId);
-    return await this.staffMemberRepository.update(staff.id, dto);
+    const updated = await this.staffMemberRepository.update(staff.id, dto);
+    return await this.hydrateSingleStaff(storeId, updated);
   }
 
   async deleteStaffMember(storeId: number, staffId: number) {
@@ -200,21 +282,27 @@ export class StaffService {
     await this.serviceStaffRepository.unassignAllFromStaff(staff.id);
 
     // Create new assignments
-    const assignments: ServiceStaff[] = [];
-    for (const serviceId of dto.serviceIds) {
-      const assignment = await this.serviceStaffRepository.assign({
-        serviceId,
-        staffId: staff.id,
-      });
-      assignments.push(assignment);
+    const serviceIds = dto.serviceIds ?? [];
+
+    if (!serviceIds.length) {
+      return [];
     }
 
-    return assignments;
+    await Promise.all(
+      serviceIds.map((serviceId) =>
+        this.serviceStaffRepository.assign({
+          serviceId,
+          staffId: staff.id,
+        }),
+      ),
+    );
+
+    return await this.buildAssignedServicesResponse(staff.id);
   }
 
   async getStaffServices(storeId: number, staffId: number) {
     const staff = await this.getStaffMember(storeId, staffId);
-    return await this.serviceStaffRepository.findByStaffId(staff.id);
+    return await this.buildAssignedServicesResponse(staff.id);
   }
 
   async removeServiceFromStaff(

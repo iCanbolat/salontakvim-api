@@ -8,6 +8,7 @@ import { StaffBreakRepository } from './repositories/staff-break.repository';
 import { ServiceStaffRepository } from './repositories/service-staff.repository';
 import { AuthModule } from '../auth/auth.module';
 import { DrizzleModule } from '../db/drizzle.module';
+import { LocationRepository } from '../locations/repositories/location.repository';
 
 @Module({
   imports: [DrizzleModule, AuthModule],
@@ -19,6 +20,7 @@ import { DrizzleModule } from '../db/drizzle.module';
     StaffWorkingHoursRepository,
     StaffBreakRepository,
     ServiceStaffRepository,
+    LocationRepository,
   ],
   exports: [
     StaffService,
@@ -27,6 +29,7 @@ import { DrizzleModule } from '../db/drizzle.module';
     StaffWorkingHoursRepository,
     StaffBreakRepository,
     ServiceStaffRepository,
+    LocationRepository,
   ],
 })
 export class StaffModule {}
