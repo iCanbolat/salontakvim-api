@@ -5,3 +5,4 @@ export * from './update-appointment-status.dto';
 export * from './get-availability.dto';
 export * from './appointment-response.dto';
 export * from './availability-response.dto';
+export * from './get-store-appointments.dto';

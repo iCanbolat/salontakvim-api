@@ -9,6 +9,8 @@ import { AuthModule } from '../auth/auth.module';
 import { StaffModule } from '../staff/staff.module';
 import { ServiceModule } from '../services/service.module';
 import { LocationModule } from '../locations/location.module';
+import { StoreModule } from '../stores/store.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -17,6 +19,8 @@ import { LocationModule } from '../locations/location.module';
     StaffModule,
     ServiceModule,
     LocationModule,
+    StoreModule,
+    NotificationsModule,
   ],
   controllers: [AppointmentsController],
   providers: [

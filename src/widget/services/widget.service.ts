@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { WidgetSettingsRepository } from '../repositories/widget-settings.repository';
 import { StoreRepository } from '../../stores/repositories/store.repository';
 import { ServiceRepository } from '../../services/repositories/service.repository';
+import { ServiceExtraRepository } from '../../services/repositories/service-extra.repository';
 import { CategoryRepository } from '../../categories/repositories/category.repository';
 import { LocationRepository } from '../../locations/repositories/location.repository';
 import { StaffMemberRepository } from '../../staff/repositories/staff-member.repository';
@@ -13,7 +14,6 @@ import {
 } from '../dto';
 import { ConfigService } from '@nestjs/config';
 import {
-  WidgetSettingsNotFoundException,
   WidgetKeyNotFoundException,
 } from '../exceptions';
 import { StoreNotFoundException } from '../../stores/exceptions';
@@ -24,6 +24,7 @@ export class WidgetService {
     private readonly widgetSettingsRepository: WidgetSettingsRepository,
     private readonly storeRepository: StoreRepository,
     private readonly serviceRepository: ServiceRepository,
+    private readonly serviceExtraRepository: ServiceExtraRepository,
     private readonly categoryRepository: CategoryRepository,
     private readonly locationRepository: LocationRepository,
     private readonly staffMemberRepository: StaffMemberRepository,
@@ -187,6 +188,36 @@ export class WidgetService {
     return {
       services,
       categories,
+    };
+  }
+
+  async getWidgetServiceExtras(widgetKey: string, serviceId: number) {
+    const widgetSettings =
+      await this.widgetSettingsRepository.findByWidgetKey(widgetKey);
+
+    if (!widgetSettings) {
+      throw new WidgetKeyNotFoundException(widgetKey);
+    }
+
+    // Verify service belongs to this store
+    const service = await this.serviceRepository.findById(serviceId);
+    if (!service || service.storeId !== widgetSettings.storeId) {
+      return { extras: [] };
+    }
+
+    const extras = await this.serviceExtraRepository.findByServiceId(serviceId);
+
+    return {
+      extras: extras.map((extra) => ({
+        id: extra.id,
+        serviceId: extra.serviceId,
+        name: extra.name,
+        description: extra.description,
+        price: parseFloat(extra.price),
+        duration: extra.duration,
+        maxQuantity: extra.maxQuantity,
+        position: extra.position,
+      })),
     };
   }
 

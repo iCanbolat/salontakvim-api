@@ -477,6 +477,30 @@ export const appointmentExtras = pgTable(
   ],
 );
 
+export const notifications = pgTable(
+  'notifications',
+  {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    storeId: integer('store_id')
+      .references(() => stores.id, { onDelete: 'cascade' })
+      .notNull(),
+    title: varchar('title', { length: 255 }).notNull(),
+    message: text('message').notNull(),
+    type: varchar('type', { length: 50 }).notNull(),
+    metadata: json('metadata'),
+    isRead: boolean('is_read').default(false).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('notifications_user_id_idx').on(table.userId),
+    index('notifications_store_id_idx').on(table.storeId),
+    index('notifications_is_read_idx').on(table.isRead),
+  ],
+);
+
 // ================================
 // WIDGET CUSTOMIZATION
 // ================================
@@ -796,3 +820,11 @@ export const appointmentsRelations = relations(
     customFieldValues: many(appointmentCustomFieldValues),
   }),
 );
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  user: one(users, { fields: [notifications.userId], references: [users.id] }),
+  store: one(stores, {
+    fields: [notifications.storeId],
+    references: [stores.id],
+  }),
+}));

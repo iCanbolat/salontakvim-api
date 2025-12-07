@@ -1,18 +1,45 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { eq, and, gte, lte, lt, gt, ne, sql } from 'drizzle-orm';
+import { eq, and, gte, lte, lt, gt, ne, sql, SQL } from 'drizzle-orm';
 import { DRIZZLE_ORM } from '../../db/drizzle.module';
 import * as schema from '../../db/schema';
 import {
   Appointment,
   NewAppointment,
 } from '../interfaces/repository.interface';
+import {
+  BaseRepository,
+  PaginatedResult,
+} from '../../common/repositories/base.repository';
+
+type AppointmentStatusType =
+  (typeof schema.appointmentStatusEnum.enumValues)[number];
+
+export interface AppointmentQueryFilters {
+  status?: AppointmentStatusType;
+  serviceId?: number;
+  staffId?: number;
+  locationId?: number;
+  customerId?: number;
+  startDate?: string;
+  endDate?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
+export type AppointmentStatusCounts = Record<
+  AppointmentStatusType | 'all',
+  number
+>;
 
 @Injectable()
-export class AppointmentRepository {
+export class AppointmentRepository extends BaseRepository<Appointment> {
   constructor(
     @Inject(DRIZZLE_ORM)
-    private readonly db: any,
-  ) {}
+    db: any,
+  ) {
+    super(db);
+  }
 
   async create(data: NewAppointment): Promise<Appointment> {
     const [appointment] = await this.db
@@ -61,7 +88,92 @@ export class AppointmentRepository {
       .select()
       .from(schema.appointments)
       .where(eq(schema.appointments.storeId, storeId))
-      .orderBy(sql`${schema.appointments.startDateTime} DESC`);
+      .orderBy(
+        sql`CASE WHEN ${schema.appointments.status} = 'pending' THEN 0 ELSE 1 END ASC`,
+        schema.appointments.startDateTime,
+      );
+  }
+
+  async findByStoreIdWithFilters(
+    storeId: number,
+    filters: AppointmentQueryFilters = {},
+  ): Promise<PaginatedResult<Appointment>> {
+    const pagination = this.normalizePagination(filters, 10, 100);
+    const whereCondition = this.buildWhereClause(storeId, filters);
+
+    const queryFactory = (limit: number, offset: number) => {
+      let query = this.db
+        .select()
+        .from(schema.appointments)
+        .orderBy(
+          sql`CASE WHEN ${schema.appointments.status} = 'pending' THEN 0 ELSE 1 END`,
+          schema.appointments.startDateTime,
+        )
+        .limit(limit)
+        .offset(offset);
+
+      if (whereCondition) {
+        query = query.where(whereCondition);
+      }
+
+      return query;
+    };
+
+    const countFactory = async () => {
+      let countQuery = this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.appointments);
+
+      if (whereCondition) {
+        countQuery = countQuery.where(whereCondition);
+      }
+
+      const [countResult] = await countQuery;
+      return countResult ? Number(countResult.count) : 0;
+    };
+
+    return this.executePaginatedQuery(pagination, queryFactory, countFactory);
+  }
+
+  async countByStatus(
+    storeId: number,
+    filters: AppointmentQueryFilters = {},
+  ): Promise<AppointmentStatusCounts> {
+    const whereCondition = this.buildWhereClause(storeId, filters, {
+      includeStatus: false,
+    });
+
+    let query = this.db
+      .select({
+        status: schema.appointments.status,
+        count: sql<number>`count(*)`,
+      })
+      .from(schema.appointments)
+      .groupBy(schema.appointments.status);
+
+    if (whereCondition) {
+      query = query.where(whereCondition);
+    }
+
+    const rows = await query;
+
+    const counts: AppointmentStatusCounts = {
+      all: 0,
+      pending: 0,
+      confirmed: 0,
+      completed: 0,
+      cancelled: 0,
+      no_show: 0,
+    };
+
+    for (const row of rows) {
+      const status = row.status as AppointmentStatusType;
+      const value = Number(row.count) || 0;
+      counts[status] = value;
+      counts.all += value;
+    }
+
+    return counts;
   }
 
   async findByStaffIdAndDateRange(
@@ -147,6 +259,93 @@ export class AppointmentRepository {
     if (result.length === 0) {
       throw new NotFoundException(`Appointment with ID ${id} not found`);
     }
+  }
+
+  private buildWhereClause(
+    storeId: number,
+    filters: AppointmentQueryFilters,
+    options: { includeStatus?: boolean } = {},
+  ): SQL | undefined {
+    const conditions = this.buildFilterConditions(storeId, filters, options);
+    return this.combineWithAnd(conditions);
+  }
+
+  private buildFilterConditions(
+    storeId: number,
+    filters: AppointmentQueryFilters,
+    options: { includeStatus?: boolean } = {},
+  ): SQL[] {
+    const includeStatus = options.includeStatus ?? true;
+    const conditions: SQL[] = [eq(schema.appointments.storeId, storeId)];
+
+    if (includeStatus && filters.status) {
+      conditions.push(eq(schema.appointments.status, filters.status));
+    }
+
+    if (filters.serviceId) {
+      conditions.push(eq(schema.appointments.serviceId, filters.serviceId));
+    }
+
+    if (filters.staffId) {
+      conditions.push(eq(schema.appointments.staffId, filters.staffId));
+    }
+
+    if (filters.locationId) {
+      conditions.push(eq(schema.appointments.locationId, filters.locationId));
+    }
+
+    if (filters.customerId) {
+      conditions.push(eq(schema.appointments.customerId, filters.customerId));
+    }
+
+    const startDate = this.parseDate(filters.startDate);
+    if (startDate) {
+      conditions.push(gte(schema.appointments.startDateTime, startDate));
+    }
+
+    const endDate = this.parseDate(filters.endDate, { endOfDay: true });
+    if (endDate) {
+      conditions.push(lte(schema.appointments.startDateTime, endDate));
+    }
+
+    const searchCondition = this.buildSearchCondition(filters.search);
+    if (searchCondition) {
+      conditions.push(searchCondition);
+    }
+
+    return conditions;
+  }
+
+  private buildSearchCondition(search?: string): SQL | undefined {
+    const pattern = this.formatSearchPattern(search);
+    if (!pattern) {
+      return undefined;
+    }
+
+    return sql`
+      (
+        ${schema.appointments.guestFirstName} ILIKE ${pattern}
+        OR ${schema.appointments.guestLastName} ILIKE ${pattern}
+        OR ${schema.appointments.guestEmail} ILIKE ${pattern}
+        OR ${schema.appointments.guestPhone} ILIKE ${pattern}
+        OR ${schema.appointments.customerNotes} ILIKE ${pattern}
+        OR ${schema.appointments.internalNotes} ILIKE ${pattern}
+        OR EXISTS (
+          SELECT 1 FROM users
+          WHERE users.id = ${schema.appointments.customerId}
+            AND (
+              users.first_name ILIKE ${pattern}
+              OR users.last_name ILIKE ${pattern}
+              OR users.email ILIKE ${pattern}
+            )
+        )
+        OR EXISTS (
+          SELECT 1 FROM services
+          WHERE services.id = ${schema.appointments.serviceId}
+            AND services.name ILIKE ${pattern}
+        )
+      )
+    `;
   }
 
   async incrementStoreAppointmentCount(storeId: number): Promise<void> {

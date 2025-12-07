@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { DRIZZLE_ORM } from '../../db/drizzle.module';
 import * as schema from '../../db/schema';
 
@@ -98,5 +98,45 @@ export class NotificationRepository {
     }
 
     return this.createDefaultSettings(storeId);
+  }
+
+  async createNotification(data: typeof schema.notifications.$inferInsert) {
+    const [notification] = await this.db
+      .insert(schema.notifications)
+      .values(data)
+      .returning();
+
+    return notification;
+  }
+
+  async getUserNotifications(userId: number, limit = 20) {
+    return this.db.query.notifications.findMany({
+      where: eq(schema.notifications.userId, userId),
+      orderBy: (notifications, { desc }) => [desc(notifications.createdAt)],
+      limit,
+    });
+  }
+
+  async markAsRead(id: number, userId: number) {
+    const [updated] = await this.db
+      .update(schema.notifications)
+      .set({ isRead: true })
+      .where(
+        and(
+          eq(schema.notifications.id, id),
+          eq(schema.notifications.userId, userId),
+        ),
+      )
+      .returning();
+
+    return updated;
+  }
+
+  async markAllAsRead(userId: number) {
+    return this.db
+      .update(schema.notifications)
+      .set({ isRead: true })
+      .where(eq(schema.notifications.userId, userId))
+      .returning();
   }
 }

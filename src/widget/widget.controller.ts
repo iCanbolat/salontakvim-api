@@ -69,6 +69,18 @@ export class WidgetController {
     return await this.widgetService.getWidgetServices(widgetKey);
   }
 
+  @Get('public/widget/:widgetKey/services/:serviceId/extras')
+  @Public()
+  async getWidgetServiceExtras(
+    @Param('widgetKey') widgetKey: string,
+    @Param('serviceId', ParseIntPipe) serviceId: number,
+  ) {
+    return await this.widgetService.getWidgetServiceExtras(
+      widgetKey,
+      serviceId,
+    );
+  }
+
   @Get('public/widget/:widgetKey/locations')
   @Public()
   async getWidgetLocations(@Param('widgetKey') widgetKey: string) {

@@ -115,12 +115,6 @@ export class UpdateWidgetSettingsDto {
   @IsOptional()
   fontFamily?: string;
 
-  @IsInt()
-  @Min(10)
-  @Max(20)
-  @IsOptional()
-  fontSize?: number;
-
   // Button Styling
   @IsInt()
   @Min(0)

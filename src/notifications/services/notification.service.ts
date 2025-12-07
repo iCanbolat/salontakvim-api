@@ -3,6 +3,7 @@ import { NotificationRepository } from '../repositories/notification.repository'
 import { TemplateService } from './template.service';
 import { EmailService } from './email.service';
 import { SmsService } from './sms.service';
+import { NotificationsGateway } from '../notifications.gateway';
 import {
   UpdateNotificationSettingsDto,
   UpdateTemplateDto,
@@ -19,6 +20,7 @@ export class NotificationService {
     private readonly templateService: TemplateService,
     private readonly emailService: EmailService,
     private readonly smsService: SmsService,
+    private readonly notificationsGateway: NotificationsGateway,
   ) {}
 
   /**
@@ -344,5 +346,39 @@ export class NotificationService {
         error: error.message,
       };
     }
+  }
+
+  async createInAppNotification(
+    userId: number,
+    storeId: number,
+    title: string,
+    message: string,
+    type: string,
+    metadata?: Record<string, any>,
+  ) {
+    const notification = await this.repository.createNotification({
+      userId,
+      storeId,
+      title,
+      message,
+      type,
+      metadata,
+      isRead: false,
+    });
+
+    this.notificationsGateway.sendToUser(userId, 'notification', notification);
+    return notification;
+  }
+
+  async getUserNotifications(userId: number) {
+    return this.repository.getUserNotifications(userId);
+  }
+
+  async markAsRead(id: number, userId: number) {
+    return this.repository.markAsRead(id, userId);
+  }
+
+  async markAllAsRead(userId: number) {
+    return this.repository.markAllAsRead(userId);
   }
 }

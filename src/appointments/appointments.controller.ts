@@ -23,6 +23,7 @@ import {
   UpdateAppointmentDto,
   UpdateAppointmentStatusDto,
   GetAvailabilityDto,
+  GetStoreAppointmentsDto,
 } from './dto';
 
 @Controller()
@@ -103,8 +104,11 @@ export class AppointmentsController {
 
   @Get('stores/:storeId/appointments')
   @Roles('admin', 'staff')
-  async getStoreAppointments(@Param('storeId', ParseIntPipe) storeId: number) {
-    return await this.appointmentsService.getStoreAppointments(storeId);
+  async getStoreAppointments(
+    @Param('storeId', ParseIntPipe) storeId: number,
+    @Query() query: GetStoreAppointmentsDto,
+  ) {
+    return await this.appointmentsService.getStoreAppointments(storeId, query);
   }
 
   @Get('stores/:storeId/appointments/:id')

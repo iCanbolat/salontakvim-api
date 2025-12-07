@@ -4,7 +4,10 @@ import {
   BadRequestException,
   ConflictException,
 } from '@nestjs/common';
-import { AppointmentRepository } from '../repositories/appointment.repository';
+import {
+  AppointmentRepository,
+  AppointmentStatusCounts,
+} from '../repositories/appointment.repository';
 import { AppointmentExtraRepository } from '../repositories/appointment-extra.repository';
 import { AvailabilityService } from './availability.service';
 import { ServiceRepository } from '../../services/repositories/service.repository';
@@ -12,12 +15,15 @@ import { ServiceExtraRepository } from '../../services/repositories/service-extr
 import { StaffMemberRepository } from '../../staff/repositories/staff-member.repository';
 import { LocationRepository } from '../../locations/repositories/location.repository';
 import { UserRepository } from '../../auth/repositories/user.repository';
+import { StoreRepository } from '../../stores/repositories/store.repository';
+import { NotificationService } from '../../notifications/services/notification.service';
 import {
   CreateAppointmentDto,
   CreateGuestAppointmentDto,
   UpdateAppointmentDto,
   UpdateAppointmentStatusDto,
   AppointmentResponseDto,
+  GetStoreAppointmentsDto,
 } from '../dto';
 import { Appointment } from '../interfaces/repository.interface';
 import * as bcrypt from 'bcrypt';
@@ -28,6 +34,15 @@ type AppointmentResponseCacheBundle = {
   serviceNames: Map<number, string | null>;
   staffNames: Map<number, string | null>;
   locationNames: Map<number, string | null>;
+};
+
+type PaginatedAppointmentsResult = {
+  data: AppointmentResponseDto[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  statusCounts: AppointmentStatusCounts;
 };
 
 @Injectable()
@@ -41,6 +56,8 @@ export class AppointmentsService {
     private readonly staffMemberRepository: StaffMemberRepository,
     private readonly locationRepository: LocationRepository,
     private readonly userRepository: UserRepository,
+    private readonly storeRepository: StoreRepository,
+    private readonly notificationService: NotificationService,
   ) {}
 
   // ============= Customer Appointments =============
@@ -161,6 +178,15 @@ export class AppointmentsService {
     // Increment store appointment count
     await this.appointmentRepository.incrementStoreAppointmentCount(storeId);
 
+    await this.notifyStaffAndAdmin(
+      storeId,
+      assignedStaffId,
+      'Yeni Randevu',
+      `${service.name} için yeni bir randevu oluşturuldu.`,
+      'appointment_created',
+      { appointmentId: appointment.id },
+    );
+
     // Load appointment with extras
     const appointmentWithExtras = await this.getAppointmentById(
       appointment.id,
@@ -275,6 +301,21 @@ export class AppointmentsService {
     }
 
     const updated = await this.appointmentRepository.update(id, updateData);
+
+    if (dto.status && appointment.status !== updated.status) {
+      await this.notifyStaffAndAdmin(
+        storeId,
+        appointment.staffId,
+        'Randevu Durumu Güncellendi',
+        `Randevu durumu ${updated.status} olarak güncellendi.`,
+        'appointment_status_changed',
+        {
+          appointmentId: id,
+          oldStatus: appointment.status,
+          newStatus: updated.status,
+        },
+      );
+    }
     return await this.getAppointmentById(updated.id, storeId);
   }
 
@@ -292,6 +333,8 @@ export class AppointmentsService {
       throw new NotFoundException('Appointment not found');
     }
 
+    const previousStatus = appointment.status;
+
     const updateData: any = {
       status: dto.status,
       internalNotes: dto.internalNotes,
@@ -303,6 +346,22 @@ export class AppointmentsService {
     }
 
     const updated = await this.appointmentRepository.update(id, updateData);
+
+    if (previousStatus !== updated.status) {
+      await this.notifyStaffAndAdmin(
+        storeId,
+        appointment.staffId,
+        'Randevu Durumu Güncellendi',
+        `Randevu durumu ${updated.status} olarak güncellendi.`,
+        'appointment_status_changed',
+        {
+          appointmentId: id,
+          oldStatus: previousStatus,
+          newStatus: updated.status,
+        },
+      );
+    }
+
     return await this.getAppointmentById(updated.id, storeId);
   }
 
@@ -337,6 +396,15 @@ export class AppointmentsService {
       cancellationReason: reason,
     });
 
+    await this.notifyStaffAndAdmin(
+      appointment.storeId,
+      appointment.staffId,
+      'Randevu İptal Edildi',
+      'Müşteri tarafından randevu iptal edildi.',
+      'appointment_cancelled',
+      { appointmentId: id, reason },
+    );
+
     return await this.getAppointmentById(updated.id, appointment.storeId);
   }
 
@@ -344,12 +412,43 @@ export class AppointmentsService {
 
   async getStoreAppointments(
     storeId: number,
-  ): Promise<AppointmentResponseDto[]> {
-    const appointments =
-      await this.appointmentRepository.findByStoreId(storeId);
+    filters: GetStoreAppointmentsDto = new GetStoreAppointmentsDto(),
+  ): Promise<PaginatedAppointmentsResult> {
+    const normalizedFilters = filters;
+
+    const {
+      data,
+      total,
+      page: currentPage,
+      limit,
+      totalPages,
+    } = await this.appointmentRepository.findByStoreIdWithFilters(
+      storeId,
+      normalizedFilters,
+    );
 
     const cacheBundle = this.createAppointmentCacheBundle();
-    return this.buildAppointmentResponses(appointments, cacheBundle);
+    const responseData = await this.buildAppointmentResponses(
+      data,
+      cacheBundle,
+    );
+
+    const statusCounts = await this.appointmentRepository.countByStatus(
+      storeId,
+      {
+        ...normalizedFilters,
+        status: undefined,
+      },
+    );
+
+    return {
+      data: responseData,
+      total,
+      page: currentPage,
+      limit,
+      totalPages,
+      statusCounts,
+    };
   }
 
   async deleteAppointment(id: number, storeId: number): Promise<void> {
@@ -402,6 +501,44 @@ export class AppointmentsService {
   }
 
   // ============= Private Helper Methods =============
+
+  private async notifyStaffAndAdmin(
+    storeId: number,
+    staffId: number | null | undefined,
+    title: string,
+    message: string,
+    type: string,
+    metadata?: Record<string, any>,
+  ) {
+    let staffUserId: number | null = null;
+
+    if (staffId) {
+      const staff = await this.staffMemberRepository.findById(staffId);
+      if (staff?.userId) {
+        staffUserId = staff.userId;
+        await this.notificationService.createInAppNotification(
+          staff.userId,
+          storeId,
+          title,
+          message,
+          type,
+          metadata,
+        );
+      }
+    }
+
+    const store = await this.storeRepository.findById(storeId);
+    if (store?.ownerId && store.ownerId !== staffUserId) {
+      await this.notificationService.createInAppNotification(
+        store.ownerId,
+        storeId,
+        title,
+        message,
+        type,
+        metadata,
+      );
+    }
+  }
 
   private async checkAppointmentConflicts(
     staffId: number,
