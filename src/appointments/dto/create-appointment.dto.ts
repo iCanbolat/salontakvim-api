@@ -2,6 +2,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsEmail,
   IsDateString,
   IsArray,
   ValidateNested,
@@ -58,4 +59,21 @@ export class CreateAppointmentDto {
   @IsString()
   @IsOptional()
   customerNotes?: string;
+
+  // Guest fields (used by admin/staff to create appointments for non-authenticated customers)
+  @IsString()
+  @IsOptional()
+  guestFirstName?: string;
+
+  @IsString()
+  @IsOptional()
+  guestLastName?: string;
+
+  @IsEmail()
+  @IsOptional()
+  guestEmail?: string;
+
+  @IsString()
+  @IsOptional()
+  guestPhone?: string;
 }

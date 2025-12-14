@@ -12,6 +12,7 @@ import { SmsService } from './services/sms.service';
 import { TemplateService } from './services/template.service';
 import { NotificationRepository } from './repositories/notification.repository';
 import { NotificationsGateway } from './notifications.gateway';
+import { StaffMemberRepository } from '../staff/repositories/staff-member.repository';
 
 @Module({
   imports: [
@@ -40,7 +41,8 @@ import { NotificationsGateway } from './notifications.gateway';
     TemplateService,
     NotificationRepository,
     NotificationsGateway,
+    StaffMemberRepository,
   ],
-  exports: [NotificationService],
+  exports: [NotificationService, NotificationsGateway],
 })
 export class NotificationsModule {}

@@ -14,6 +14,7 @@ import { AppointmentsModule } from './appointments/appointments.module';
 import { WidgetModule } from './widget/widget.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { ActivitiesModule } from './activities/activities.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 
 @Module({
@@ -33,6 +34,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
     WidgetModule,
     AnalyticsModule,
     NotificationsModule,
+    ActivitiesModule,
   ],
   controllers: [AppController],
   providers: [

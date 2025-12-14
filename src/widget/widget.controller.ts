@@ -103,7 +103,12 @@ export class WidgetController {
     @Query('locationId') locationId?: string,
   ) {
     const locationIdNum = locationId ? parseInt(locationId) : undefined;
+
+    const widgetSettings = await this.widgetService.getWidgetConfig(widgetKey);
+    const storeId = widgetSettings.store.id;
+
     return await this.appointmentsService.getAvailability(
+      storeId,
       serviceId,
       staffId,
       date,

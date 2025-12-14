@@ -17,6 +17,7 @@ import { LocationRepository } from '../../locations/repositories/location.reposi
 import { UserRepository } from '../../auth/repositories/user.repository';
 import { StoreRepository } from '../../stores/repositories/store.repository';
 import { NotificationService } from '../../notifications/services/notification.service';
+import { ActivitiesService } from '../../activities/services/activities.service';
 import {
   CreateAppointmentDto,
   CreateGuestAppointmentDto,
@@ -58,6 +59,7 @@ export class AppointmentsService {
     private readonly userRepository: UserRepository,
     private readonly storeRepository: StoreRepository,
     private readonly notificationService: NotificationService,
+    private readonly activitiesService: ActivitiesService,
   ) {}
 
   // ============= Customer Appointments =============
@@ -187,6 +189,19 @@ export class AppointmentsService {
       { appointmentId: appointment.id },
     );
 
+    await this.activitiesService.recordActivity(
+      storeId,
+      'appointment',
+      `${service.name} için yeni randevu oluşturuldu`,
+      {
+        appointmentId: appointment.id,
+        customerId,
+        staffId: assignedStaffId || null,
+        startDateTime,
+        status: 'pending',
+      },
+    );
+
     // Load appointment with extras
     const appointmentWithExtras = await this.getAppointmentById(
       appointment.id,
@@ -200,8 +215,16 @@ export class AppointmentsService {
     storeId: number,
     dto: CreateGuestAppointmentDto,
   ): Promise<AppointmentResponseDto> {
+    if (!dto.guestEmail || !dto.guestFirstName) {
+      throw new BadRequestException(
+        'guestEmail and guestFirstName are required for guest appointment creation',
+      );
+    }
+
+    const guestEmail = dto.guestEmail;
     // Check if user exists with this email
-    let customer = await this.userRepository.findByEmail(dto.guestEmail);
+    let customer = await this.userRepository.findByEmail(guestEmail);
+    let createdNewCustomer = false;
 
     if (!customer) {
       // Create guest customer account
@@ -209,13 +232,27 @@ export class AppointmentsService {
       const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
 
       customer = await this.userRepository.create({
-        email: dto.guestEmail,
+        email: guestEmail,
         firstName: dto.guestFirstName,
         lastName: dto.guestLastName,
         phone: dto.guestPhone,
         password: hashedPassword,
         role: 'customer',
       });
+
+      createdNewCustomer = true;
+    }
+
+    if (createdNewCustomer && customer) {
+      await this.activitiesService.recordActivity(
+        storeId,
+        'customer',
+        `${dto.guestFirstName} ${dto.guestLastName || ''} adlı yeni müşteri oluşturuldu`,
+        {
+          customerId: customer.id,
+          email: guestEmail,
+        },
+      );
     }
 
     // Create appointment as authenticated user
@@ -315,6 +352,17 @@ export class AppointmentsService {
           newStatus: updated.status,
         },
       );
+
+      await this.activitiesService.recordActivity(
+        storeId,
+        'appointment',
+        `Randevu durumu ${updated.status} olarak güncellendi`,
+        {
+          appointmentId: id,
+          oldStatus: appointment.status,
+          newStatus: updated.status,
+        },
+      );
     }
     return await this.getAppointmentById(updated.id, storeId);
   }
@@ -354,6 +402,17 @@ export class AppointmentsService {
         'Randevu Durumu Güncellendi',
         `Randevu durumu ${updated.status} olarak güncellendi.`,
         'appointment_status_changed',
+        {
+          appointmentId: id,
+          oldStatus: previousStatus,
+          newStatus: updated.status,
+        },
+      );
+
+      await this.activitiesService.recordActivity(
+        storeId,
+        'appointment',
+        `Randevu durumu ${updated.status} olarak güncellendi`,
         {
           appointmentId: id,
           oldStatus: previousStatus,
@@ -403,6 +462,17 @@ export class AppointmentsService {
       'Müşteri tarafından randevu iptal edildi.',
       'appointment_cancelled',
       { appointmentId: id, reason },
+    );
+
+    await this.activitiesService.recordActivity(
+      appointment.storeId,
+      'appointment',
+      'Randevu müşteri tarafından iptal edildi',
+      {
+        appointmentId: id,
+        cancelledBy: customerId,
+        reason,
+      },
     );
 
     return await this.getAppointmentById(updated.id, appointment.storeId);
@@ -467,19 +537,37 @@ export class AppointmentsService {
   // ============= Availability =============
 
   async getAvailability(
+    storeId: number,
     serviceId: number,
     staffId: number,
     date: string,
     locationId?: number,
+    excludeAppointmentId?: number,
   ) {
-    const service = await this.serviceRepository.findById(serviceId);
+    const service = await this.serviceRepository.findByIdAndStoreId(
+      serviceId,
+      storeId,
+    );
     if (!service) {
       throw new NotFoundException('Service not found');
     }
 
-    const staff = await this.staffMemberRepository.findById(staffId);
+    const staff = await this.staffMemberRepository.findByIdAndStoreId(
+      staffId,
+      storeId,
+    );
     if (!staff) {
       throw new NotFoundException('Staff member not found');
+    }
+
+    if (locationId) {
+      const location = await this.locationRepository.findByIdAndStoreId(
+        locationId,
+        storeId,
+      );
+      if (!location) {
+        throw new NotFoundException('Location not found');
+      }
     }
 
     const slots = await this.availabilityService.getAvailableSlots(
@@ -489,6 +577,7 @@ export class AppointmentsService {
       service.duration,
       service.bufferTimeBefore || 0,
       service.bufferTimeAfter || 0,
+      excludeAppointmentId,
     );
 
     return {

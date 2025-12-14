@@ -74,6 +74,12 @@ export const templateTypeEnum = pgEnum('template_type', [
   'password_reset',
 ]);
 
+export const activityTypeEnum = pgEnum('activity_type', [
+  'appointment',
+  'customer',
+  'staff',
+]);
+
 // ================================
 // USERS & AUTHENTICATION
 // ================================
@@ -141,6 +147,27 @@ export const stores = pgTable(
   (table) => [
     index('stores_owner_id_idx').on(table.ownerId),
     index('stores_slug_idx').on(table.slug),
+  ],
+);
+
+// ================================
+// ACTIVITIES (Timeline)
+// ================================
+export const activities = pgTable(
+  'activities',
+  {
+    id: serial('id').primaryKey(),
+    storeId: integer('store_id')
+      .references(() => stores.id, { onDelete: 'cascade' })
+      .notNull(),
+    type: activityTypeEnum('type').notNull(),
+    message: text('message').notNull(),
+    metadata: json('metadata'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('activities_store_id_idx').on(table.storeId),
+    index('activities_created_at_idx').on(table.createdAt),
   ],
 );
 

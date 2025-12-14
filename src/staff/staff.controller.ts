@@ -71,9 +71,17 @@ export class StaffController {
   async getStaffMembers(
     @Param('storeId', ParseIntPipe) storeId: number,
     @Query('includeHidden') includeHidden?: string,
+    @Query('serviceId') serviceId?: string,
+    @Query('locationId') locationId?: string,
   ) {
     const includeHiddenBool = includeHidden === 'true';
-    return await this.staffService.getStaffMembers(storeId, includeHiddenBool);
+    const serviceIdNum = serviceId ? parseInt(serviceId) : undefined;
+    const locationIdNum = locationId ? parseInt(locationId) : undefined;
+
+    return await this.staffService.getStaffMembers(storeId, includeHiddenBool, {
+      serviceId: serviceIdNum,
+      locationId: locationIdNum,
+    });
   }
 
   @Get('stores/:storeId/staff/:staffId')

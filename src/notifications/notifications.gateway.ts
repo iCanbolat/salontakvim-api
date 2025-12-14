@@ -8,6 +8,8 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { Injectable, Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
+import { StoreRepository } from '../stores/repositories/store.repository';
+import { StaffMemberRepository } from '../staff/repositories/staff-member.repository';
 
 @WebSocketGateway({
   cors: {
@@ -27,6 +29,8 @@ export class NotificationsGateway
   constructor(
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly storeRepository: StoreRepository,
+    private readonly staffMemberRepository: StaffMemberRepository,
   ) {}
 
   async handleConnection(client: Socket) {
@@ -51,9 +55,19 @@ export class NotificationsGateway
       });
 
       const userId = payload.sub;
+      const role = payload.role;
       client.data.userId = userId;
+      client.data.role = role;
       client.join(`user_${userId}`);
-      this.logger.debug(`Socket connected for user_${userId}`);
+
+      const storeIds = await this.resolveStoreIds(userId, role);
+      storeIds.forEach((storeId) => client.join(`store_${storeId}`));
+
+      this.logger.debug(
+        `Socket connected for user_${userId}${
+          storeIds.length ? ` stores: ${storeIds.join(',')}` : ''
+        }`,
+      );
     } catch (error) {
       this.logger.warn(`Socket connection error: ${error.message}`);
       client.disconnect();
@@ -68,5 +82,23 @@ export class NotificationsGateway
 
   sendToUser(userId: number, event: string, data: unknown) {
     this.server.to(`user_${userId}`).emit(event, data);
+  }
+
+  sendToStore(storeId: number, event: string, data: unknown) {
+    this.server.to(`store_${storeId}`).emit(event, data);
+  }
+
+  private async resolveStoreIds(userId: number, role?: string) {
+    if (role === 'admin') {
+      const store = await this.storeRepository.findByOwnerId(userId);
+      return store ? [store.id] : [];
+    }
+
+    if (role === 'staff') {
+      const staff = await this.staffMemberRepository.findByUserId(userId);
+      return staff ? [staff.storeId] : [];
+    }
+
+    return [];
   }
 }

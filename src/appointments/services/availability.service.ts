@@ -24,6 +24,7 @@ export class AvailabilityService {
     serviceDuration: number, // in minutes
     bufferBefore: number = 0,
     bufferAfter: number = 0,
+    excludeAppointmentId?: number,
   ): Promise<TimeSlotDto[]> {
     const targetDate = new Date(date);
     const dayOfWeek = this.getDayOfWeek(targetDate);
@@ -43,12 +44,18 @@ export class AvailabilityService {
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
 
-    const existingAppointments =
+    const existingAppointmentsRaw =
       await this.appointmentRepository.findByStaffIdAndDateRange(
         staffId,
         startOfDay,
         endOfDay,
       );
+
+    const existingAppointments = excludeAppointmentId
+      ? existingAppointmentsRaw.filter(
+          (appointment) => appointment.id !== excludeAppointmentId,
+        )
+      : existingAppointmentsRaw;
 
     // 4. Generate all possible time slots
     const allSlots: TimeSlotDto[] = [];

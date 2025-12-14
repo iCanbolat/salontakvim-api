@@ -9,6 +9,7 @@ import {
   Query,
   ParseIntPipe,
   UseGuards,
+  BadRequestException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -40,6 +41,29 @@ export class AppointmentsController {
     @Body() dto: CreateAppointmentDto,
     @CurrentUser() user: JwtPayload,
   ) {
+    const hasGuestPayload = Boolean(dto.guestEmail);
+
+    // Customers can only create appointments for themselves.
+    if (user.role === 'customer' && hasGuestPayload) {
+      throw new BadRequestException(
+        'Guest fields are not allowed for customer appointment creation',
+      );
+    }
+
+    // Admin/staff may create appointments for guests by providing guest details.
+    if ((user.role === 'admin' || user.role === 'staff') && hasGuestPayload) {
+      if (!dto.guestFirstName || !dto.guestEmail) {
+        throw new BadRequestException(
+          'guestFirstName and guestEmail are required when creating a guest appointment',
+        );
+      }
+
+      return await this.appointmentsService.createGuestAppointment(
+        storeId,
+        dto as CreateGuestAppointmentDto,
+      );
+    }
+
     return await this.appointmentsService.createAppointment(
       storeId,
       user.sub,
@@ -164,13 +188,19 @@ export class AppointmentsController {
     @Query('staffId', ParseIntPipe) staffId: number,
     @Query('date') date: string,
     @Query('locationId') locationId?: string,
+    @Query('excludeAppointmentId') excludeAppointmentId?: string,
   ) {
     const locationIdNum = locationId ? parseInt(locationId) : undefined;
+    const excludeAppointmentIdNum = excludeAppointmentId
+      ? parseInt(excludeAppointmentId)
+      : undefined;
     return await this.appointmentsService.getAvailability(
+      storeId,
       serviceId,
       staffId,
       date,
       locationIdNum,
+      excludeAppointmentIdNum,
     );
   }
 

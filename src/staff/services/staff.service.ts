@@ -8,6 +8,7 @@ import {
 import { randomBytes } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { plainToInstance } from 'class-transformer';
+import { ServiceRepository } from '../../services/repositories/service.repository';
 import { StaffMemberRepository } from '../repositories/staff-member.repository';
 import { StaffInvitationRepository } from '../repositories/staff-invitation.repository';
 import { StaffWorkingHoursRepository } from '../repositories/staff-working-hours.repository';
@@ -23,6 +24,7 @@ import { UpdateStaffBreakDto } from '../dto/update-staff-break.dto';
 import { AssignServicesDto } from '../dto/assign-services.dto';
 import { LocationRepository } from '../../locations/repositories/location.repository';
 import { ServiceResponseDto } from '../../services/dto';
+import { ActivitiesService } from '../../activities/services/activities.service';
 
 @Injectable()
 export class StaffService {
@@ -34,7 +36,17 @@ export class StaffService {
     private readonly serviceStaffRepository: ServiceStaffRepository,
     private readonly userRepository: UserRepository,
     private readonly locationRepository: LocationRepository,
+    private readonly serviceRepository: ServiceRepository,
+    private readonly activitiesService: ActivitiesService,
   ) {}
+
+  private filterByLocationId(staffList: StaffMember[], locationId?: number) {
+    if (!locationId) {
+      return staffList;
+    }
+
+    return staffList.filter((member) => member.locationId === locationId);
+  }
 
   private async buildLocationNameMap(
     storeId: number,
@@ -159,6 +171,12 @@ export class StaffService {
     // TODO: Send invitation email with token
     // await this.emailService.sendStaffInvitation(dto.email, invitationToken);
 
+    await this.activitiesService.recordActivity(storeId, 'staff', 'Personel daveti gönderildi', {
+      invitationId: invitation.id,
+      email: dto.email,
+      invitedBy,
+    });
+
     return invitation;
   }
 
@@ -211,6 +229,17 @@ export class StaffService {
       acceptedAt: new Date(),
     });
 
+    await this.activitiesService.recordActivity(
+      invitation.storeId,
+      'staff',
+      'Yeni personel daveti kabul edildi',
+      {
+        staffId: staffMember.id,
+        userId: user.id,
+        email: invitation.email,
+      },
+    );
+
     return staffMember;
   }
 
@@ -227,12 +256,34 @@ export class StaffService {
 
   // ============= Staff Management =============
 
-  async getStaffMembers(storeId: number, includeHidden = false) {
+  async getStaffMembers(
+    storeId: number,
+    includeHidden = false,
+    filters?: { serviceId?: number; locationId?: number },
+  ) {
     const staffList = includeHidden
       ? await this.staffMemberRepository.findByStoreId(storeId)
       : await this.staffMemberRepository.findVisibleByStoreId(storeId);
 
-    return await this.hydrateStaffList(storeId, staffList);
+    let filtered = this.filterByLocationId(staffList, filters?.locationId);
+
+    if (filters?.serviceId) {
+      const service = await this.serviceRepository.findByIdAndStoreId(
+        filters.serviceId,
+        storeId,
+      );
+      if (!service) {
+        throw new NotFoundException('Service not found');
+      }
+
+      const assignments = await this.serviceStaffRepository.findByServiceId(
+        filters.serviceId,
+      );
+      const allowedStaffIds = new Set(assignments.map((a) => a.staffId));
+      filtered = filtered.filter((member) => allowedStaffIds.has(member.id));
+    }
+
+    return await this.hydrateStaffList(storeId, filtered);
   }
 
   async getStaffMember(storeId: number, staffId: number) {
@@ -403,10 +454,21 @@ export class StaffService {
       );
     }
 
-    return await this.staffBreakRepository.create({
+    const createdBreak = await this.staffBreakRepository.create({
       staffId: staff.id,
       ...dto,
     });
+
+    await this.activitiesService.recordActivity(storeId, 'staff', 'Personel zaman izni eklendi', {
+      staffId: staff.id,
+      breakId: createdBreak.id,
+      startDate: dto.startDate,
+      endDate: dto.endDate,
+      startTime: dto.startTime,
+      endTime: dto.endTime,
+    });
+
+    return createdBreak;
   }
 
   async getStaffBreaks(storeId: number, staffId: number) {

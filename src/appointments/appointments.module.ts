@@ -11,6 +11,7 @@ import { ServiceModule } from '../services/service.module';
 import { LocationModule } from '../locations/location.module';
 import { StoreModule } from '../stores/store.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { ActivitiesModule } from '../activities/activities.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     LocationModule,
     StoreModule,
     NotificationsModule,
+    ActivitiesModule,
   ],
   controllers: [AppointmentsController],
   providers: [

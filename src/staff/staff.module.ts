@@ -9,9 +9,11 @@ import { ServiceStaffRepository } from './repositories/service-staff.repository'
 import { AuthModule } from '../auth/auth.module';
 import { DrizzleModule } from '../db/drizzle.module';
 import { LocationRepository } from '../locations/repositories/location.repository';
+import { ServiceRepository } from '../services/repositories/service.repository';
+import { ActivitiesModule } from '../activities/activities.module';
 
 @Module({
-  imports: [DrizzleModule, AuthModule],
+  imports: [DrizzleModule, AuthModule, ActivitiesModule],
   controllers: [StaffController],
   providers: [
     StaffService,
@@ -21,6 +23,7 @@ import { LocationRepository } from '../locations/repositories/location.repositor
     StaffBreakRepository,
     ServiceStaffRepository,
     LocationRepository,
+    ServiceRepository,
   ],
   exports: [
     StaffService,
@@ -30,6 +33,7 @@ import { LocationRepository } from '../locations/repositories/location.repositor
     StaffBreakRepository,
     ServiceStaffRepository,
     LocationRepository,
+    ServiceRepository,
   ],
 })
 export class StaffModule {}
