@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { StoreRepository } from '../repositories/store.repository';
+import { StaffMemberRepository } from '../../staff/repositories/staff-member.repository';
 import { CreateStoreDto, UpdateStoreDto, StoreResponseDto } from '../dto';
 import { plainToInstance } from 'class-transformer';
 import { Store } from '../interfaces/repository.interface';
@@ -12,7 +13,10 @@ import {
 
 @Injectable()
 export class StoreService {
-  constructor(private readonly storeRepository: StoreRepository) {}
+  constructor(
+    private readonly storeRepository: StoreRepository,
+    private readonly staffMemberRepository: StaffMemberRepository,
+  ) {}
 
   async create(
     ownerId: number,
@@ -64,15 +68,34 @@ export class StoreService {
     });
   }
 
-  async findMyStore(ownerId: number): Promise<StoreResponseDto> {
-    const store = await this.storeRepository.findByOwnerId(ownerId);
-    if (!store) {
-      throw new StoreNotFoundException(ownerId.toString());
+  async findMyStore(userId: number): Promise<StoreResponseDto> {
+    // Owner account
+    const storeByOwner = await this.storeRepository.findByOwnerId(userId);
+    if (storeByOwner) {
+      return plainToInstance(StoreResponseDto, storeByOwner, {
+        excludeExtraneousValues: true,
+      });
     }
 
-    return plainToInstance(StoreResponseDto, store, {
-      excludeExtraneousValues: true,
-    });
+    // Staff account
+    const staffMembership =
+      await this.staffMemberRepository.findByUserId(userId);
+
+    if (staffMembership) {
+      const store = await this.storeRepository.findById(
+        staffMembership.storeId,
+      );
+
+      if (!store) {
+        throw new StoreNotFoundException(staffMembership.storeId.toString());
+      }
+
+      return plainToInstance(StoreResponseDto, store, {
+        excludeExtraneousValues: true,
+      });
+    }
+
+    throw new StoreNotFoundException(userId.toString());
   }
 
   async update(

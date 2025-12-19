@@ -65,8 +65,12 @@ export class WidgetController {
 
   @Get('public/widget/:widgetKey/services')
   @Public()
-  async getWidgetServices(@Param('widgetKey') widgetKey: string) {
-    return await this.widgetService.getWidgetServices(widgetKey);
+  async getWidgetServices(
+    @Param('widgetKey') widgetKey: string,
+    @Query('locationId') locationId?: string,
+  ) {
+    const locationIdNum = locationId ? parseInt(locationId) : undefined;
+    return await this.widgetService.getWidgetServices(widgetKey, locationIdNum);
   }
 
   @Get('public/widget/:widgetKey/services/:serviceId/extras')
@@ -89,8 +93,17 @@ export class WidgetController {
 
   @Get('public/widget/:widgetKey/staff')
   @Public()
-  async getWidgetStaff(@Param('widgetKey') widgetKey: string) {
-    return await this.widgetService.getWidgetStaff(widgetKey);
+  async getWidgetStaff(
+    @Param('widgetKey') widgetKey: string,
+    @Query('serviceId') serviceId?: string,
+    @Query('locationId') locationId?: string,
+  ) {
+    const serviceIdNum = serviceId ? parseInt(serviceId) : undefined;
+    const locationIdNum = locationId ? parseInt(locationId) : undefined;
+    return await this.widgetService.getWidgetStaff(widgetKey, {
+      serviceId: serviceIdNum,
+      locationId: locationIdNum,
+    });
   }
 
   @Get('public/widget/:widgetKey/availability')

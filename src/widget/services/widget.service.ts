@@ -6,6 +6,7 @@ import { ServiceExtraRepository } from '../../services/repositories/service-extr
 import { CategoryRepository } from '../../categories/repositories/category.repository';
 import { LocationRepository } from '../../locations/repositories/location.repository';
 import { StaffMemberRepository } from '../../staff/repositories/staff-member.repository';
+import { ServiceStaffRepository } from '../../staff/repositories/service-staff.repository';
 import {
   UpdateWidgetSettingsDto,
   WidgetSettingsResponseDto,
@@ -13,10 +14,9 @@ import {
   WidgetEmbedCodeResponseDto,
 } from '../dto';
 import { ConfigService } from '@nestjs/config';
-import {
-  WidgetKeyNotFoundException,
-} from '../exceptions';
+import { WidgetKeyNotFoundException } from '../exceptions';
 import { StoreNotFoundException } from '../../stores/exceptions';
+import { UserRepository } from '../../auth/repositories/user.repository';
 
 @Injectable()
 export class WidgetService {
@@ -28,7 +28,9 @@ export class WidgetService {
     private readonly categoryRepository: CategoryRepository,
     private readonly locationRepository: LocationRepository,
     private readonly staffMemberRepository: StaffMemberRepository,
+    private readonly serviceStaffRepository: ServiceStaffRepository,
     private readonly configService: ConfigService,
+    private readonly userRepository: UserRepository,
   ) {}
 
   // ============= Admin Widget Settings Management =============
@@ -169,7 +171,7 @@ export class WidgetService {
     });
   }
 
-  async getWidgetServices(widgetKey: string) {
+  async getWidgetServices(widgetKey: string, locationId?: number) {
     const widgetSettings =
       await this.widgetSettingsRepository.findByWidgetKey(widgetKey);
 
@@ -184,6 +186,40 @@ export class WidgetService {
     const categories = await this.categoryRepository.findByStoreId(
       widgetSettings.storeId,
     );
+
+    if (locationId) {
+      const staffInStore =
+        await this.staffMemberRepository.findVisibleByStoreId(
+          widgetSettings.storeId,
+        );
+
+      const staffInLocation = staffInStore.filter(
+        (member) => member.locationId === locationId,
+      );
+
+      if (!staffInLocation.length) {
+        return { services: [], categories: [] };
+      }
+
+      const serviceIds =
+        await this.serviceStaffRepository.findServiceIdsByStaffIds(
+          staffInLocation.map((s) => s.id),
+        );
+      const serviceIdSet = new Set(serviceIds);
+
+      const filteredServices = services.filter((service) =>
+        serviceIdSet.has(service.id),
+      );
+
+      const filteredCategories = categories.filter((category) =>
+        filteredServices.some((service) => service.categoryId === category.id),
+      );
+
+      return {
+        services: filteredServices,
+        categories: filteredCategories,
+      };
+    }
 
     return {
       services,
@@ -238,7 +274,12 @@ export class WidgetService {
     };
   }
 
-  async getWidgetStaff(widgetKey: string) {
+  async getWidgetStaff(
+    widgetKey: string,
+    filters?: { serviceId?: number; locationId?: number },
+  ) {
+    const serviceId = filters?.serviceId;
+    const locationId = filters?.locationId;
     const widgetSettings =
       await this.widgetSettingsRepository.findByWidgetKey(widgetKey);
 
@@ -246,12 +287,51 @@ export class WidgetService {
       throw new WidgetKeyNotFoundException(widgetKey);
     }
 
-    const staff = await this.staffMemberRepository.findVisibleByStoreId(
+    let staff = await this.staffMemberRepository.findVisibleByStoreId(
       widgetSettings.storeId,
     );
 
+    if (locationId) {
+      staff = staff.filter((member) => member.locationId === locationId);
+    }
+
+    if (serviceId) {
+      const assignments =
+        await this.serviceStaffRepository.findByServiceId(serviceId);
+      const staffIdsForService = new Set(
+        assignments.map((item) => item.staffId),
+      );
+      staff = staff.filter((member) => staffIdsForService.has(member.id));
+    }
+
+    if (!staff.length) {
+      return { staff: [] };
+    }
+
+    const users = await this.userRepository.findByIds(
+      staff.map((member) => member.userId),
+    );
+    const userMap = new Map(users.map((user) => [user.id, user]));
+
+    const hydratedStaff = staff.map((member) => {
+      const user = userMap.get(member.userId);
+      const fullName = [user?.firstName, user?.lastName]
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+
+      return {
+        ...member,
+        name: fullName || user?.email || 'Personel',
+        firstName: user?.firstName ?? null,
+        lastName: user?.lastName ?? null,
+        email: user?.email ?? null,
+        avatar: user?.avatar ?? null,
+      };
+    });
+
     return {
-      staff,
+      staff: hydratedStaff,
     };
   }
 

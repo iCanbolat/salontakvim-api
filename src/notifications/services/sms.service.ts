@@ -1,110 +1,101 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import Netgsm, { ApiErrorCode } from '@netgsm/sms';
 import { SMSOptions } from '../interfaces/notification.interface';
 
 @Injectable()
 export class SmsService {
   private readonly logger = new Logger(SmsService.name);
+  private client: Netgsm | null = null;
+  private readonly defaultHeader: string | undefined;
+  private readonly encoding: string;
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(private readonly configService: ConfigService) {
+    this.defaultHeader =
+      this.configService.get<string>('NETGSM_HEADER') ||
+      this.configService.get<string>('NETGSM_SENDER') ||
+      this.configService.get<string>('NETGSM_MSGHEADER');
+
+    this.encoding = this.configService.get<string>('NETGSM_ENCODING', 'TR');
+  }
 
   /**
-   * Send SMS using configured provider
-   * This is a placeholder implementation
-   * In production, integrate with Twilio or AWS SNS
+   * Send SMS using Netgsm provider
    */
   async sendSMS(options: SMSOptions): Promise<boolean> {
     try {
-      const smsProvider = this.configService.get<string>(
-        'SMS_PROVIDER',
-        'twilio',
-      );
+      const recipient = this.normalizeForNetgsm(options.to);
 
-      this.logger.log(`Sending SMS via ${smsProvider}`);
-      this.logger.log(`To: ${options.to}`);
-      this.logger.log(`Message: ${options.message.substring(0, 50)}...`);
-
-      // TODO: Implement actual SMS sending based on provider
-      switch (smsProvider.toLowerCase()) {
-        case 'twilio':
-          return await this.sendViaTwilio(options);
-        case 'aws-sns':
-          return await this.sendViaAWSSNS(options);
-        default:
-          this.logger.warn(`Unknown SMS provider: ${smsProvider}`);
-          return false;
+      if (!recipient) {
+        this.logger.warn(`Invalid phone number for Netgsm: ${options.to}`);
+        return false;
       }
+
+      const header = options.from || this.defaultHeader;
+
+      if (!header) {
+        this.logger.error('Netgsm msgheader (sender ID) is not configured');
+        return false;
+      }
+
+      const client = this.getClient();
+
+      const response = await client.sendRestSms({
+        msgheader: header,
+        encoding: this.encoding,
+        messages: [
+          {
+            msg: options.message,
+            no: recipient,
+          },
+        ],
+      });
+
+      if (response?.code && response.code !== ApiErrorCode.SUCCESS && response.code !== '00') {
+        this.logger.warn(
+          `Netgsm send failed code=${response.code} description=${response.description}`,
+        );
+        return false;
+      }
+
+      this.logger.log(`Netgsm SMS queued (jobid=${response?.jobid || 'unknown'})`);
+      return true;
     } catch (error) {
-      this.logger.error('Failed to send SMS:', error);
+      this.logger.error('Failed to send SMS via Netgsm:', error);
       return false;
     }
   }
-
-  /**
-   * Send SMS via Twilio
-   * Install: pnpm add twilio
-   */
-  private async sendViaTwilio(options: SMSOptions): Promise<boolean> {
-    try {
-      // const twilio = require('twilio');
-      //
-      // const client = twilio(
-      //   this.configService.get<string>('TWILIO_ACCOUNT_SID'),
-      //   this.configService.get<string>('TWILIO_AUTH_TOKEN'),
-      // );
-      //
-      // await client.messages.create({
-      //   body: options.message,
-      //   from: options.from || this.configService.get<string>('TWILIO_PHONE_NUMBER'),
-      //   to: options.to,
-      // });
-
-      this.logger.log('SMS sent via Twilio (placeholder)');
-      return true;
-    } catch (error) {
-      this.logger.error('Twilio error:', error);
-      return false;
+  
+  private getClient(): Netgsm {
+    if (this.client) {
+      return this.client;
     }
-  }
 
-  /**
-   * Send SMS via AWS SNS
-   * Install: pnpm add @aws-sdk/client-sns
-   */
-  private async sendViaAWSSNS(options: SMSOptions): Promise<boolean> {
-    try {
-      // const { SNSClient, PublishCommand } = require('@aws-sdk/client-sns');
-      //
-      // const client = new SNSClient({
-      //   region: this.configService.get<string>('AWS_REGION'),
-      //   credentials: {
-      //     accessKeyId: this.configService.get<string>('AWS_ACCESS_KEY_ID'),
-      //     secretAccessKey: this.configService.get<string>('AWS_SECRET_ACCESS_KEY'),
-      //   },
-      // });
-      //
-      // const command = new PublishCommand({
-      //   Message: options.message,
-      //   PhoneNumber: options.to,
-      // });
-      //
-      // await client.send(command);
+    const username = this.configService.get<string>('NETGSM_USERNAME');
+    const password = this.configService.get<string>('NETGSM_PASSWORD');
+    const appname = this.configService.get<string>('NETGSM_APPNAME');
 
-      this.logger.log('SMS sent via AWS SNS (placeholder)');
-      return true;
-    } catch (error) {
-      this.logger.error('AWS SNS error:', error);
-      return false;
+    if (!username || !password) {
+      throw new Error('Netgsm credentials are not configured');
     }
+
+    this.client = new Netgsm({
+      username,
+      password,
+      ...(appname ? { appname } : {}),
+    });
+
+    return this.client;
   }
 
   /**
    * Validate phone number format
    */
   isValidPhoneNumber(phone: string): boolean {
-    // Basic E.164 format validation
-    const phoneRegex = /^\+[1-9]\d{1,14}$/;
-    return phoneRegex.test(phone);
+    const e164Regex = /^\+[1-9]\d{1,14}$/;
+    const trMobileRegex = /^(\+?90|0)?5\d{9}$/;
+
+    return e164Regex.test(phone) || trMobileRegex.test(phone);
   }
 
   /**
@@ -114,16 +105,52 @@ export class SmsService {
     // Remove all non-digit characters
     const cleaned = phone.replace(/\D/g, '');
 
+    const countryCode = defaultCountryCode.startsWith('+')
+      ? defaultCountryCode
+      : `+${defaultCountryCode}`;
+
     // If starts with 0, replace with country code
     if (cleaned.startsWith('0')) {
-      return defaultCountryCode + cleaned.substring(1);
+      return countryCode + cleaned.substring(1);
+    }
+
+    if (cleaned.startsWith('90')) {
+      return `+${cleaned}`;
     }
 
     // If doesn't start with +, add default country code
     if (!phone.startsWith('+')) {
-      return defaultCountryCode + cleaned;
+      return countryCode + cleaned;
     }
 
     return '+' + cleaned;
+  }
+
+  private normalizeForNetgsm(phone: string): string | null {
+    const digits = phone.replace(/\D/g, '');
+
+    if (!digits) {
+      return null;
+    }
+
+    if (digits.length === 10 && digits.startsWith('5')) {
+      return digits;
+    }
+
+    if (digits.length === 11 && digits.startsWith('05')) {
+      return digits.substring(1);
+    }
+
+    if (digits.length === 12 && digits.startsWith('905')) {
+      return digits.substring(2);
+    }
+
+    const lastTen = digits.slice(-10);
+
+    if (lastTen.length === 10 && lastTen.startsWith('5')) {
+      return lastTen;
+    }
+
+    return null;
   }
 }

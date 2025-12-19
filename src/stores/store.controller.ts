@@ -31,7 +31,7 @@ export class StoreController {
   }
 
   @Get('my-store')
-  @Roles('admin')
+  @Roles('admin', 'staff')
   async getMyStore(@CurrentUser() user: JwtPayload): Promise<StoreResponseDto> {
     return this.storeService.findMyStore(user.sub);
   }

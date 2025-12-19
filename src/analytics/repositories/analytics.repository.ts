@@ -148,8 +148,9 @@ export class AnalyticsRepository {
 
     if (result.length === 0) return 'N/A';
 
-    const hour = result[0].hour;
-    return `${hour}:00 - ${hour + 1}:00`;
+    const hour = Number(result[0].hour) || 0;
+    const endHour = hour + 1;
+    return `${hour}:00 - ${endHour}:00`;
   }
 
   // ==================== APPOINTMENTS ANALYTICS ====================
@@ -226,7 +227,7 @@ export class AnalyticsRepository {
       .orderBy(asc(hourColumn));
 
     return result.map((row) => ({
-      timeSlot: `${row.hour}:00 - ${row.hour + 1}:00`,
+      timeSlot: `${Number(row.hour) || 0}:00 - ${(Number(row.hour) || 0) + 1}:00`,
       count: Number(row.count),
     }));
   }
