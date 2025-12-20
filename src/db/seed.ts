@@ -557,7 +557,7 @@ async function seed() {
           extras: true,
           dateTime: true,
           customerInfo: true,
-          payment: true,
+          payment: false,
         },
         employeeRequired: false,
         locationRequired: false,

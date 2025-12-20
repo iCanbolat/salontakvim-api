@@ -5,6 +5,7 @@ export interface EmailOptions {
   text?: string;
   from?: string;
   replyTo?: string;
+  template?: string;
 }
 
 export interface SMSOptions {

@@ -5,6 +5,7 @@ import {
   BadRequestException,
   ConflictException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { plainToInstance } from 'class-transformer';
@@ -25,6 +26,9 @@ import { AssignServicesDto } from '../dto/assign-services.dto';
 import { LocationRepository } from '../../locations/repositories/location.repository';
 import { ServiceResponseDto } from '../../services/dto';
 import { ActivitiesService } from '../../activities/services/activities.service';
+import { NotificationService } from '../../notifications/services/notification.service';
+import { StoreRepository } from '../../stores/repositories/store.repository';
+import { AcceptInvitationDto } from '../dto/accept-invitation.dto';
 
 @Injectable()
 export class StaffService {
@@ -38,7 +42,17 @@ export class StaffService {
     private readonly locationRepository: LocationRepository,
     private readonly serviceRepository: ServiceRepository,
     private readonly activitiesService: ActivitiesService,
+    private readonly storeRepository: StoreRepository,
+    private readonly notificationService: NotificationService,
+    private readonly configService: ConfigService,
   ) {}
+
+  private buildInvitationLink(token: string) {
+    const baseUrl =
+      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+
+    return `${baseUrl.replace(/\/$/, '')}/staff/invitations/accept?token=${token}`;
+  }
 
   private filterByLocationId(staffList: StaffMember[], locationId?: number) {
     if (!locationId) {
@@ -126,6 +140,45 @@ export class StaffService {
 
   // ============= Invitations =============
 
+  async getInvitationByToken(token: string) {
+    const invitation = await this.staffInvitationRepository.findByToken(token);
+
+    if (!invitation) {
+      throw new NotFoundException('Invitation not found');
+    }
+
+    const now = new Date();
+    if (invitation.status === 'pending' && now > invitation.expiresAt) {
+      await this.staffInvitationRepository.update(invitation.id, {
+        status: 'expired',
+      });
+      invitation.status = 'expired';
+    }
+
+    const store = await this.storeRepository.findById(invitation.storeId);
+
+    let locationName: string | null = null;
+    if (invitation.locationId) {
+      const location = await this.locationRepository.findByIdAndStoreId(
+        invitation.locationId,
+        invitation.storeId,
+      );
+      locationName = location?.name ?? null;
+    }
+
+    return {
+      id: invitation.id,
+      email: invitation.email,
+      storeId: invitation.storeId,
+      storeName: store?.name ?? null,
+      locationId: invitation.locationId ?? null,
+      locationName,
+      title: invitation.title ?? null,
+      status: invitation.status,
+      expiresAt: invitation.expiresAt,
+    };
+  }
+
   async inviteStaff(storeId: number, dto: InviteStaffDto, invitedBy: number) {
     // Check if user with email already exists
     const existingUser = await this.userRepository.findByEmail(dto.email);
@@ -166,25 +219,74 @@ export class StaffService {
       token: invitationToken,
       expiresAt,
       invitedBy,
+      locationId: dto.locationId,
+      title: dto.title,
     });
 
-    // TODO: Send invitation email with token
-    // await this.emailService.sendStaffInvitation(dto.email, invitationToken);
+    const store = await this.storeRepository.findById(storeId);
+    if (!store) {
+      throw new NotFoundException('Store not found');
+    }
 
-    await this.activitiesService.recordActivity(storeId, 'staff', 'Personel daveti gönderildi', {
-      invitationId: invitation.id,
-      email: dto.email,
-      invitedBy,
+    let locationName: string | null = null;
+    if (dto.locationId) {
+      const location = await this.locationRepository.findByIdAndStoreId(
+        dto.locationId,
+        storeId,
+      );
+      if (!location) {
+        throw new NotFoundException('Location not found');
+      }
+      locationName = location.name;
+    }
+
+    const staffName = existingUser
+      ? [existingUser.firstName, existingUser.lastName]
+          .filter((part) => Boolean(part))
+          .join(' ')
+          .trim() || existingUser.email
+      : dto.email;
+
+    await this.notificationService.sendStaffInvitation(storeId, dto.email, {
+      staffName,
+      storeName: store.name,
+      storeEmail: store.email || '',
+      role: 'staff',
+      invitationLink: this.buildInvitationLink(invitationToken),
+      locationName,
+      title: dto.title ?? null,
     });
+
+    await this.activitiesService.recordActivity(
+      storeId,
+      'staff',
+      'Personel daveti gönderildi',
+      {
+        invitationId: invitation.id,
+        email: dto.email,
+        invitedBy,
+      },
+    );
 
     return invitation;
   }
 
   async getInvitations(storeId: number) {
-    return await this.staffInvitationRepository.findByStoreId(storeId);
+    const [invitations, locationMap] = await Promise.all([
+      this.staffInvitationRepository.findByStoreId(storeId),
+      this.buildLocationNameMap(storeId),
+    ]);
+
+    return invitations.map((invitation) => ({
+      ...invitation,
+      locationName:
+        invitation.locationId != null
+          ? (locationMap.get(invitation.locationId) ?? null)
+          : null,
+    }));
   }
 
-  async acceptInvitation(token: string) {
+  async acceptInvitation(token: string, dto: AcceptInvitationDto) {
     const invitation = await this.staffInvitationRepository.findByToken(token);
 
     if (!invitation) {
@@ -202,25 +304,74 @@ export class StaffService {
       throw new BadRequestException('Invitation has expired');
     }
 
+    const store = await this.storeRepository.findById(invitation.storeId);
+    if (!store) {
+      throw new NotFoundException('Store not found');
+    }
+
     // Check if user exists
     let user = await this.userRepository.findByEmail(invitation.email);
 
     if (!user) {
-      // Create new user account (password will be set by user)
-      const temporaryPassword = randomBytes(16).toString('hex');
-      const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
-
+      const hashedPassword = await bcrypt.hash(dto.password, 10);
       user = await this.userRepository.create({
         email: invitation.email,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        phone: dto.phone,
         password: hashedPassword,
         role: 'staff',
       });
+    } else {
+      const updates: {
+        firstName?: string;
+        lastName?: string;
+        phone?: string;
+        password?: string;
+      } = {};
+
+      if (dto.firstName) updates.firstName = dto.firstName;
+      if (dto.lastName) updates.lastName = dto.lastName;
+      if (dto.phone) updates.phone = dto.phone;
+      if (dto.password) updates.password = await bcrypt.hash(dto.password, 10);
+
+      if (Object.keys(updates).length) {
+        user = await this.userRepository.update(user.id, updates);
+      }
     }
 
-    // Create staff member
+    const existingStaff =
+      await this.staffMemberRepository.findByUserIdAndStoreId(
+        user.id,
+        invitation.storeId,
+      );
+
+    if (existingStaff) {
+      throw new ConflictException(
+        'User is already a staff member at this store',
+      );
+    }
+
+    let locationName: string | null = null;
+    if (invitation.locationId) {
+      const location = await this.locationRepository.findByIdAndStoreId(
+        invitation.locationId,
+        invitation.storeId,
+      );
+
+      if (!location) {
+        throw new NotFoundException('Location not found');
+      }
+
+      locationName = location.name;
+    }
+
+    // Create staff member with location and title from invitation
     const staffMember = await this.staffMemberRepository.create({
       userId: user.id,
       storeId: invitation.storeId,
+      locationId: invitation.locationId,
+      title: invitation.title,
     });
 
     // Update invitation status
@@ -237,10 +388,18 @@ export class StaffService {
         staffId: staffMember.id,
         userId: user.id,
         email: invitation.email,
+        locationId: invitation.locationId,
+        title: invitation.title,
+        locationName,
       },
     );
 
-    return staffMember;
+    return {
+      staffMember,
+      user,
+      store,
+      locationName,
+    };
   }
 
   async deleteInvitation(storeId: number, invitationId: number) {
@@ -459,14 +618,19 @@ export class StaffService {
       ...dto,
     });
 
-    await this.activitiesService.recordActivity(storeId, 'staff', 'Personel zaman izni eklendi', {
-      staffId: staff.id,
-      breakId: createdBreak.id,
-      startDate: dto.startDate,
-      endDate: dto.endDate,
-      startTime: dto.startTime,
-      endTime: dto.endTime,
-    });
+    await this.activitiesService.recordActivity(
+      storeId,
+      'staff',
+      'Personel zaman izni eklendi',
+      {
+        staffId: staff.id,
+        breakId: createdBreak.id,
+        startDate: dto.startDate,
+        endDate: dto.endDate,
+        startTime: dto.startTime,
+        endTime: dto.endTime,
+      },
+    );
 
     return createdBreak;
   }

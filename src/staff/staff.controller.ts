@@ -24,6 +24,7 @@ import { CreateStaffBreakDto } from './dto/create-staff-break.dto';
 import { UpdateStaffBreakDto } from './dto/update-staff-break.dto';
 import { AssignServicesDto } from './dto/assign-services.dto';
 import { Public } from '../auth/decorators/public.decorator';
+import { AcceptInvitationDto } from './dto/accept-invitation.dto';
 
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -48,10 +49,19 @@ export class StaffController {
     return await this.staffService.getInvitations(storeId);
   }
 
+  @Get('staff/invitations/:token')
+  @Public()
+  async getInvitationByToken(@Param('token') token: string) {
+    return await this.staffService.getInvitationByToken(token);
+  }
+
   @Post('staff/invitations/:token/accept')
   @Public()
-  async acceptInvitation(@Param('token') token: string) {
-    return await this.staffService.acceptInvitation(token);
+  async acceptInvitation(
+    @Param('token') token: string,
+    @Body() dto: AcceptInvitationDto,
+  ) {
+    return await this.staffService.acceptInvitation(token, dto);
   }
 
   @Delete('stores/:storeId/staff/invitations/:invitationId')

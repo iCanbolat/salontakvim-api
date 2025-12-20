@@ -1,31 +1,28 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Resend } from 'resend';
 import { EmailOptions } from '../interfaces/notification.interface';
 
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
+  private resendClient: Resend | null = null;
 
   constructor(private readonly configService: ConfigService) {}
 
-  /**
-   * Send email using configured provider
-   * This is a placeholder implementation
-   * In production, integrate with SendGrid, AWS SES, or SMTP
-   */
   async sendEmail(options: EmailOptions): Promise<boolean> {
     try {
-      const emailProvider = this.configService.get<string>(
-        'EMAIL_PROVIDER',
-        'smtp',
-      );
+      const emailProvider = this.configService
+        .get<string>('EMAIL_PROVIDER', 'smtp')
+        .toLowerCase();
 
       this.logger.log(`Sending email via ${emailProvider}`);
       this.logger.log(`To: ${options.to}`);
       this.logger.log(`Subject: ${options.subject}`);
 
-      // TODO: Implement actual email sending based on provider
-      switch (emailProvider.toLowerCase()) {
+      switch (emailProvider) {
+        case 'resend':
+          return await this.sendViaResend(options);
         case 'sendgrid':
           return await this.sendViaSendGrid(options);
         case 'aws-ses':
@@ -40,10 +37,74 @@ export class EmailService {
     }
   }
 
-  /**
-   * Send email via SendGrid
-   * Install: pnpm add @sendgrid/mail
-   */
+  private async sendViaResend(options: EmailOptions): Promise<boolean> {
+    try {
+      const client = this.getResendClient();
+
+      let from =
+        options.from ||
+        this.configService.get<string>('RESEND_FROM_EMAIL') ||
+        this.configService.get<string>('EMAIL_FROM');
+
+      if (!from) {
+        from = 'onboarding@resend.dev';
+        this.logger.warn(
+          'Resend from address is not configured, falling back to onboarding@resend.dev',
+        );
+      }
+
+      const to = Array.isArray(options.to) ? options.to : [options.to];
+
+      const payload: any = {
+        from,
+        to,
+        subject: options.subject,
+      };
+
+      if (options.html) payload.html = options.html;
+      if (options.text) payload.text = options.text;
+      if (options.replyTo) payload.reply_to = options.replyTo;
+
+      // Use tags for internal template identifier instead of Resend's template field
+      // which expects a managed template ID
+      if (options.template) {
+        payload.tags = [
+          {
+            name: 'template_type',
+            value: options.template,
+          },
+        ];
+      }
+
+      const res = await client.emails.send(payload);
+
+      if (res.error) {
+        this.logger.error(
+          `Resend error: ${res.error.message} (${res.error.name})`,
+        );
+        return false;
+      }
+
+      this.logger.log(`Email sent via Resend. ID: ${res.data?.id}`);
+      return true;
+    } catch (error) {
+      this.logger.error('Resend error:', error);
+      return false;
+    }
+  }
+
+  private getResendClient(): Resend {
+    if (this.resendClient) return this.resendClient;
+
+    const apiKey = this.configService.get<string>('RESEND_API_KEY');
+    if (!apiKey) {
+      throw new Error('RESEND_API_KEY is not configured');
+    }
+
+    this.resendClient = new Resend(apiKey);
+    return this.resendClient;
+  }
+
   private async sendViaSendGrid(options: EmailOptions): Promise<boolean> {
     try {
       // const sgMail = require('@sendgrid/mail');
@@ -68,10 +129,6 @@ export class EmailService {
     }
   }
 
-  /**
-   * Send email via AWS SES
-   * Install: pnpm add @aws-sdk/client-ses
-   */
   private async sendViaAWSSES(options: EmailOptions): Promise<boolean> {
     try {
       // const { SESClient, SendEmailCommand } = require('@aws-sdk/client-ses');
@@ -109,10 +166,6 @@ export class EmailService {
     }
   }
 
-  /**
-   * Send email via SMTP
-   * Install: pnpm add nodemailer
-   */
   private async sendViaSMTP(options: EmailOptions): Promise<boolean> {
     try {
       // const nodemailer = require('nodemailer');
@@ -144,9 +197,6 @@ export class EmailService {
     }
   }
 
-  /**
-   * Validate email address
-   */
   isValidEmail(email: string): boolean {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);

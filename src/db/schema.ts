@@ -202,6 +202,10 @@ export const staffInvitations = pgTable(
     invitedBy: integer('invited_by').references(() => users.id, {
       onDelete: 'set null',
     }),
+    locationId: integer('location_id').references(() => locations.id, {
+      onDelete: 'set null',
+    }),
+    title: varchar('title', { length: 255 }),
     expiresAt: timestamp('expires_at').notNull(),
     acceptedAt: timestamp('accepted_at'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -210,6 +214,7 @@ export const staffInvitations = pgTable(
     index('staff_invitations_store_id_idx').on(table.storeId),
     index('staff_invitations_email_idx').on(table.email),
     index('staff_invitations_token_idx').on(table.token),
+    index('staff_invitations_location_id_idx').on(table.locationId),
   ],
 );
 
@@ -775,6 +780,24 @@ export const storesRelations = relations(stores, ({ one, many }) => ({
   notificationSettings: one(notificationSettings),
   notificationTemplates: many(notificationTemplates),
 }));
+
+export const staffInvitationsRelations = relations(
+  staffInvitations,
+  ({ one }) => ({
+    store: one(stores, {
+      fields: [staffInvitations.storeId],
+      references: [stores.id],
+    }),
+    location: one(locations, {
+      fields: [staffInvitations.locationId],
+      references: [locations.id],
+    }),
+    invitedByUser: one(users, {
+      fields: [staffInvitations.invitedBy],
+      references: [users.id],
+    }),
+  }),
+);
 
 export const categoriesRelations = relations(categories, ({ one, many }) => ({
   store: one(stores, { fields: [categories.storeId], references: [stores.id] }),

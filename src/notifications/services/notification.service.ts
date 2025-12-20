@@ -311,13 +311,14 @@ export class NotificationService {
             subject: rendered.subject,
             html: rendered.htmlContent,
             text: rendered.textContent,
+            template: templateType,
           });
         } else {
           this.logger.warn(`Invalid email address: ${recipientEmail}`);
         }
       }
 
-      // Send SMS if channel includes SMS
+      // Send SMS if channel includes SMS 
       if (channel === 'sms' || channel === 'both') {
         if (recipientPhone && rendered.smsContent) {
           const formattedPhone =

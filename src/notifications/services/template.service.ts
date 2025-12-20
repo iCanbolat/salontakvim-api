@@ -293,6 +293,8 @@ Saygılarımızla,
               <h3 style="margin-top: 0;">Davet Detayları</h3>
               <p><strong>Rol:</strong> {{role}}</p>
               <p><strong>Salon:</strong> {{storeName}}</p>
+              <p><strong>Pozisyon:</strong> {{title}}</p>
+              <p><strong>Lokasyon:</strong> {{locationName}}</p>
             </div>
             
             <p>Hesabınızı aktifleştirmek için aşağıdaki linke tıklayın:</p>
@@ -318,6 +320,8 @@ Saygılarımızla,
 Davet Detayları:
 Rol: {{role}}
 Salon: {{storeName}}
+Pozisyon: {{title}}
+Lokasyon: {{locationName}}
 
 Hesabınızı aktifleştirmek için aşağıdaki linke tıklayın:
 {{invitationLink}}
@@ -333,6 +337,8 @@ Bu link 7 gün içinde geçerliliğini yitirecektir.
           'storeName',
           'storeEmail',
           'role',
+          'title',
+          'locationName',
           'invitationLink',
         ],
       },

@@ -11,9 +11,11 @@ import { DrizzleModule } from '../db/drizzle.module';
 import { LocationRepository } from '../locations/repositories/location.repository';
 import { ServiceRepository } from '../services/repositories/service.repository';
 import { ActivitiesModule } from '../activities/activities.module';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { StoreModule } from '../stores/store.module';
 
 @Module({
-  imports: [DrizzleModule, AuthModule, ActivitiesModule],
+  imports: [DrizzleModule, AuthModule, ActivitiesModule, StoreModule, NotificationsModule],
   controllers: [StaffController],
   providers: [
     StaffService,
