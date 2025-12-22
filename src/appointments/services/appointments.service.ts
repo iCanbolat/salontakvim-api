@@ -301,7 +301,7 @@ export class AppointmentsService {
     }
 
     // Don't allow updates to cancelled or completed appointments
-    if (['cancelled', 'completed'].includes(appointment.status)) {
+    if (['cancelled', 'completed', 'expired'].includes(appointment.status)) {
       throw new BadRequestException(
         `Cannot update appointment with status: ${appointment.status}`,
       );
@@ -447,6 +447,10 @@ export class AppointmentsService {
 
     if (appointment.status === 'completed') {
       throw new BadRequestException('Cannot cancel completed appointment');
+    }
+
+    if (appointment.status === 'expired') {
+      throw new BadRequestException('Cannot cancel expired appointment');
     }
 
     const updated = await this.appointmentRepository.update(id, {

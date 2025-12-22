@@ -20,7 +20,11 @@ import { relations } from 'drizzle-orm';
 // ENUMS
 // ================================
 export const userRoleEnum = pgEnum('user_role', ['admin', 'staff', 'customer']);
-export const paymentStatusEnum = pgEnum('payment_status', ['freemium', 'paid']);
+export const paymentStatusEnum = pgEnum('payment_status', [
+  'freemium',
+  'paid',
+  'business',
+]);
 export const authProviderEnum = pgEnum('auth_provider', [
   'local',
   'google',
@@ -33,6 +37,7 @@ export const appointmentStatusEnum = pgEnum('appointment_status', [
   'cancelled',
   'completed',
   'no_show',
+  'expired',
 ]);
 export const paymentMethodEnum = pgEnum('payment_method', [
   'cash',
@@ -72,6 +77,20 @@ export const templateTypeEnum = pgEnum('template_type', [
   'appointment_rescheduled',
   'staff_invitation',
   'password_reset',
+]);
+
+export const staffBreakStatusEnum = pgEnum('staff_break_status', [
+  'pending',
+  'approved',
+  'declined',
+]);
+
+export const staffBreakTypeEnum = pgEnum('staff_break_type', [
+  'paid_leave',
+  'sick_leave',
+  'unpaid_leave',
+  'break',
+  'other',
 ]);
 
 export const activityTypeEnum = pgEnum('activity_type', [
@@ -410,6 +429,8 @@ export const staffBreaks = pgTable(
     staffId: integer('staff_id')
       .references(() => staffMembers.id, { onDelete: 'cascade' })
       .notNull(),
+    type: staffBreakTypeEnum('type').default('other').notNull(),
+    status: staffBreakStatusEnum('status').default('pending').notNull(),
     startDate: date('start_date').notNull(),
     endDate: date('end_date').notNull(),
     startTime: time('start_time'),

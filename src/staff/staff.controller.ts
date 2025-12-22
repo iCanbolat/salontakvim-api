@@ -9,6 +9,7 @@ import {
   ParseIntPipe,
   UseGuards,
   Query,
+  ForbiddenException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -20,7 +21,10 @@ import { InviteStaffDto } from './dto/invite-staff.dto';
 import { UpdateStaffProfileDto } from './dto/update-staff-profile.dto';
 import { CreateWorkingHoursDto } from './dto/create-working-hours.dto';
 import { UpdateWorkingHoursDto } from './dto/update-working-hours.dto';
-import { CreateStaffBreakDto } from './dto/create-staff-break.dto';
+import {
+  CreateStaffBreakDto,
+  StaffBreakStatus,
+} from './dto/create-staff-break.dto';
 import { UpdateStaffBreakDto } from './dto/update-staff-break.dto';
 import { AssignServicesDto } from './dto/assign-services.dto';
 import { Public } from '../auth/decorators/public.decorator';
@@ -210,12 +214,20 @@ export class StaffController {
   // ============= Breaks & Time Off =============
 
   @Post('stores/:storeId/staff/:staffId/breaks')
-  @Roles('admin')
+  @Roles('admin', 'staff')
   async createStaffBreak(
     @Param('storeId', ParseIntPipe) storeId: number,
     @Param('staffId', ParseIntPipe) staffId: number,
     @Body() dto: CreateStaffBreakDto,
+    @CurrentUser() user: JwtPayload,
   ) {
+    if (user.role === 'staff') {
+      const staff = await this.staffService.getStaffByUserId(user.sub);
+      if (!staff || staff.id !== staffId) {
+        throw new ForbiddenException('You can only create breaks for yourself');
+      }
+      dto.status = StaffBreakStatus.PENDING;
+    }
     return await this.staffService.createStaffBreak(storeId, staffId, dto);
   }
 
@@ -245,12 +257,29 @@ export class StaffController {
   }
 
   @Delete('stores/:storeId/staff/:staffId/breaks/:breakId')
-  @Roles('admin')
+  @Roles('admin', 'staff')
   async deleteStaffBreak(
     @Param('storeId', ParseIntPipe) storeId: number,
     @Param('staffId', ParseIntPipe) staffId: number,
     @Param('breakId', ParseIntPipe) breakId: number,
+    @CurrentUser() user: JwtPayload,
   ) {
+    if (user.role === 'staff') {
+      const staff = await this.staffService.getStaffByUserId(user.sub);
+      if (!staff || staff.id !== staffId) {
+        throw new ForbiddenException('You can only delete your own breaks');
+      }
+      const staffBreak = await this.staffService.getStaffBreak(
+        storeId,
+        staffId,
+        breakId,
+      );
+      if (staffBreak.status !== 'pending') {
+        throw new ForbiddenException(
+          'You can only delete pending requests. Contact admin to cancel approved leave.',
+        );
+      }
+    }
     await this.staffService.deleteStaffBreak(storeId, staffId, breakId);
     return { message: 'Break deleted successfully' };
   }

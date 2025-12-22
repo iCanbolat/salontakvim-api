@@ -47,6 +47,10 @@ export class StaffService {
     private readonly configService: ConfigService,
   ) {}
 
+  async getStaffByUserId(userId: number) {
+    return await this.staffMemberRepository.findByUserId(userId);
+  }
+
   private buildInvitationLink(token: string) {
     const baseUrl =
       this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
@@ -607,7 +611,12 @@ export class StaffService {
         dto.endDate,
       );
 
-    if (overlappingBreaks.length > 0) {
+    // Filter out declined requests
+    const activeOverlaps = overlappingBreaks.filter(
+      (b) => b.status !== 'declined',
+    );
+
+    if (activeOverlaps.length > 0) {
       throw new ConflictException(
         'This break overlaps with an existing break or time off',
       );
@@ -638,6 +647,18 @@ export class StaffService {
   async getStaffBreaks(storeId: number, staffId: number) {
     const staff = await this.getStaffMember(storeId, staffId);
     return await this.staffBreakRepository.findByStaffId(staff.id);
+  }
+
+  async getStaffBreak(storeId: number, staffId: number, breakId: number) {
+    const staff = await this.getStaffMember(storeId, staffId);
+    const staffBreak = await this.staffBreakRepository.findByIdAndStaffId(
+      breakId,
+      staff.id,
+    );
+    if (!staffBreak) {
+      throw new NotFoundException('Break not found');
+    }
+    return staffBreak;
   }
 
   async updateStaffBreak(
@@ -673,8 +694,10 @@ export class StaffService {
           endDate,
         );
 
-      // Filter out the current break
-      const conflicts = overlappingBreaks.filter((b) => b.id !== breakId);
+      // Filter out the current break and declined breaks
+      const conflicts = overlappingBreaks.filter(
+        (b) => b.id !== breakId && b.status !== 'declined',
+      );
       if (conflicts.length > 0) {
         throw new ConflictException(
           'This break overlaps with an existing break or time off',

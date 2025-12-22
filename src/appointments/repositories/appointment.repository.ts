@@ -1,5 +1,5 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { eq, and, gte, lte, lt, gt, ne, sql, SQL } from 'drizzle-orm';
+import { eq, and, gte, lte, lt, gt, ne, sql, SQL, inArray } from 'drizzle-orm';
 import { DRIZZLE_ORM } from '../../db/drizzle.module';
 import * as schema from '../../db/schema';
 import {
@@ -164,6 +164,7 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
       completed: 0,
       cancelled: 0,
       no_show: 0,
+      expired: 0,
     };
 
     for (const row of rows) {
@@ -248,6 +249,77 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
     }
 
     return updatedAppointment;
+  }
+
+  async markExpiredAppointments(now: Date): Promise<number> {
+    const expireStatuses: AppointmentStatusType[] = ['pending'];
+
+    const result = await this.db
+      .update(schema.appointments)
+      .set({ status: 'expired', updatedAt: now })
+      .where(
+        and(
+          lt(schema.appointments.endDateTime, now),
+          inArray(schema.appointments.status, expireStatuses),
+        ),
+      )
+      .returning({ id: schema.appointments.id });
+
+    return result.length;
+  }
+
+  async purgeOldNonPendingAppointments(
+    now: Date,
+    defaultRetentionMonths = 1,
+    businessRetentionMonths = 6,
+  ): Promise<{
+    deletedStandard: number;
+    deletedBusiness: number;
+    total: number;
+  }> {
+    const defaultThreshold = new Date(now);
+    defaultThreshold.setMonth(
+      defaultThreshold.getMonth() - defaultRetentionMonths,
+    );
+
+    const businessThreshold = new Date(now);
+    businessThreshold.setMonth(
+      businessThreshold.getMonth() - businessRetentionMonths,
+    );
+
+    const standardResult = await this.db
+      .delete(schema.appointments)
+      .using(schema.stores, schema.users)
+      .where(
+        and(
+          eq(schema.appointments.storeId, schema.stores.id),
+          eq(schema.stores.ownerId, schema.users.id),
+          ne(schema.appointments.status, 'pending'),
+          lt(schema.appointments.endDateTime, defaultThreshold),
+          ne(schema.users.paymentStatus, 'business'),
+        ),
+      )
+      .returning({ id: schema.appointments.id });
+
+    const businessResult = await this.db
+      .delete(schema.appointments)
+      .using(schema.stores, schema.users)
+      .where(
+        and(
+          eq(schema.appointments.storeId, schema.stores.id),
+          eq(schema.stores.ownerId, schema.users.id),
+          ne(schema.appointments.status, 'pending'),
+          lt(schema.appointments.endDateTime, businessThreshold),
+          eq(schema.users.paymentStatus, 'business'),
+        ),
+      )
+      .returning({ id: schema.appointments.id });
+
+    return {
+      deletedStandard: standardResult.length,
+      deletedBusiness: businessResult.length,
+      total: standardResult.length + businessResult.length,
+    };
   }
 
   async delete(id: number): Promise<void> {

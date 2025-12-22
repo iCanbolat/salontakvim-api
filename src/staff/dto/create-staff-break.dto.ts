@@ -4,9 +4,32 @@ import {
   IsNotEmpty,
   IsBoolean,
   Matches,
+  IsEnum,
 } from 'class-validator';
 
+export enum StaffBreakType {
+  PAID_LEAVE = 'paid_leave',
+  SICK_LEAVE = 'sick_leave',
+  UNPAID_LEAVE = 'unpaid_leave',
+  BREAK = 'break',
+  OTHER = 'other',
+}
+
+export enum StaffBreakStatus {
+  PENDING = 'pending',
+  APPROVED = 'approved',
+  DECLINED = 'declined',
+}
+
 export class CreateStaffBreakDto {
+  @IsEnum(StaffBreakType)
+  @IsOptional()
+  type?: StaffBreakType;
+
+  @IsEnum(StaffBreakStatus)
+  @IsOptional()
+  status?: StaffBreakStatus;
+
   @IsString()
   @IsNotEmpty()
   @Matches(/^\d{4}-\d{2}-\d{2}$/, {

@@ -12,6 +12,8 @@ import { LocationModule } from '../locations/location.module';
 import { StoreModule } from '../stores/store.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ActivitiesModule } from '../activities/activities.module';
+import { AppointmentExpirationService } from './services/appointment-expiration.service';
+import { AppointmentCleanupService } from './services/appointment-cleanup.service';
 
 @Module({
   imports: [
@@ -30,6 +32,8 @@ import { ActivitiesModule } from '../activities/activities.module';
     AvailabilityService,
     AppointmentRepository,
     AppointmentExtraRepository,
+    AppointmentExpirationService,
+    AppointmentCleanupService,
   ],
   exports: [AppointmentsService, AppointmentRepository],
 })

@@ -6,6 +6,7 @@ export enum AppointmentStatus {
   CANCELLED = 'cancelled',
   COMPLETED = 'completed',
   NO_SHOW = 'no_show',
+  EXPIRED = 'expired',
 }
 
 export class UpdateAppointmentStatusDto {
