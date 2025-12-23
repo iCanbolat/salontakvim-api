@@ -63,7 +63,15 @@ export class AnalyticsService {
           endDate.setHours(23, 59, 59, 999);
           break;
         case DateRangePreset.THIS_MONTH:
-          startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+          startDate = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            1,
+            0,
+            0,
+            0,
+            0,
+          );
           endDate = new Date(
             now.getFullYear(),
             now.getMonth() + 1,
@@ -75,7 +83,15 @@ export class AnalyticsService {
           );
           break;
         case DateRangePreset.LAST_MONTH:
-          startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0);
+          startDate = new Date(
+            now.getFullYear(),
+            now.getMonth() - 1,
+            1,
+            0,
+            0,
+            0,
+            0,
+          );
           endDate = new Date(
             now.getFullYear(),
             now.getMonth(),
@@ -162,6 +178,8 @@ export class AnalyticsService {
       appointmentsByStatus.find((s) => s.status === 'cancelled')?.count || 0;
     const noShow =
       appointmentsByStatus.find((s) => s.status === 'no_show')?.count || 0;
+    const expired =
+      appointmentsByStatus.find((s) => s.status === 'expired')?.count || 0;
 
     const cancellationRate = this.calculatePercentage(
       cancelled,
@@ -185,6 +203,7 @@ export class AnalyticsService {
       completedAppointments: completed,
       cancelledAppointments: cancelled,
       noShowAppointments: noShow,
+      expiredAppointments: expired,
       cancellationRate,
       averageAppointmentValue,
       popularTimeSlot,

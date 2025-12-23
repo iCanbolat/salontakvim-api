@@ -17,6 +17,8 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import type { JwtPayload } from '../auth/interfaces/auth.interface';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { StaffService } from './services/staff.service';
+import { StaffScheduleService } from './services/staff-schedule.service';
+import { StaffInvitationService } from './services/staff-invitation.service';
 import { InviteStaffDto } from './dto/invite-staff.dto';
 import { UpdateStaffProfileDto } from './dto/update-staff-profile.dto';
 import { CreateWorkingHoursDto } from './dto/create-working-hours.dto';
@@ -33,7 +35,11 @@ import { AcceptInvitationDto } from './dto/accept-invitation.dto';
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class StaffController {
-  constructor(private readonly staffService: StaffService) {}
+  constructor(
+    private readonly staffService: StaffService,
+    private readonly staffInvitationService: StaffInvitationService,
+    private readonly staffScheduleService: StaffScheduleService,
+  ) {}
 
   // ============= Staff Invitations =============
 
@@ -44,19 +50,23 @@ export class StaffController {
     @Body() dto: InviteStaffDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    return await this.staffService.inviteStaff(storeId, dto, user.sub);
+    return await this.staffInvitationService.inviteStaff(
+      storeId,
+      dto,
+      user.sub,
+    );
   }
 
   @Get('stores/:storeId/staff/invitations')
   @Roles('admin')
   async getInvitations(@Param('storeId', ParseIntPipe) storeId: number) {
-    return await this.staffService.getInvitations(storeId);
+    return await this.staffInvitationService.getInvitations(storeId);
   }
 
   @Get('staff/invitations/:token')
   @Public()
   async getInvitationByToken(@Param('token') token: string) {
-    return await this.staffService.getInvitationByToken(token);
+    return await this.staffInvitationService.getInvitationByToken(token);
   }
 
   @Post('staff/invitations/:token/accept')
@@ -65,7 +75,7 @@ export class StaffController {
     @Param('token') token: string,
     @Body() dto: AcceptInvitationDto,
   ) {
-    return await this.staffService.acceptInvitation(token, dto);
+    return await this.staffInvitationService.acceptInvitation(token, dto);
   }
 
   @Delete('stores/:storeId/staff/invitations/:invitationId')
@@ -74,7 +84,7 @@ export class StaffController {
     @Param('storeId', ParseIntPipe) storeId: number,
     @Param('invitationId', ParseIntPipe) invitationId: number,
   ) {
-    await this.staffService.deleteInvitation(storeId, invitationId);
+    await this.staffInvitationService.deleteInvitation(storeId, invitationId);
     return { message: 'Invitation deleted successfully' };
   }
 
@@ -168,7 +178,11 @@ export class StaffController {
     @Param('staffId', ParseIntPipe) staffId: number,
     @Body() dto: CreateWorkingHoursDto,
   ) {
-    return await this.staffService.createWorkingHours(storeId, staffId, dto);
+    return await this.staffScheduleService.createWorkingHours(
+      storeId,
+      staffId,
+      dto,
+    );
   }
 
   @Get('stores/:storeId/staff/:staffId/working-hours')
@@ -177,7 +191,7 @@ export class StaffController {
     @Param('storeId', ParseIntPipe) storeId: number,
     @Param('staffId', ParseIntPipe) staffId: number,
   ) {
-    return await this.staffService.getWorkingHours(storeId, staffId);
+    return await this.staffScheduleService.getWorkingHours(storeId, staffId);
   }
 
   @Patch('stores/:storeId/staff/:staffId/working-hours/:workingHoursId')
@@ -188,7 +202,7 @@ export class StaffController {
     @Param('workingHoursId', ParseIntPipe) workingHoursId: number,
     @Body() dto: UpdateWorkingHoursDto,
   ) {
-    return await this.staffService.updateWorkingHours(
+    return await this.staffScheduleService.updateWorkingHours(
       storeId,
       staffId,
       workingHoursId,
@@ -203,7 +217,7 @@ export class StaffController {
     @Param('staffId', ParseIntPipe) staffId: number,
     @Param('workingHoursId', ParseIntPipe) workingHoursId: number,
   ) {
-    await this.staffService.deleteWorkingHours(
+    await this.staffScheduleService.deleteWorkingHours(
       storeId,
       staffId,
       workingHoursId,
@@ -222,13 +236,17 @@ export class StaffController {
     @CurrentUser() user: JwtPayload,
   ) {
     if (user.role === 'staff') {
-      const staff = await this.staffService.getStaffByUserId(user.sub);
+      const staff = await this.staffScheduleService.getStaffByUserId(user.sub);
       if (!staff || staff.id !== staffId) {
         throw new ForbiddenException('You can only create breaks for yourself');
       }
       dto.status = StaffBreakStatus.PENDING;
     }
-    return await this.staffService.createStaffBreak(storeId, staffId, dto);
+    return await this.staffScheduleService.createStaffBreak(
+      storeId,
+      staffId,
+      dto,
+    );
   }
 
   @Get('stores/:storeId/staff/:staffId/breaks')
@@ -237,7 +255,7 @@ export class StaffController {
     @Param('storeId', ParseIntPipe) storeId: number,
     @Param('staffId', ParseIntPipe) staffId: number,
   ) {
-    return await this.staffService.getStaffBreaks(storeId, staffId);
+    return await this.staffScheduleService.getStaffBreaks(storeId, staffId);
   }
 
   @Patch('stores/:storeId/staff/:staffId/breaks/:breakId')
@@ -248,7 +266,7 @@ export class StaffController {
     @Param('breakId', ParseIntPipe) breakId: number,
     @Body() dto: UpdateStaffBreakDto,
   ) {
-    return await this.staffService.updateStaffBreak(
+    return await this.staffScheduleService.updateStaffBreak(
       storeId,
       staffId,
       breakId,
@@ -265,11 +283,11 @@ export class StaffController {
     @CurrentUser() user: JwtPayload,
   ) {
     if (user.role === 'staff') {
-      const staff = await this.staffService.getStaffByUserId(user.sub);
+      const staff = await this.staffScheduleService.getStaffByUserId(user.sub);
       if (!staff || staff.id !== staffId) {
         throw new ForbiddenException('You can only delete your own breaks');
       }
-      const staffBreak = await this.staffService.getStaffBreak(
+      const staffBreak = await this.staffScheduleService.getStaffBreak(
         storeId,
         staffId,
         breakId,
@@ -280,7 +298,7 @@ export class StaffController {
         );
       }
     }
-    await this.staffService.deleteStaffBreak(storeId, staffId, breakId);
+    await this.staffScheduleService.deleteStaffBreak(storeId, staffId, breakId);
     return { message: 'Break deleted successfully' };
   }
 }

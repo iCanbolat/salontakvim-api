@@ -322,6 +322,26 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
     };
   }
 
+  async purgeExpiredAppointments(
+    now: Date,
+    retentionDays = 7,
+  ): Promise<number> {
+    const threshold = new Date(now);
+    threshold.setDate(threshold.getDate() - retentionDays);
+
+    const result = await this.db
+      .delete(schema.appointments)
+      .where(
+        and(
+          eq(schema.appointments.status, 'expired'),
+          lt(schema.appointments.endDateTime, threshold),
+        ),
+      )
+      .returning({ id: schema.appointments.id });
+
+    return result.length;
+  }
+
   async delete(id: number): Promise<void> {
     const result = await this.db
       .delete(schema.appointments)

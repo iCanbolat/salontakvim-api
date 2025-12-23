@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { AppointmentRepository } from '../repositories/appointment.repository';
 
 // Runs monthly to purge historical, non-pending appointments.
@@ -9,6 +9,28 @@ export class AppointmentCleanupService {
   private readonly logger = new Logger(AppointmentCleanupService.name);
 
   constructor(private readonly appointmentRepository: AppointmentRepository) {}
+
+  // 02:30 every day - purge expired appointments older than retention window
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async handleDailyExpiredPurge(): Promise<void> {
+    try {
+      const now = new Date();
+      const deleted = await this.appointmentRepository.purgeExpiredAppointments(
+        now,
+        7,
+      );
+
+      if (deleted > 0) {
+        this.logger.log(`Purged ${deleted} expired appointments`);
+      }
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? `${error.message}\n${error.stack}`
+          : String(error);
+      this.logger.error('Failed daily expired appointment purge', message);
+    }
+  }
 
   // 02:00 on the first day of each month
   @Cron('0 0 2 1 * *')

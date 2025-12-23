@@ -38,6 +38,9 @@ export class DashboardStatsDto {
   noShowAppointments: number;
 
   @Expose()
+  expiredAppointments: number;
+
+  @Expose()
   cancellationRate: string; // percentage
 
   @Expose()

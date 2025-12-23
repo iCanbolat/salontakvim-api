@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { StaffController } from './staff.controller';
 import { StaffService } from './services/staff.service';
+import { StaffScheduleService } from './services/staff-schedule.service';
+import { StaffInvitationService } from './services/staff-invitation.service';
 import { StaffMemberRepository } from './repositories/staff-member.repository';
 import { StaffInvitationRepository } from './repositories/staff-invitation.repository';
 import { StaffWorkingHoursRepository } from './repositories/staff-working-hours.repository';
@@ -15,10 +17,18 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { StoreModule } from '../stores/store.module';
 
 @Module({
-  imports: [DrizzleModule, AuthModule, ActivitiesModule, StoreModule, NotificationsModule],
+  imports: [
+    DrizzleModule,
+    AuthModule,
+    ActivitiesModule,
+    StoreModule,
+    NotificationsModule,
+  ],
   controllers: [StaffController],
   providers: [
     StaffService,
+    StaffScheduleService,
+    StaffInvitationService,
     StaffMemberRepository,
     StaffInvitationRepository,
     StaffWorkingHoursRepository,
@@ -29,6 +39,8 @@ import { StoreModule } from '../stores/store.module';
   ],
   exports: [
     StaffService,
+    StaffScheduleService,
+    StaffInvitationService,
     StaffMemberRepository,
     StaffInvitationRepository,
     StaffWorkingHoursRepository,

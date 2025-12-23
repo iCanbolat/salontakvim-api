@@ -25,7 +25,7 @@ export class ActivitiesController {
     const parsed = Number.parseInt(limit ?? '', 10);
     const parsedLimit = Number.isFinite(parsed)
       ? Math.max(1, Math.min(parsed, 50))
-      : 20;
+      : 10;
 
     return this.activitiesService.getRecentActivities(storeId, parsedLimit);
   }
