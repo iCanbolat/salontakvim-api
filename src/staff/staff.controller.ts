@@ -7,6 +7,7 @@ import {
   Param,
   Body,
   ParseIntPipe,
+  ParseEnumPipe,
   UseGuards,
   Query,
   ForbiddenException,
@@ -226,6 +227,16 @@ export class StaffController {
   }
 
   // ============= Breaks & Time Off =============
+
+  @Get('stores/:storeId/breaks')
+  @Roles('admin')
+  async getStoreBreaks(
+    @Param('storeId', ParseIntPipe) storeId: number,
+    @Query('status', new ParseEnumPipe(StaffBreakStatus, { optional: true }))
+    status?: StaffBreakStatus,
+  ) {
+    return await this.staffScheduleService.getStoreBreaks(storeId, status);
+  }
 
   @Post('stores/:storeId/staff/:staffId/breaks')
   @Roles('admin', 'staff')

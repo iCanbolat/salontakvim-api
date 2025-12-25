@@ -4,6 +4,9 @@ import { DRIZZLE_ORM } from '../../db/drizzle.module';
 import * as schema from '../../db/schema';
 import { StaffBreak, NewStaffBreak } from '../interfaces/repository.interface';
 
+type StaffBreakStatusEnum =
+  (typeof schema.staffBreakStatusEnum.enumValues)[number];
+
 @Injectable()
 export class StaffBreakRepository {
   constructor(
@@ -81,6 +84,48 @@ export class StaffBreakRepository {
     }
 
     return updatedStaffBreak;
+  }
+
+  async findByStoreIdWithStaff(
+    storeId: number,
+    status?: StaffBreakStatusEnum,
+  ): Promise<any[]> {
+    const conditions = [eq(schema.staffMembers.storeId, storeId)];
+
+    if (status) {
+      conditions.push(eq(schema.staffBreaks.status, status));
+    }
+
+    const whereClause =
+      conditions.length === 1 ? conditions[0] : and(...conditions);
+
+    return await this.db
+      .select({
+        id: schema.staffBreaks.id,
+        staffId: schema.staffBreaks.staffId,
+        type: schema.staffBreaks.type,
+        status: schema.staffBreaks.status,
+        startDate: schema.staffBreaks.startDate,
+        endDate: schema.staffBreaks.endDate,
+        startTime: schema.staffBreaks.startTime,
+        endTime: schema.staffBreaks.endTime,
+        reason: schema.staffBreaks.reason,
+        isRecurring: schema.staffBreaks.isRecurring,
+        createdAt: schema.staffBreaks.createdAt,
+        updatedAt: schema.staffBreaks.updatedAt,
+        staffTitle: schema.staffMembers.title,
+        staffFirstName: schema.users.firstName,
+        staffLastName: schema.users.lastName,
+        staffEmail: schema.users.email,
+      })
+      .from(schema.staffBreaks)
+      .innerJoin(
+        schema.staffMembers,
+        eq(schema.staffBreaks.staffId, schema.staffMembers.id),
+      )
+      .innerJoin(schema.users, eq(schema.staffMembers.userId, schema.users.id))
+      .where(whereClause)
+      .orderBy(schema.staffBreaks.createdAt);
   }
 
   async delete(id: number): Promise<void> {

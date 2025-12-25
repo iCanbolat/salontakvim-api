@@ -11,7 +11,10 @@ import { StaffBreakRepository } from '../repositories/staff-break.repository';
 import { CreateWorkingHoursDto } from '../dto/create-working-hours.dto';
 import { UpdateWorkingHoursDto } from '../dto/update-working-hours.dto';
 import { CreateStaffBreakDto } from '../dto/create-staff-break.dto';
+import { StaffBreakStatus } from '../dto/create-staff-break.dto';
 import { UpdateStaffBreakDto } from '../dto/update-staff-break.dto';
+import { StoreRepository } from '../../stores/repositories/store.repository';
+import { NotificationService } from '../../notifications/services/notification.service';
 
 @Injectable()
 export class StaffScheduleService {
@@ -20,6 +23,8 @@ export class StaffScheduleService {
     private readonly staffWorkingHoursRepository: StaffWorkingHoursRepository,
     private readonly staffBreakRepository: StaffBreakRepository,
     private readonly activitiesService: ActivitiesService,
+    private readonly storeRepository: StoreRepository,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async getStaffByUserId(userId: number) {
@@ -152,6 +157,26 @@ export class StaffScheduleService {
       },
     );
 
+    // Notify store owner in real-time
+    const store = await this.storeRepository.findById(storeId);
+    if (store?.ownerId) {
+      await this.notificationService.createInAppNotification(
+        store.ownerId,
+        storeId,
+        'Yeni izin talebi',
+        `Personel #${staff.id} izin talebi oluşturdu`,
+        'staff_time_off',
+        {
+          breakId: createdBreak.id,
+          staffId: staff.id,
+          status: createdBreak.status,
+          startDate: createdBreak.startDate,
+          endDate: createdBreak.endDate,
+          url: '/admin/staff?tab=timeoffs',
+        },
+      );
+    }
+
     return createdBreak;
   }
 
@@ -217,6 +242,13 @@ export class StaffScheduleService {
     }
 
     return await this.staffBreakRepository.update(breakId, dto);
+  }
+
+  async getStoreBreaks(storeId: number, status?: StaffBreakStatus) {
+    return await this.staffBreakRepository.findByStoreIdWithStaff(
+      storeId,
+      status,
+    );
   }
 
   async deleteStaffBreak(storeId: number, staffId: number, breakId: number) {

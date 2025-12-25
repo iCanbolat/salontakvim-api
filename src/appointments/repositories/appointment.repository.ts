@@ -416,7 +416,8 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
 
     return sql`
       (
-        ${schema.appointments.guestFirstName} ILIKE ${pattern}
+        CAST(${schema.appointments.id} AS TEXT) ILIKE ${pattern}
+        OR ${schema.appointments.guestFirstName} ILIKE ${pattern}
         OR ${schema.appointments.guestLastName} ILIKE ${pattern}
         OR ${schema.appointments.guestEmail} ILIKE ${pattern}
         OR ${schema.appointments.guestPhone} ILIKE ${pattern}

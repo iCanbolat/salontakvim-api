@@ -603,6 +603,13 @@ export class AppointmentsService {
     type: string,
     metadata?: Record<string, any>,
   ) {
+    const appointmentUrl = metadata?.appointmentId
+      ? `/admin/appointments?search=${metadata.appointmentId}`
+      : undefined;
+    const enrichedMetadata = appointmentUrl
+      ? { ...metadata, url: appointmentUrl }
+      : metadata;
+
     let staffUserId: number | null = null;
 
     if (staffId) {
@@ -615,7 +622,7 @@ export class AppointmentsService {
           title,
           message,
           type,
-          metadata,
+          enrichedMetadata,
         );
       }
     }
@@ -628,7 +635,7 @@ export class AppointmentsService {
         title,
         message,
         type,
-        metadata,
+        enrichedMetadata,
       );
     }
   }
