@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import * as ExcelJS from 'exceljs';
+import { Workbook, Worksheet } from 'exceljs';
 import { AnalyticsService } from './analytics.service';
 import { AnalyticsQueryDto } from '../dto';
 
@@ -19,7 +19,7 @@ export class AnalyticsExportService {
     ]);
 
     // Create workbook
-    const workbook = new ExcelJS.Workbook();
+    const workbook = new Workbook();
     workbook.creator = 'SalonTakvim';
     workbook.created = new Date();
 
@@ -56,7 +56,7 @@ export class AnalyticsExportService {
   }
 
   private styleSummarySheet(
-    sheet: ExcelJS.Worksheet,
+    sheet: Worksheet,
     appointmentData: any,
     revenueData: any,
   ) {
@@ -124,7 +124,7 @@ export class AnalyticsExportService {
     sheet.getColumn('B').width = 20;
   }
 
-  private styleAppointmentsByDateSheet(sheet: ExcelJS.Worksheet, data: any[]) {
+  private styleAppointmentsByDateSheet(sheet: Worksheet, data: any[]) {
     // Header
     const headerRow = sheet.addRow(['Date', 'Appointments', 'Revenue']);
     headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
@@ -157,10 +157,7 @@ export class AnalyticsExportService {
     this.addTableBorders(sheet, data.length + 1);
   }
 
-  private styleAppointmentsByStatusSheet(
-    sheet: ExcelJS.Worksheet,
-    data: any[],
-  ) {
+  private styleAppointmentsByStatusSheet(sheet: Worksheet, data: any[]) {
     // Header
     const headerRow = sheet.addRow(['Status', 'Count', 'Percentage']);
     headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
@@ -192,7 +189,7 @@ export class AnalyticsExportService {
     this.addTableBorders(sheet, data.length + 1);
   }
 
-  private styleRevenueByServiceSheet(sheet: ExcelJS.Worksheet, data: any[]) {
+  private styleRevenueByServiceSheet(sheet: Worksheet, data: any[]) {
     // Header
     const headerRow = sheet.addRow([
       'Service',
@@ -232,7 +229,7 @@ export class AnalyticsExportService {
     this.addTableBorders(sheet, data.length + 1);
   }
 
-  private styleRevenueByStaffSheet(sheet: ExcelJS.Worksheet, data: any[]) {
+  private styleRevenueByStaffSheet(sheet: Worksheet, data: any[]) {
     // Header
     const headerRow = sheet.addRow([
       'Staff Member',
@@ -272,10 +269,7 @@ export class AnalyticsExportService {
     this.addTableBorders(sheet, data.length + 1);
   }
 
-  private styleAppointmentsByTimeSlotSheet(
-    sheet: ExcelJS.Worksheet,
-    data: any[],
-  ) {
+  private styleAppointmentsByTimeSlotSheet(sheet: Worksheet, data: any[]) {
     // Header
     const headerRow = sheet.addRow(['Time Slot', 'Appointments', 'Percentage']);
     headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
@@ -307,7 +301,7 @@ export class AnalyticsExportService {
     this.addTableBorders(sheet, data.length + 1);
   }
 
-  private addTableBorders(sheet: ExcelJS.Worksheet, rowCount: number) {
+  private addTableBorders(sheet: Worksheet, rowCount: number) {
     for (let i = 1; i <= rowCount; i++) {
       const row = sheet.getRow(i);
       row.eachCell((cell) => {
