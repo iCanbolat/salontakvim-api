@@ -106,23 +106,9 @@ export class AppointmentsService {
       }
     }
 
-    // Calculate end time
-    const startDateTime = new Date(dto.startDateTime);
-    const endDateTime = new Date(
-      startDateTime.getTime() + service.duration * 60 * 1000,
-    );
-
-    // Check for conflicts with assigned staff
-    if (assignedStaffId) {
-      await this.checkAppointmentConflicts(
-        assignedStaffId,
-        startDateTime,
-        endDateTime,
-      );
-    }
-
-    // Calculate total price
+    // Calculate total price and extras duration
     let totalPrice = parseFloat(service.price);
+    let extrasDurationMinutes = 0;
 
     // Handle extras (support both 'extras' and 'extrasData' for backward compatibility)
     const extrasToProcess = dto.extrasData || dto.extras || [];
@@ -130,6 +116,7 @@ export class AppointmentsService {
       extraId: number;
       quantity: number;
       price: string;
+      duration: number;
     }> = [];
     if (extrasToProcess.length > 0) {
       for (const extra of extrasToProcess) {
@@ -143,12 +130,30 @@ export class AppointmentsService {
         }
 
         totalPrice += parseFloat(serviceExtra.price) * extra.quantity;
+        extrasDurationMinutes += (serviceExtra.duration || 0) * extra.quantity;
         extrasData.push({
           extraId: extra.extraId,
           quantity: extra.quantity,
           price: serviceExtra.price,
+          duration: serviceExtra.duration || 0,
         });
       }
+    }
+
+    // Calculate end time (service duration + extras duration)
+    const startDateTime = new Date(dto.startDateTime);
+    const totalDurationMinutes = service.duration + extrasDurationMinutes;
+    const endDateTime = new Date(
+      startDateTime.getTime() + totalDurationMinutes * 60 * 1000,
+    );
+
+    // Check for conflicts with assigned staff
+    if (assignedStaffId) {
+      await this.checkAppointmentConflicts(
+        assignedStaffId,
+        startDateTime,
+        endDateTime,
+      );
     }
 
     // Create appointment
@@ -316,11 +321,26 @@ export class AppointmentsService {
         throw new NotFoundException('Service not found');
       }
 
+      // Get existing extras duration for this appointment
+      const appointmentExtras =
+        await this.appointmentExtraRepository.findByAppointmentId(id);
+      let extrasDurationMinutes = 0;
+      for (const extra of appointmentExtras) {
+        const serviceExtra = await this.serviceExtraRepository.findById(
+          extra.extraId,
+        );
+        if (serviceExtra) {
+          extrasDurationMinutes +=
+            (serviceExtra.duration || 0) * extra.quantity;
+        }
+      }
+
       const startDateTime = dto.startDateTime
         ? new Date(dto.startDateTime)
         : appointment.startDateTime;
+      const totalDurationMinutes = service.duration + extrasDurationMinutes;
       const endDateTime = new Date(
-        startDateTime.getTime() + service.duration * 60 * 1000,
+        startDateTime.getTime() + totalDurationMinutes * 60 * 1000,
       );
       const staffId = dto.staffId || appointment.staffId!;
 
@@ -546,6 +566,7 @@ export class AppointmentsService {
     staffId: number,
     date: string,
     locationId?: number,
+    extrasDurationMinutes?: number,
     excludeAppointmentId?: number,
   ) {
     const service = await this.serviceRepository.findByIdAndStoreId(
@@ -574,11 +595,14 @@ export class AppointmentsService {
       }
     }
 
+    const extraDuration = extrasDurationMinutes ?? 0;
+    const totalServiceDuration = service.duration + extraDuration;
+
     const slots = await this.availabilityService.getAvailableSlots(
       staffId,
       serviceId,
       date,
-      service.duration,
+      totalServiceDuration,
       service.bufferTimeBefore || 0,
       service.bufferTimeAfter || 0,
       excludeAppointmentId,
@@ -590,6 +614,7 @@ export class AppointmentsService {
       staffId,
       locationId,
       slots,
+      extrasDurationMinutes: extraDuration,
     };
   }
 

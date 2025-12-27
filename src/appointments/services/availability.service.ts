@@ -61,6 +61,8 @@ export class AvailabilityService {
     const allSlots: TimeSlotDto[] = [];
     const slotInterval = 15; // 15-minute intervals
     const totalDuration = serviceDuration + bufferBefore + bufferAfter;
+    const roundedDuration =
+      Math.ceil(totalDuration / slotInterval) * slotInterval;
 
     for (const workingHour of workingHours) {
       if (!workingHour.isActive) continue;
@@ -73,7 +75,7 @@ export class AvailabilityService {
       while (currentTime < workEnd) {
         const slotStart = new Date(currentTime);
         const slotEnd = new Date(
-          currentTime.getTime() + totalDuration * 60 * 1000,
+          currentTime.getTime() + roundedDuration * 60 * 1000,
         );
 
         // Check if slot fits within working hours

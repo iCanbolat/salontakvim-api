@@ -1,4 +1,10 @@
-import { IsInt, IsDateString, IsOptional, IsPositive } from 'class-validator';
+import {
+  IsInt,
+  IsDateString,
+  IsOptional,
+  IsPositive,
+  Min,
+} from 'class-validator';
 
 export class GetAvailabilityDto {
   @IsInt()
@@ -16,4 +22,9 @@ export class GetAvailabilityDto {
   @IsPositive()
   @IsOptional()
   locationId?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  extrasDurationMinutes?: number;
 }

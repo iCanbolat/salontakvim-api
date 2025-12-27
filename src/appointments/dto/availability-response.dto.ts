@@ -28,5 +28,8 @@ export class AvailabilityResponseDto {
   locationId?: number;
 
   @Expose()
+  extrasDurationMinutes?: number;
+
+  @Expose()
   slots: TimeSlotDto[];
 }

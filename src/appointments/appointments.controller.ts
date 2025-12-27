@@ -188,9 +188,13 @@ export class AppointmentsController {
     @Query('staffId', ParseIntPipe) staffId: number,
     @Query('date') date: string,
     @Query('locationId') locationId?: string,
+    @Query('extrasDurationMinutes') extrasDurationMinutes?: string,
     @Query('excludeAppointmentId') excludeAppointmentId?: string,
   ) {
     const locationIdNum = locationId ? parseInt(locationId) : undefined;
+    const extrasDurationNum = extrasDurationMinutes
+      ? parseInt(extrasDurationMinutes)
+      : undefined;
     const excludeAppointmentIdNum = excludeAppointmentId
       ? parseInt(excludeAppointmentId)
       : undefined;
@@ -200,6 +204,7 @@ export class AppointmentsController {
       staffId,
       date,
       locationIdNum,
+      extrasDurationNum,
       excludeAppointmentIdNum,
     );
   }
