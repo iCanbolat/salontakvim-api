@@ -5,8 +5,11 @@ import {
   Param,
   ParseIntPipe,
   UseGuards,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { AnalyticsService } from './services/analytics.service';
+import { AnalyticsExportService } from './services/analytics-export.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -16,7 +19,10 @@ import { AnalyticsQueryDto } from './dto';
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AnalyticsController {
-  constructor(private readonly analyticsService: AnalyticsService) {}
+  constructor(
+    private readonly analyticsService: AnalyticsService,
+    private readonly analyticsExportService: AnalyticsExportService,
+  ) {}
 
   @Get('stores/:storeId/analytics/dashboard')
   @Roles('admin', 'staff')
@@ -80,5 +86,29 @@ export class AnalyticsController {
     @Query() query: AnalyticsQueryDto,
   ) {
     return this.analyticsService.getServiceAnalytics(storeId, userId, query);
+  }
+
+  @Get('stores/:storeId/analytics/export')
+  @Roles('admin')
+  async exportAnalytics(
+    @Param('storeId', ParseIntPipe) storeId: number,
+    @CurrentUser('sub') userId: number,
+    @Query() query: AnalyticsQueryDto,
+    @Res() res: Response,
+  ) {
+    const buffer = await this.analyticsExportService.exportToExcel(
+      storeId,
+      userId,
+      query,
+    );
+
+    const filename = `analytics-report-${new Date().toISOString().split('T')[0]}.xlsx`;
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
   }
 }
