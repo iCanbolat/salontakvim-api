@@ -109,7 +109,7 @@ export class StaffService {
   async getStaffMembers(
     storeId: string,
     includeHidden = false,
-    filters?: { serviceId?: string; locationId?: string },
+    filters?: { serviceId?: string; locationId?: string; search?: string },
   ) {
     const staffList = includeHidden
       ? await this.staffMemberRepository.findByStoreId(storeId)
@@ -133,7 +133,25 @@ export class StaffService {
       filtered = filtered.filter((member) => allowedStaffIds.has(member.id));
     }
 
-    return await this.hydrateStaffList(storeId, filtered);
+    const hydrated = await this.hydrateStaffList(storeId, filtered);
+
+    const searchTerm = filters?.search?.trim().toLowerCase();
+    if (!searchTerm) {
+      return hydrated;
+    }
+
+    return hydrated.filter((member) => {
+      const haystacks = [
+        member.fullName,
+        member.email,
+        member.title,
+        member.locationName,
+      ]
+        .filter((value): value is string => Boolean(value))
+        .map((value) => value.toLowerCase());
+
+      return haystacks.some((value) => value.includes(searchTerm));
+    });
   }
 
   async getStaffMember(storeId: string, staffId: string) {

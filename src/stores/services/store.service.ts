@@ -220,9 +220,9 @@ export class StoreService {
   }
 
   // Customers endpoint - get unique customers from appointments
-  async getCustomers(storeId: string, userId: string) {
+  async getCustomers(storeId: string, userId: string, search?: string) {
     await this.verifyStoreOwnership(storeId, userId);
-    return this.storeRepository.getCustomers(storeId);
+    return this.storeRepository.getCustomers(storeId, search);
   }
 
   // Get customer profile with stats

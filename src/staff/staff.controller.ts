@@ -98,12 +98,14 @@ export class StaffController {
     @Query('includeHidden') includeHidden?: string,
     @Query('serviceId') serviceId?: string,
     @Query('locationId') locationId?: string,
+    @Query('search') search?: string,
   ) {
     const includeHiddenBool = includeHidden === 'true';
 
     return await this.staffService.getStaffMembers(storeId, includeHiddenBool, {
       serviceId: serviceId,
       locationId: locationId,
+      search,
     });
   }
 

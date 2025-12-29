@@ -175,8 +175,11 @@ export class StoreRepository implements IStoreRepository {
     return updatedStore;
   }
 
-  async getCustomers(storeId: string) {
-    const customers = await this.db
+  async getCustomers(storeId: string, search?: string) {
+    const searchTerm = search?.trim().toLowerCase();
+    const likeTerm = searchTerm ? `%${searchTerm}%` : null;
+
+    let query = this.db
       .select({
         id: schema.users.id,
         publicNumber: schema.storeCustomers.publicNumber,
@@ -208,7 +211,20 @@ export class StoreRepository implements IStoreRepository {
           eq(schema.storeCustomers.storeId, storeId),
           eq(schema.storeCustomers.customerId, schema.users.id),
         ),
-      )
+      );
+
+    if (searchTerm && likeTerm) {
+      query = query.where(
+        sql`(
+          LOWER(CONCAT_WS(' ', ${schema.users.firstName}, ${schema.users.lastName})) LIKE ${likeTerm}
+          OR LOWER(COALESCE(${schema.users.email}, '')) LIKE ${likeTerm}
+          OR LOWER(COALESCE(${schema.users.phone}, '')) LIKE ${likeTerm}
+          OR LOWER(COALESCE(${schema.storeCustomers.publicNumber}, '')) LIKE ${likeTerm}
+        )`,
+      );
+    }
+
+    return query
       .groupBy(
         schema.users.id,
         schema.storeCustomers.publicNumber,
@@ -221,8 +237,6 @@ export class StoreRepository implements IStoreRepository {
         schema.users.updatedAt,
       )
       .orderBy(sql`MAX(${schema.appointments.startDateTime}) DESC`);
-
-    return customers;
   }
 
   async getCustomerProfile(storeId: string, customerId: string) {

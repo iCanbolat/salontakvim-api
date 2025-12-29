@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   HttpCode,
   HttpStatus,
+  Query,
 } from '@nestjs/common';
 import { StoreService } from './services/store.service';
 import { CreateStoreDto, UpdateStoreDto, StoreResponseDto } from './dto';
@@ -98,8 +99,9 @@ export class StoreController {
   async getCustomers(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @CurrentUser() user: JwtPayload,
+    @Query('search') search?: string,
   ) {
-    return this.storeService.getCustomers(storeId, user.sub);
+    return this.storeService.getCustomers(storeId, user.sub, search);
   }
 
   @Get(':storeId/customers/:customerId')
