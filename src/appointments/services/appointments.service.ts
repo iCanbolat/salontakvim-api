@@ -31,10 +31,10 @@ import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 
 type AppointmentResponseCacheBundle = {
-  userNames: Map<number, string | null>;
-  serviceNames: Map<number, string | null>;
-  staffNames: Map<number, string | null>;
-  locationNames: Map<number, string | null>;
+  userNames: Map<string, string | null>;
+  serviceNames: Map<string, string | null>;
+  staffNames: Map<string, string | null>;
+  locationNames: Map<string, string | null>;
 };
 
 type PaginatedAppointmentsResult = {
@@ -65,8 +65,8 @@ export class AppointmentsService {
   // ============= Customer Appointments =============
 
   async createAppointment(
-    storeId: number,
-    customerId: number,
+    storeId: string,
+    customerId: string,
     dto: CreateAppointmentDto,
   ): Promise<AppointmentResponseDto> {
     // Validate service exists and belongs to store
@@ -110,10 +110,13 @@ export class AppointmentsService {
     let totalPrice = parseFloat(service.price);
     let extrasDurationMinutes = 0;
 
+    // Ensure customer has a store-scoped public number
+    await this.storeRepository.ensureStoreCustomer(storeId, customerId);
+
     // Handle extras (support both 'extras' and 'extrasData' for backward compatibility)
     const extrasToProcess = dto.extrasData || dto.extras || [];
     const extrasData: Array<{
-      extraId: number;
+      extraId: string;
       quantity: number;
       price: string;
       duration: number;
@@ -191,7 +194,10 @@ export class AppointmentsService {
       'Yeni Randevu',
       `${service.name} için yeni bir randevu oluşturuldu.`,
       'appointment_created',
-      { appointmentId: appointment.id },
+      {
+        appointmentId: appointment.id,
+        publicNumber: appointment.publicNumber,
+      },
     );
 
     await this.activitiesService.recordActivity(
@@ -217,7 +223,7 @@ export class AppointmentsService {
   }
 
   async createGuestAppointment(
-    storeId: number,
+    storeId: string,
     dto: CreateGuestAppointmentDto,
   ): Promise<AppointmentResponseDto> {
     if (!dto.guestEmail || !dto.guestFirstName) {
@@ -260,12 +266,14 @@ export class AppointmentsService {
       );
     }
 
+    await this.storeRepository.ensureStoreCustomer(storeId, customer.id);
+
     // Create appointment as authenticated user
     return await this.createAppointment(storeId, customer.id, dto);
   }
 
   async getMyAppointments(
-    customerId: number,
+    customerId: string,
   ): Promise<AppointmentResponseDto[]> {
     const appointments =
       await this.appointmentRepository.findByCustomerId(customerId);
@@ -275,8 +283,8 @@ export class AppointmentsService {
   }
 
   async getAppointmentById(
-    id: number,
-    storeId: number,
+    id: string,
+    storeId: string,
   ): Promise<AppointmentResponseDto> {
     const appointment = await this.appointmentRepository.findByIdAndStoreId(
       id,
@@ -292,8 +300,8 @@ export class AppointmentsService {
   }
 
   async updateAppointment(
-    id: number,
-    storeId: number,
+    id: string,
+    storeId: string,
     dto: UpdateAppointmentDto,
   ): Promise<AppointmentResponseDto> {
     const appointment = await this.appointmentRepository.findByIdAndStoreId(
@@ -368,6 +376,7 @@ export class AppointmentsService {
         'appointment_status_changed',
         {
           appointmentId: id,
+          publicNumber: appointment.publicNumber,
           oldStatus: appointment.status,
           newStatus: updated.status,
         },
@@ -388,8 +397,8 @@ export class AppointmentsService {
   }
 
   async updateAppointmentStatus(
-    id: number,
-    storeId: number,
+    id: string,
+    storeId: string,
     dto: UpdateAppointmentStatusDto,
   ): Promise<AppointmentResponseDto> {
     const appointment = await this.appointmentRepository.findByIdAndStoreId(
@@ -424,6 +433,7 @@ export class AppointmentsService {
         'appointment_status_changed',
         {
           appointmentId: id,
+          publicNumber: appointment.publicNumber,
           oldStatus: previousStatus,
           newStatus: updated.status,
         },
@@ -445,8 +455,8 @@ export class AppointmentsService {
   }
 
   async cancelAppointment(
-    id: number,
-    customerId: number,
+    id: string,
+    customerId: string,
     reason?: string,
   ): Promise<AppointmentResponseDto> {
     const appointment = await this.appointmentRepository.findById(id);
@@ -485,7 +495,11 @@ export class AppointmentsService {
       'Randevu İptal Edildi',
       'Müşteri tarafından randevu iptal edildi.',
       'appointment_cancelled',
-      { appointmentId: id, reason },
+      {
+        appointmentId: id,
+        publicNumber: appointment.publicNumber,
+        reason,
+      },
     );
 
     await this.activitiesService.recordActivity(
@@ -505,7 +519,7 @@ export class AppointmentsService {
   // ============= Admin/Staff Appointments =============
 
   async getStoreAppointments(
-    storeId: number,
+    storeId: string,
     filters: GetStoreAppointmentsDto = new GetStoreAppointmentsDto(),
   ): Promise<PaginatedAppointmentsResult> {
     const normalizedFilters = filters;
@@ -545,7 +559,7 @@ export class AppointmentsService {
     };
   }
 
-  async deleteAppointment(id: number, storeId: number): Promise<void> {
+  async deleteAppointment(id: string, storeId: string): Promise<void> {
     const appointment = await this.appointmentRepository.findByIdAndStoreId(
       id,
       storeId,
@@ -561,13 +575,13 @@ export class AppointmentsService {
   // ============= Availability =============
 
   async getAvailability(
-    storeId: number,
-    serviceId: number,
-    staffId: number,
+    storeId: string,
+    serviceId: string,
+    staffId: string,
     date: string,
-    locationId?: number,
+    locationId?: string,
     extrasDurationMinutes?: number,
-    excludeAppointmentId?: number,
+    excludeAppointmentId?: string,
   ) {
     const service = await this.serviceRepository.findByIdAndStoreId(
       serviceId,
@@ -621,21 +635,21 @@ export class AppointmentsService {
   // ============= Private Helper Methods =============
 
   private async notifyStaffAndAdmin(
-    storeId: number,
-    staffId: number | null | undefined,
+    storeId: string,
+    staffId: string | null | undefined,
     title: string,
     message: string,
     type: string,
     metadata?: Record<string, any>,
   ) {
-    const appointmentUrl = metadata?.appointmentId
-      ? `/admin/appointments?search=${metadata.appointmentId}`
+    const appointmentUrl = metadata?.publicNumber
+      ? `/admin/appointments?search=${metadata.publicNumber}`
       : undefined;
     const enrichedMetadata = appointmentUrl
       ? { ...metadata, url: appointmentUrl }
       : metadata;
 
-    let staffUserId: number | null = null;
+    let staffUserId: string | null = null;
 
     if (staffId) {
       const staff = await this.staffMemberRepository.findById(staffId);
@@ -666,10 +680,10 @@ export class AppointmentsService {
   }
 
   private async checkAppointmentConflicts(
-    staffId: number,
+    staffId: string,
     startDateTime: Date,
     endDateTime: Date,
-    excludeAppointmentId?: number,
+    excludeAppointmentId?: string,
   ): Promise<void> {
     const overlapping =
       await this.appointmentRepository.findOverlappingAppointments(
@@ -688,10 +702,10 @@ export class AppointmentsService {
 
   private createAppointmentCacheBundle(): AppointmentResponseCacheBundle {
     return {
-      userNames: new Map<number, string | null>(),
-      serviceNames: new Map<number, string | null>(),
-      staffNames: new Map<number, string | null>(),
-      locationNames: new Map<number, string | null>(),
+      userNames: new Map<string, string | null>(),
+      serviceNames: new Map<string, string | null>(),
+      staffNames: new Map<string, string | null>(),
+      locationNames: new Map<string, string | null>(),
     };
   }
 
@@ -744,8 +758,8 @@ export class AppointmentsService {
   }
 
   private async resolveServiceName(
-    serviceId?: number | null,
-    cache?: Map<number, string | null>,
+    serviceId?: string | null,
+    cache?: Map<string, string | null>,
   ): Promise<string | undefined> {
     if (!serviceId) {
       return undefined;
@@ -764,9 +778,9 @@ export class AppointmentsService {
   }
 
   private async resolveStaffName(
-    staffId?: number | null,
-    staffCache?: Map<number, string | null>,
-    userCache?: Map<number, string | null>,
+    staffId?: string | null,
+    staffCache?: Map<string, string | null>,
+    userCache?: Map<string, string | null>,
   ): Promise<string | undefined> {
     if (!staffId) {
       return undefined;
@@ -789,8 +803,8 @@ export class AppointmentsService {
   }
 
   private async resolveLocationName(
-    locationId?: number | null,
-    cache?: Map<number, string | null>,
+    locationId?: string | null,
+    cache?: Map<string, string | null>,
   ): Promise<string | undefined> {
     if (!locationId) {
       return undefined;
@@ -808,8 +822,8 @@ export class AppointmentsService {
   }
 
   private async resolveUserName(
-    userId?: number | null,
-    cache?: Map<number, string | null>,
+    userId?: string | null,
+    cache?: Map<string, string | null>,
   ): Promise<string | undefined> {
     if (!userId) {
       return undefined;

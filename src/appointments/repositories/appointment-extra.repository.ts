@@ -32,7 +32,7 @@ export class AppointmentExtraRepository {
   }
 
   async findByAppointmentId(
-    appointmentId: number,
+    appointmentId: string,
   ): Promise<AppointmentExtra[]> {
     return await this.db
       .select()
@@ -40,7 +40,7 @@ export class AppointmentExtraRepository {
       .where(eq(schema.appointmentExtras.appointmentId, appointmentId));
   }
 
-  async deleteByAppointmentId(appointmentId: number): Promise<void> {
+  async deleteByAppointmentId(appointmentId: string): Promise<void> {
     await this.db
       .delete(schema.appointmentExtras)
       .where(eq(schema.appointmentExtras.appointmentId, appointmentId));

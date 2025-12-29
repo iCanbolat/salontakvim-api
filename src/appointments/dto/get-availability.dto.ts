@@ -1,27 +1,18 @@
-import {
-  IsInt,
-  IsDateString,
-  IsOptional,
-  IsPositive,
-  Min,
-} from 'class-validator';
+import { IsInt, IsDateString, IsOptional, Min, IsUUID } from 'class-validator';
 
 export class GetAvailabilityDto {
-  @IsInt()
-  @IsPositive()
-  serviceId: number;
+  @IsUUID()
+  serviceId: string;
 
-  @IsInt()
-  @IsPositive()
-  staffId: number;
+  @IsUUID()
+  staffId: string;
 
   @IsDateString()
   date: string; // Format: YYYY-MM-DD
 
-  @IsInt()
-  @IsPositive()
+  @IsUUID()
   @IsOptional()
-  locationId?: number;
+  locationId?: string;
 
   @IsOptional()
   @IsInt()

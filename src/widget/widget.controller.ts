@@ -5,7 +5,7 @@ import {
   Post,
   Param,
   Body,
-  ParseIntPipe,
+  ParseUUIDPipe,
   UseGuards,
   Query,
 } from '@nestjs/common';
@@ -30,14 +30,14 @@ export class WidgetController {
 
   @Get('stores/:storeId/widget-settings')
   @Roles('admin')
-  async getWidgetSettings(@Param('storeId', ParseIntPipe) storeId: number) {
+  async getWidgetSettings(@Param('storeId', ParseUUIDPipe) storeId: string) {
     return await this.widgetService.getWidgetSettings(storeId);
   }
 
   @Patch('stores/:storeId/widget-settings')
   @Roles('admin')
   async updateWidgetSettings(
-    @Param('storeId', ParseIntPipe) storeId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
     @Body() dto: UpdateWidgetSettingsDto,
   ) {
     return await this.widgetService.updateWidgetSettings(storeId, dto);
@@ -45,13 +45,13 @@ export class WidgetController {
 
   @Post('stores/:storeId/widget-settings/regenerate-key')
   @Roles('admin')
-  async regenerateWidgetKey(@Param('storeId', ParseIntPipe) storeId: number) {
+  async regenerateWidgetKey(@Param('storeId', ParseUUIDPipe) storeId: string) {
     return await this.widgetService.regenerateWidgetKey(storeId);
   }
 
   @Get('stores/:storeId/widget-settings/embed-code')
   @Roles('admin')
-  async getEmbedCode(@Param('storeId', ParseIntPipe) storeId: number) {
+  async getEmbedCode(@Param('storeId', ParseUUIDPipe) storeId: string) {
     return await this.widgetService.getEmbedCode(storeId);
   }
 
@@ -69,15 +69,14 @@ export class WidgetController {
     @Param('widgetKey') widgetKey: string,
     @Query('locationId') locationId?: string,
   ) {
-    const locationIdNum = locationId ? parseInt(locationId) : undefined;
-    return await this.widgetService.getWidgetServices(widgetKey, locationIdNum);
+    return await this.widgetService.getWidgetServices(widgetKey, locationId);
   }
 
   @Get('public/widget/:widgetKey/services/:serviceId/extras')
   @Public()
   async getWidgetServiceExtras(
     @Param('widgetKey') widgetKey: string,
-    @Param('serviceId', ParseIntPipe) serviceId: number,
+    @Param('serviceId', ParseUUIDPipe) serviceId: string,
   ) {
     return await this.widgetService.getWidgetServiceExtras(
       widgetKey,
@@ -98,11 +97,9 @@ export class WidgetController {
     @Query('serviceId') serviceId?: string,
     @Query('locationId') locationId?: string,
   ) {
-    const serviceIdNum = serviceId ? parseInt(serviceId) : undefined;
-    const locationIdNum = locationId ? parseInt(locationId) : undefined;
     return await this.widgetService.getWidgetStaff(widgetKey, {
-      serviceId: serviceIdNum,
-      locationId: locationIdNum,
+      serviceId: serviceId,
+      locationId: locationId,
     });
   }
 
@@ -110,13 +107,11 @@ export class WidgetController {
   @Public()
   async getWidgetAvailability(
     @Param('widgetKey') widgetKey: string,
-    @Query('serviceId', ParseIntPipe) serviceId: number,
-    @Query('staffId', ParseIntPipe) staffId: number,
+    @Query('serviceId', ParseUUIDPipe) serviceId: string,
+    @Query('staffId', ParseUUIDPipe) staffId: string,
     @Query('date') date: string,
     @Query('locationId') locationId?: string,
   ) {
-    const locationIdNum = locationId ? parseInt(locationId) : undefined;
-
     const widgetSettings = await this.widgetService.getWidgetConfig(widgetKey);
     const storeId = widgetSettings.store.id;
 
@@ -125,7 +120,7 @@ export class WidgetController {
       serviceId,
       staffId,
       date,
-      locationIdNum,
+      locationId,
     );
   }
 

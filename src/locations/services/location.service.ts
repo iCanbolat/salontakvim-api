@@ -16,8 +16,8 @@ export class LocationService {
   ) {}
 
   async create(
-    storeId: number,
-    userId: number,
+    storeId: string,
+    userId: string,
     createLocationDto: CreateLocationDto,
   ): Promise<LocationResponseDto> {
     // Verify store ownership
@@ -34,8 +34,8 @@ export class LocationService {
   }
 
   async findAll(
-    storeId: number,
-    userId: number,
+    storeId: string,
+    userId: string,
   ): Promise<LocationResponseDto[]> {
     // Verify store access
     await this.storeService.validateStoreExists(storeId);
@@ -47,7 +47,7 @@ export class LocationService {
     });
   }
 
-  async findVisible(storeId: number): Promise<LocationResponseDto[]> {
+  async findVisible(storeId: string): Promise<LocationResponseDto[]> {
     // Public endpoint - no auth required
     await this.storeService.validateStoreExists(storeId);
 
@@ -60,9 +60,9 @@ export class LocationService {
   }
 
   async findOne(
-    storeId: number,
-    locationId: number,
-    userId: number,
+    storeId: string,
+    locationId: string,
+    userId: string,
   ): Promise<LocationResponseDto> {
     // Verify store access
     await this.storeService.validateStoreExists(storeId);
@@ -84,9 +84,9 @@ export class LocationService {
   }
 
   async update(
-    storeId: number,
-    locationId: number,
-    userId: number,
+    storeId: string,
+    locationId: string,
+    userId: string,
     updateLocationDto: UpdateLocationDto,
   ): Promise<LocationResponseDto> {
     // Verify store ownership
@@ -115,9 +115,9 @@ export class LocationService {
   }
 
   async remove(
-    storeId: number,
-    locationId: number,
-    userId: number,
+    storeId: string,
+    locationId: string,
+    userId: string,
   ): Promise<void> {
     // Verify store ownership
     await this.storeService.verifyStoreOwnership(storeId, userId);
@@ -139,8 +139,8 @@ export class LocationService {
 
   // Helper method for other modules to validate location exists in store
   async validateLocationInStore(
-    locationId: number,
-    storeId: number,
+    locationId: string,
+    storeId: string,
   ): Promise<void> {
     const location = await this.locationRepository.findByIdAndStoreId(
       locationId,

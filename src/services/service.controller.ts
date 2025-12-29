@@ -6,7 +6,7 @@ import {
   Delete,
   Body,
   Param,
-  ParseIntPipe,
+  ParseUUIDPipe,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -33,7 +33,7 @@ export class ServiceController {
   @Roles('admin', 'staff')
   @HttpCode(HttpStatus.CREATED)
   async create(
-    @Param('storeId', ParseIntPipe) storeId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
     @CurrentUser() user: JwtPayload,
     @Body() createServiceDto: CreateServiceDto,
   ): Promise<ServiceResponseDto> {
@@ -43,7 +43,7 @@ export class ServiceController {
   @Get()
   @Roles('admin', 'staff')
   async findAll(
-    @Param('storeId', ParseIntPipe) storeId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
     @CurrentUser() user: JwtPayload,
   ): Promise<ServiceResponseDto[]> {
     return this.serviceService.findAll(storeId, user.sub);
@@ -52,7 +52,7 @@ export class ServiceController {
   @Get('visible')
   @Public()
   async findVisible(
-    @Param('storeId', ParseIntPipe) storeId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
   ): Promise<ServiceResponseDto[]> {
     return this.serviceService.findVisible(storeId);
   }
@@ -60,8 +60,8 @@ export class ServiceController {
   @Get(':id')
   @Roles('admin', 'staff')
   async findOne(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @Param('id', ParseIntPipe) id: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
   ): Promise<ServiceResponseDto> {
     return this.serviceService.findOne(storeId, id, user.sub);
@@ -70,8 +70,8 @@ export class ServiceController {
   @Patch(':id')
   @Roles('admin', 'staff')
   async update(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @Param('id', ParseIntPipe) id: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
     @Body() updateServiceDto: UpdateServiceDto,
   ): Promise<ServiceResponseDto> {
@@ -82,8 +82,8 @@ export class ServiceController {
   @Roles('admin', 'staff')
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @Param('id', ParseIntPipe) id: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
   ): Promise<void> {
     return this.serviceService.remove(storeId, id, user.sub);
@@ -94,8 +94,8 @@ export class ServiceController {
   @Roles('admin', 'staff')
   @HttpCode(HttpStatus.CREATED)
   async createExtra(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @Param('id', ParseIntPipe) serviceId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('id', ParseUUIDPipe) serviceId: string,
     @CurrentUser() user: JwtPayload,
     @Body() createExtraDto: CreateServiceExtraDto,
   ): Promise<ServiceExtraResponseDto> {
@@ -110,8 +110,8 @@ export class ServiceController {
   @Get(':id/extras')
   @Roles('admin', 'staff')
   async findAllExtras(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @Param('id', ParseIntPipe) serviceId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('id', ParseUUIDPipe) serviceId: string,
     @CurrentUser() user: JwtPayload,
   ): Promise<ServiceExtraResponseDto[]> {
     return this.serviceService.findAllExtras(storeId, serviceId, user.sub);
@@ -120,9 +120,9 @@ export class ServiceController {
   @Patch(':id/extras/:extraId')
   @Roles('admin', 'staff')
   async updateExtra(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @Param('id', ParseIntPipe) serviceId: number,
-    @Param('extraId', ParseIntPipe) extraId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('id', ParseUUIDPipe) serviceId: string,
+    @Param('extraId', ParseUUIDPipe) extraId: string,
     @CurrentUser() user: JwtPayload,
     @Body() updateExtraDto: UpdateServiceExtraDto,
   ): Promise<ServiceExtraResponseDto> {
@@ -139,9 +139,9 @@ export class ServiceController {
   @Roles('admin', 'staff')
   @HttpCode(HttpStatus.NO_CONTENT)
   async removeExtra(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @Param('id', ParseIntPipe) serviceId: number,
-    @Param('extraId', ParseIntPipe) extraId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('id', ParseUUIDPipe) serviceId: string,
+    @Param('extraId', ParseUUIDPipe) extraId: string,
     @CurrentUser() user: JwtPayload,
   ): Promise<void> {
     return this.serviceService.removeExtra(

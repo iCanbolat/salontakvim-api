@@ -11,7 +11,7 @@ export class ActivitiesService {
   ) {}
 
   async recordActivity(
-    storeId: number,
+    storeId: string,
     type: ActivityType,
     message: string,
     metadata?: Record<string, any>,
@@ -27,7 +27,7 @@ export class ActivitiesService {
     return activity;
   }
 
-  async getRecentActivities(storeId: number, limit = 20) {
+  async getRecentActivities(storeId: string, limit = 20) {
     return this.activityRepository.findRecentByStoreId(storeId, limit);
   }
 }

@@ -18,13 +18,13 @@ export class AvailabilityService {
   ) {}
 
   async getAvailableSlots(
-    staffId: number,
-    serviceId: number,
+    staffId: string,
+    serviceId: string,
     date: string, // YYYY-MM-DD
     serviceDuration: number, // in minutes
     bufferBefore: number = 0,
     bufferAfter: number = 0,
-    excludeAppointmentId?: number,
+    excludeAppointmentId?: string,
   ): Promise<TimeSlotDto[]> {
     const targetDate = new Date(date);
     const dayOfWeek = this.getDayOfWeek(targetDate);
@@ -111,13 +111,13 @@ export class AvailabilityService {
     return allSlots;
   }
 
-  private async getWorkingHoursForDay(staffId: number, dayOfWeek: string) {
+  private async getWorkingHoursForDay(staffId: string, dayOfWeek: string) {
     const allWorkingHours =
       await this.staffWorkingHoursRepository.findActiveByStaffId(staffId);
     return allWorkingHours.filter((wh) => wh.dayOfWeek === dayOfWeek);
   }
 
-  private async getBreaksForDate(staffId: number, date: string) {
+  private async getBreaksForDate(staffId: string, date: string) {
     // Get breaks that overlap with the target date
     return await this.staffBreakRepository.findByStaffIdAndDateRange(
       staffId,

@@ -27,11 +27,11 @@ export class StaffScheduleService {
     private readonly notificationService: NotificationService,
   ) {}
 
-  async getStaffByUserId(userId: number) {
+  async getStaffByUserId(userId: string) {
     return await this.staffMemberRepository.findByUserId(userId);
   }
 
-  private async getStaffMember(storeId: number, staffId: number) {
+  private async getStaffMember(storeId: string, staffId: string) {
     const staff = await this.staffMemberRepository.findByIdAndStoreId(
       staffId,
       storeId,
@@ -47,8 +47,8 @@ export class StaffScheduleService {
   // ============= Working Hours =============
 
   async createWorkingHours(
-    storeId: number,
-    staffId: number,
+    storeId: string,
+    staffId: string,
     dto: CreateWorkingHoursDto,
   ) {
     const staff = await this.getStaffMember(storeId, staffId);
@@ -59,15 +59,15 @@ export class StaffScheduleService {
     });
   }
 
-  async getWorkingHours(storeId: number, staffId: number) {
+  async getWorkingHours(storeId: string, staffId: string) {
     const staff = await this.getStaffMember(storeId, staffId);
     return await this.staffWorkingHoursRepository.findByStaffId(staff.id);
   }
 
   async updateWorkingHours(
-    storeId: number,
-    staffId: number,
-    workingHoursId: number,
+    storeId: string,
+    staffId: string,
+    workingHoursId: string,
     dto: UpdateWorkingHoursDto,
   ) {
     const staff = await this.getStaffMember(storeId, staffId);
@@ -86,9 +86,9 @@ export class StaffScheduleService {
   }
 
   async deleteWorkingHours(
-    storeId: number,
-    staffId: number,
-    workingHoursId: number,
+    storeId: string,
+    staffId: string,
+    workingHoursId: string,
   ) {
     const staff = await this.getStaffMember(storeId, staffId);
 
@@ -108,8 +108,8 @@ export class StaffScheduleService {
   // ============= Breaks & Time Off =============
 
   async createStaffBreak(
-    storeId: number,
-    staffId: number,
+    storeId: string,
+    staffId: string,
     dto: CreateStaffBreakDto,
   ) {
     const staff = await this.getStaffMember(storeId, staffId);
@@ -180,12 +180,12 @@ export class StaffScheduleService {
     return createdBreak;
   }
 
-  async getStaffBreaks(storeId: number, staffId: number) {
+  async getStaffBreaks(storeId: string, staffId: string) {
     const staff = await this.getStaffMember(storeId, staffId);
     return await this.staffBreakRepository.findByStaffId(staff.id);
   }
 
-  async getStaffBreak(storeId: number, staffId: number, breakId: number) {
+  async getStaffBreak(storeId: string, staffId: string, breakId: string) {
     const staff = await this.getStaffMember(storeId, staffId);
     const staffBreak = await this.staffBreakRepository.findByIdAndStaffId(
       breakId,
@@ -198,9 +198,9 @@ export class StaffScheduleService {
   }
 
   async updateStaffBreak(
-    storeId: number,
-    staffId: number,
-    breakId: number,
+    storeId: string,
+    staffId: string,
+    breakId: string,
     dto: UpdateStaffBreakDto,
   ) {
     const staff = await this.getStaffMember(storeId, staffId);
@@ -244,14 +244,14 @@ export class StaffScheduleService {
     return await this.staffBreakRepository.update(breakId, dto);
   }
 
-  async getStoreBreaks(storeId: number, status?: StaffBreakStatus) {
+  async getStoreBreaks(storeId: string, status?: StaffBreakStatus) {
     return await this.staffBreakRepository.findByStoreIdWithStaff(
       storeId,
       status,
     );
   }
 
-  async deleteStaffBreak(storeId: number, staffId: number, breakId: number) {
+  async deleteStaffBreak(storeId: string, staffId: string, breakId: string) {
     const staff = await this.getStaffMember(storeId, staffId);
 
     const staffBreak = await this.staffBreakRepository.findByIdAndStaffId(

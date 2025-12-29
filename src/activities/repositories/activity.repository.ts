@@ -20,7 +20,7 @@ export class ActivityRepository {
     return activity;
   }
 
-  async findRecentByStoreId(storeId: number, limit = 20): Promise<Activity[]> {
+  async findRecentByStoreId(storeId: string, limit = 20): Promise<Activity[]> {
     return this.db
       .select()
       .from(schema.activities)

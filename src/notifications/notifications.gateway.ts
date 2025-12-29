@@ -80,15 +80,15 @@ export class NotificationsGateway
     }
   }
 
-  sendToUser(userId: number, event: string, data: unknown) {
+  sendToUser(userId: string, event: string, data: unknown) {
     this.server.to(`user_${userId}`).emit(event, data);
   }
 
-  sendToStore(storeId: number, event: string, data: unknown) {
+  sendToStore(storeId: string, event: string, data: unknown) {
     this.server.to(`store_${storeId}`).emit(event, data);
   }
 
-  private async resolveStoreIds(userId: number, role?: string) {
+  private async resolveStoreIds(userId: string, role?: string) {
     if (role === 'admin') {
       const store = await this.storeRepository.findByOwnerId(userId);
       return store ? [store.id] : [];

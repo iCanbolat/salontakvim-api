@@ -3,7 +3,7 @@ import {
   Get,
   Query,
   Param,
-  ParseIntPipe,
+  ParseUUIDPipe,
   UseGuards,
   Res,
 } from '@nestjs/common';
@@ -27,8 +27,8 @@ export class AnalyticsController {
   @Get('stores/:storeId/analytics/dashboard')
   @Roles('admin', 'staff')
   async getDashboard(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @CurrentUser('sub') userId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @CurrentUser('sub') userId: string,
     @Query() query: AnalyticsQueryDto,
   ) {
     return this.analyticsService.getDashboard(storeId, userId, query);
@@ -37,8 +37,8 @@ export class AnalyticsController {
   @Get('stores/:storeId/analytics/appointments')
   @Roles('admin', 'staff')
   async getAppointmentAnalytics(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @CurrentUser('sub') userId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @CurrentUser('sub') userId: string,
     @Query() query: AnalyticsQueryDto,
   ) {
     return this.analyticsService.getAppointmentAnalytics(
@@ -51,8 +51,8 @@ export class AnalyticsController {
   @Get('stores/:storeId/analytics/revenue')
   @Roles('admin', 'staff')
   async getRevenueAnalytics(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @CurrentUser('sub') userId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @CurrentUser('sub') userId: string,
     @Query() query: AnalyticsQueryDto,
   ) {
     return this.analyticsService.getRevenueAnalytics(storeId, userId, query);
@@ -61,8 +61,8 @@ export class AnalyticsController {
   @Get('stores/:storeId/analytics/customers')
   @Roles('admin', 'staff')
   async getCustomerAnalytics(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @CurrentUser('sub') userId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @CurrentUser('sub') userId: string,
     @Query() query: AnalyticsQueryDto,
   ) {
     return this.analyticsService.getCustomerAnalytics(storeId, userId, query);
@@ -71,8 +71,8 @@ export class AnalyticsController {
   @Get('stores/:storeId/analytics/staff')
   @Roles('admin')
   async getStaffAnalytics(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @CurrentUser('sub') userId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @CurrentUser('sub') userId: string,
     @Query() query: AnalyticsQueryDto,
   ) {
     return this.analyticsService.getStaffAnalytics(storeId, userId, query);
@@ -81,8 +81,8 @@ export class AnalyticsController {
   @Get('stores/:storeId/analytics/services')
   @Roles('admin', 'staff')
   async getServiceAnalytics(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @CurrentUser('sub') userId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @CurrentUser('sub') userId: string,
     @Query() query: AnalyticsQueryDto,
   ) {
     return this.analyticsService.getServiceAnalytics(storeId, userId, query);
@@ -91,8 +91,8 @@ export class AnalyticsController {
   @Get('stores/:storeId/analytics/export')
   @Roles('admin')
   async exportAnalytics(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @CurrentUser('sub') userId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @CurrentUser('sub') userId: string,
     @Query() query: AnalyticsQueryDto,
     @Res() res: Response,
   ) {

@@ -35,7 +35,7 @@ export class WidgetService {
 
   // ============= Admin Widget Settings Management =============
 
-  async getWidgetSettings(storeId: number): Promise<WidgetSettingsResponseDto> {
+  async getWidgetSettings(storeId: string): Promise<WidgetSettingsResponseDto> {
     let widgetSettings =
       await this.widgetSettingsRepository.findByStoreId(storeId);
 
@@ -48,7 +48,7 @@ export class WidgetService {
   }
 
   async updateWidgetSettings(
-    storeId: number,
+    storeId: string,
     dto: UpdateWidgetSettingsDto,
   ): Promise<WidgetSettingsResponseDto> {
     let widgetSettings =
@@ -63,7 +63,7 @@ export class WidgetService {
   }
 
   async regenerateWidgetKey(
-    storeId: number,
+    storeId: string,
   ): Promise<WidgetSettingsResponseDto> {
     let widgetSettings =
       await this.widgetSettingsRepository.findByStoreId(storeId);
@@ -80,7 +80,7 @@ export class WidgetService {
     return new WidgetSettingsResponseDto(updated as any);
   }
 
-  async getEmbedCode(storeId: number): Promise<WidgetEmbedCodeResponseDto> {
+  async getEmbedCode(storeId: string): Promise<WidgetEmbedCodeResponseDto> {
     const widgetSettings = await this.getWidgetSettings(storeId);
     const baseUrl =
       this.configService.get<string>('APP_URL') || 'http://localhost:3000';
@@ -171,7 +171,7 @@ export class WidgetService {
     });
   }
 
-  async getWidgetServices(widgetKey: string, locationId?: number) {
+  async getWidgetServices(widgetKey: string, locationId?: string) {
     const widgetSettings =
       await this.widgetSettingsRepository.findByWidgetKey(widgetKey);
 
@@ -227,7 +227,7 @@ export class WidgetService {
     };
   }
 
-  async getWidgetServiceExtras(widgetKey: string, serviceId: number) {
+  async getWidgetServiceExtras(widgetKey: string, serviceId: string) {
     const widgetSettings =
       await this.widgetSettingsRepository.findByWidgetKey(widgetKey);
 
@@ -276,7 +276,7 @@ export class WidgetService {
 
   async getWidgetStaff(
     widgetKey: string,
-    filters?: { serviceId?: number; locationId?: number },
+    filters?: { serviceId?: string; locationId?: string },
   ) {
     const serviceId = filters?.serviceId;
     const locationId = filters?.locationId;
@@ -337,7 +337,7 @@ export class WidgetService {
 
   // ============= Private Helper Methods =============
 
-  private async createDefaultWidgetSettings(storeId: number) {
+  private async createDefaultWidgetSettings(storeId: string) {
     // Verify store exists
     const store = await this.storeRepository.findById(storeId);
     if (!store) {

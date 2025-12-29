@@ -6,7 +6,7 @@ import {
   Body,
   Param,
   UseGuards,
-  ParseIntPipe,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -35,8 +35,8 @@ export class NotificationsController {
   @Get('settings')
   @Roles('owner', 'admin')
   async getSettings(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @CurrentUser('sub') userId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @CurrentUser('sub') userId: string,
   ) {
     await this.storeService.verifyStoreOwnership(storeId, userId);
     return this.notificationService.getSettings(storeId);
@@ -49,8 +49,8 @@ export class NotificationsController {
   @Patch('settings')
   @Roles('owner', 'admin')
   async updateSettings(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @CurrentUser('sub') userId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @CurrentUser('sub') userId: string,
     @Body() dto: UpdateNotificationSettingsDto,
   ) {
     await this.storeService.verifyStoreOwnership(storeId, userId);
@@ -64,8 +64,8 @@ export class NotificationsController {
   @Get('templates')
   @Roles('owner', 'admin')
   async getTemplates(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @CurrentUser('sub') userId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @CurrentUser('sub') userId: string,
   ) {
     await this.storeService.verifyStoreOwnership(storeId, userId);
     return this.notificationService.getAllTemplates(storeId);
@@ -78,9 +78,9 @@ export class NotificationsController {
   @Get('templates/:type')
   @Roles('owner', 'admin')
   async getTemplate(
-    @Param('storeId', ParseIntPipe) storeId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('type') type: string,
-    @CurrentUser('sub') userId: number,
+    @CurrentUser('sub') userId: string,
   ) {
     await this.storeService.verifyStoreOwnership(storeId, userId);
     return this.notificationService.getTemplate(storeId, type);
@@ -93,9 +93,9 @@ export class NotificationsController {
   @Patch('templates/:type')
   @Roles('owner', 'admin')
   async updateTemplate(
-    @Param('storeId', ParseIntPipe) storeId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('type') type: string,
-    @CurrentUser('sub') userId: number,
+    @CurrentUser('sub') userId: string,
     @Body() dto: UpdateTemplateDto,
   ) {
     await this.storeService.verifyStoreOwnership(storeId, userId);
@@ -109,9 +109,9 @@ export class NotificationsController {
   @Post('templates/:type/reset')
   @Roles('owner', 'admin')
   async resetTemplate(
-    @Param('storeId', ParseIntPipe) storeId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('type') type: string,
-    @CurrentUser('sub') userId: number,
+    @CurrentUser('sub') userId: string,
   ) {
     await this.storeService.verifyStoreOwnership(storeId, userId);
     return this.notificationService.resetTemplate(storeId, type);
@@ -124,8 +124,8 @@ export class NotificationsController {
   @Post('test')
   @Roles('owner', 'admin')
   async testNotification(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @CurrentUser('sub') userId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @CurrentUser('sub') userId: string,
     @Body() dto: TestNotificationDto,
   ) {
     await this.storeService.verifyStoreOwnership(storeId, userId);

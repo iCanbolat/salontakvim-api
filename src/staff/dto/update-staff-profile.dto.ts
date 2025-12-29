@@ -3,7 +3,7 @@ import {
   IsOptional,
   MaxLength,
   IsBoolean,
-  IsInt,
+  IsUUID,
 } from 'class-validator';
 
 export class UpdateStaffProfileDto {
@@ -16,9 +16,9 @@ export class UpdateStaffProfileDto {
   @MaxLength(255)
   title?: string;
 
-  @IsInt()
+  @IsUUID()
   @IsOptional()
-  locationId?: number;
+  locationId?: string;
 
   @IsBoolean()
   @IsOptional()

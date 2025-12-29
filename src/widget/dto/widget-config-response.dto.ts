@@ -3,7 +3,7 @@ import { Expose, Type } from 'class-transformer';
 // Store basic info for widget
 class WidgetStoreInfo {
   @Expose()
-  id: number;
+  id: string;
 
   @Expose()
   name: string;

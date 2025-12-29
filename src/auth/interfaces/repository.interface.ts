@@ -1,15 +1,15 @@
 export interface IUserRepository {
-  findById(id: number): Promise<any>;
+  findById(id: string): Promise<any>;
   findByEmail(email: string): Promise<any>;
   findByProviderId(providerId: string, provider: string): Promise<any>;
   create(userData: any): Promise<any>;
-  update(id: number, userData: any): Promise<any>;
-  updateLastLogin(id: number): Promise<void>;
+  update(id: string, userData: any): Promise<any>;
+  updateLastLogin(id: string): Promise<void>;
 }
 
 export interface IRefreshTokenRepository {
-  create(userId: number, token: string, expiresAt: Date): Promise<any>;
+  create(userId: string, token: string, expiresAt: Date): Promise<any>;
   findByToken(token: string): Promise<any>;
   deleteByToken(token: string): Promise<void>;
-  deleteAllByUserId(userId: number): Promise<void>;
+  deleteAllByUserId(userId: string): Promise<void>;
 }

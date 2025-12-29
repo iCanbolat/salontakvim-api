@@ -20,7 +20,7 @@ export class StaffService {
     private readonly serviceRepository: ServiceRepository,
   ) {}
 
-  private filterByLocationId(staffList: StaffMember[], locationId?: number) {
+  private filterByLocationId(staffList: StaffMember[], locationId?: string) {
     if (!locationId) {
       return staffList;
     }
@@ -29,16 +29,16 @@ export class StaffService {
   }
 
   private async buildLocationNameMap(
-    storeId: number,
-  ): Promise<Map<number, string>> {
+    storeId: string,
+  ): Promise<Map<string, string>> {
     const locations = await this.locationRepository.findByStoreId(storeId);
     return new Map(locations.map((location) => [location.id, location.name]));
   }
 
-  private async buildUserMap(userIds: number[]) {
+  private async buildUserMap(userIds: string[]) {
     const uniqueIds = Array.from(new Set(userIds.filter(Boolean)));
     if (!uniqueIds.length) {
-      return new Map<number, any>();
+      return new Map<string, any>();
     }
     const users = await this.userRepository.findByIds(uniqueIds);
     return new Map(users.map((user) => [user.id, user]));
@@ -46,8 +46,8 @@ export class StaffService {
 
   private formatStaffResponse(
     staff: StaffMember,
-    locationMap: Map<number, string>,
-    userMap: Map<number, any>,
+    locationMap: Map<string, string>,
+    userMap: Map<string, any>,
   ) {
     const user = userMap.get(staff.userId);
     const fullName = [user?.firstName, user?.lastName]
@@ -71,7 +71,7 @@ export class StaffService {
     };
   }
 
-  private async hydrateStaffList(storeId: number, staff: StaffMember[]) {
+  private async hydrateStaffList(storeId: string, staff: StaffMember[]) {
     if (!staff.length) {
       return [];
     }
@@ -86,7 +86,7 @@ export class StaffService {
     );
   }
 
-  private async hydrateSingleStaff(storeId: number, staff: StaffMember) {
+  private async hydrateSingleStaff(storeId: string, staff: StaffMember) {
     const [locationMap, userMap] = await Promise.all([
       this.buildLocationNameMap(storeId),
       this.buildUserMap([staff.userId]),
@@ -95,7 +95,7 @@ export class StaffService {
     return this.formatStaffResponse(staff, locationMap, userMap);
   }
 
-  private async buildAssignedServicesResponse(staffId: number) {
+  private async buildAssignedServicesResponse(staffId: string) {
     const services =
       await this.serviceStaffRepository.findServicesByStaffId(staffId);
 
@@ -107,9 +107,9 @@ export class StaffService {
   // ============= Staff Management =============
 
   async getStaffMembers(
-    storeId: number,
+    storeId: string,
     includeHidden = false,
-    filters?: { serviceId?: number; locationId?: number },
+    filters?: { serviceId?: string; locationId?: string },
   ) {
     const staffList = includeHidden
       ? await this.staffMemberRepository.findByStoreId(storeId)
@@ -136,7 +136,7 @@ export class StaffService {
     return await this.hydrateStaffList(storeId, filtered);
   }
 
-  async getStaffMember(storeId: number, staffId: number) {
+  async getStaffMember(storeId: string, staffId: string) {
     const staff = await this.staffMemberRepository.findByIdAndStoreId(
       staffId,
       storeId,
@@ -150,8 +150,8 @@ export class StaffService {
   }
 
   async updateStaffProfile(
-    storeId: number,
-    staffId: number,
+    storeId: string,
+    staffId: string,
     dto: UpdateStaffProfileDto,
   ) {
     const staff = await this.getStaffMember(storeId, staffId);
@@ -159,7 +159,7 @@ export class StaffService {
     return await this.hydrateSingleStaff(storeId, updated);
   }
 
-  async deleteStaffMember(storeId: number, staffId: number) {
+  async deleteStaffMember(storeId: string, staffId: string) {
     const staff = await this.getStaffMember(storeId, staffId);
 
     // Delete all related data
@@ -170,8 +170,8 @@ export class StaffService {
   // ============= Service Assignments =============
 
   async assignServices(
-    storeId: number,
-    staffId: number,
+    storeId: string,
+    staffId: string,
     dto: AssignServicesDto,
   ) {
     const staff = await this.getStaffMember(storeId, staffId);
@@ -201,15 +201,15 @@ export class StaffService {
     return await this.buildAssignedServicesResponse(staff.id);
   }
 
-  async getStaffServices(storeId: number, staffId: number) {
+  async getStaffServices(storeId: string, staffId: string) {
     const staff = await this.getStaffMember(storeId, staffId);
     return await this.buildAssignedServicesResponse(staff.id);
   }
 
   async removeServiceFromStaff(
-    storeId: number,
-    staffId: number,
-    serviceId: number,
+    storeId: string,
+    staffId: string,
+    serviceId: string,
   ) {
     const staff = await this.getStaffMember(storeId, staffId);
     await this.serviceStaffRepository.unassign(serviceId, staff.id);

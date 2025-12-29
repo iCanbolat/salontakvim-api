@@ -22,7 +22,7 @@ export class StaffWorkingHoursRepository {
     return workingHours;
   }
 
-  async findById(id: number): Promise<StaffWorkingHours | null> {
+  async findById(id: string): Promise<StaffWorkingHours | null> {
     const [workingHours] = await this.db
       .select()
       .from(schema.staffWorkingHours)
@@ -31,14 +31,14 @@ export class StaffWorkingHoursRepository {
     return workingHours || null;
   }
 
-  async findByStaffId(staffId: number): Promise<StaffWorkingHours[]> {
+  async findByStaffId(staffId: string): Promise<StaffWorkingHours[]> {
     return await this.db
       .select()
       .from(schema.staffWorkingHours)
       .where(eq(schema.staffWorkingHours.staffId, staffId));
   }
 
-  async findActiveByStaffId(staffId: number): Promise<StaffWorkingHours[]> {
+  async findActiveByStaffId(staffId: string): Promise<StaffWorkingHours[]> {
     return await this.db
       .select()
       .from(schema.staffWorkingHours)
@@ -51,8 +51,8 @@ export class StaffWorkingHoursRepository {
   }
 
   async findByIdAndStaffId(
-    id: number,
-    staffId: number,
+    id: string,
+    staffId: string,
   ): Promise<StaffWorkingHours | null> {
     const [workingHours] = await this.db
       .select()
@@ -68,7 +68,7 @@ export class StaffWorkingHoursRepository {
   }
 
   async update(
-    id: number,
+    id: string,
     data: Partial<StaffWorkingHours>,
   ): Promise<StaffWorkingHours> {
     const [updatedWorkingHours] = await this.db
@@ -84,7 +84,7 @@ export class StaffWorkingHoursRepository {
     return updatedWorkingHours;
   }
 
-  async delete(id: number): Promise<void> {
+  async delete(id: string): Promise<void> {
     const result = await this.db
       .delete(schema.staffWorkingHours)
       .where(eq(schema.staffWorkingHours.id, id))

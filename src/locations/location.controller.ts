@@ -6,7 +6,7 @@ import {
   Delete,
   Body,
   Param,
-  ParseIntPipe,
+  ParseUUIDPipe,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -29,7 +29,7 @@ export class LocationController {
   @Roles('admin', 'staff')
   @HttpCode(HttpStatus.CREATED)
   async create(
-    @Param('storeId', ParseIntPipe) storeId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
     @CurrentUser() user: JwtPayload,
     @Body() createLocationDto: CreateLocationDto,
   ): Promise<LocationResponseDto> {
@@ -39,7 +39,7 @@ export class LocationController {
   @Get()
   @Roles('admin', 'staff')
   async findAll(
-    @Param('storeId', ParseIntPipe) storeId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
     @CurrentUser() user: JwtPayload,
   ): Promise<LocationResponseDto[]> {
     return this.locationService.findAll(storeId, user.sub);
@@ -48,7 +48,7 @@ export class LocationController {
   @Get('visible')
   @Public()
   async findVisible(
-    @Param('storeId', ParseIntPipe) storeId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
   ): Promise<LocationResponseDto[]> {
     return this.locationService.findVisible(storeId);
   }
@@ -56,8 +56,8 @@ export class LocationController {
   @Get(':id')
   @Roles('admin', 'staff')
   async findOne(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @Param('id', ParseIntPipe) id: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
   ): Promise<LocationResponseDto> {
     return this.locationService.findOne(storeId, id, user.sub);
@@ -66,8 +66,8 @@ export class LocationController {
   @Patch(':id')
   @Roles('admin', 'staff')
   async update(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @Param('id', ParseIntPipe) id: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
     @Body() updateLocationDto: UpdateLocationDto,
   ): Promise<LocationResponseDto> {
@@ -83,8 +83,8 @@ export class LocationController {
   @Roles('admin', 'staff')
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @Param('id', ParseIntPipe) id: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
   ): Promise<void> {
     return this.locationService.remove(storeId, id, user.sub);

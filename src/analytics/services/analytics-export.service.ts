@@ -8,8 +8,8 @@ export class AnalyticsExportService {
   constructor(private readonly analyticsService: AnalyticsService) {}
 
   async exportToExcel(
-    storeId: number,
-    ownerId: number,
+    storeId: string,
+    ownerId: string,
     query: AnalyticsQueryDto,
   ): Promise<Buffer> {
     // Fetch all analytics data

@@ -389,7 +389,7 @@ SalonTakvim`,
   /**
    * Get template by type for a store
    */
-  async getTemplate(storeId: number, templateType: string) {
+  async getTemplate(storeId: string, templateType: string) {
     // Try to get custom template
     const customTemplate = await this.db.query.notificationTemplates.findFirst({
       where: and(
@@ -437,7 +437,7 @@ SalonTakvim`,
    * Render template with variables
    */
   async renderTemplate(
-    storeId: number,
+    storeId: string,
     templateType: string,
     variables: TemplateVariables,
   ) {
@@ -460,7 +460,7 @@ SalonTakvim`,
   /**
    * Get all templates for a store (custom + defaults)
    */
-  async getAllTemplates(storeId: number) {
+  async getAllTemplates(storeId: string) {
     const customTemplates = await this.db.query.notificationTemplates.findMany({
       where: eq(schema.notificationTemplates.storeId, storeId),
     });
@@ -497,7 +497,7 @@ SalonTakvim`,
    * Update or create custom template
    */
   async updateTemplate(
-    storeId: number,
+    storeId: string,
     templateType: string,
     data: Partial<typeof schema.notificationTemplates.$inferInsert>,
   ) {
@@ -549,7 +549,7 @@ SalonTakvim`,
   /**
    * Reset template to default
    */
-  async resetTemplate(storeId: number, templateType: string) {
+  async resetTemplate(storeId: string, templateType: string) {
     await this.db
       .delete(schema.notificationTemplates)
       .where(

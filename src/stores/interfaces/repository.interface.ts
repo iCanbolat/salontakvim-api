@@ -5,15 +5,15 @@ export type NewStore = typeof stores.$inferInsert;
 
 export interface IStoreRepository {
   create(data: NewStore): Promise<Store>;
-  findById(id: number): Promise<Store | null>;
+  findById(id: string): Promise<Store | null>;
   findBySlug(slug: string): Promise<Store | null>;
-  findByOwnerId(ownerId: number): Promise<Store | null>;
-  update(id: number, data: Partial<Store>): Promise<Store>;
-  delete(id: number): Promise<void>;
-  incrementAppointments(id: number): Promise<void>;
-  incrementCustomers(id: number): Promise<void>;
+  findByOwnerId(ownerId: string): Promise<Store | null>;
+  update(id: string, data: Partial<Store>): Promise<Store>;
+  delete(id: string): Promise<void>;
+  incrementAppointments(id: string): Promise<void>;
+  incrementCustomers(id: string): Promise<void>;
   updateAnalytics(
-    id: number,
+    id: string,
     data: {
       totalAppointments?: number;
       totalCustomers?: number;

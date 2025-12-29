@@ -5,10 +5,10 @@ export type NewLocation = typeof locations.$inferInsert;
 
 export interface ILocationRepository {
   create(data: NewLocation): Promise<Location>;
-  findById(id: number): Promise<Location | null>;
-  findByStoreId(storeId: number): Promise<Location[]>;
-  findByIdAndStoreId(id: number, storeId: number): Promise<Location | null>;
-  findVisibleByStoreId(storeId: number): Promise<Location[]>;
-  update(id: number, data: Partial<Location>): Promise<Location>;
-  delete(id: number): Promise<void>;
+  findById(id: string): Promise<Location | null>;
+  findByStoreId(storeId: string): Promise<Location[]>;
+  findByIdAndStoreId(id: string, storeId: string): Promise<Location | null>;
+  findVisibleByStoreId(storeId: string): Promise<Location[]>;
+  update(id: string, data: Partial<Location>): Promise<Location>;
+  delete(id: string): Promise<void>;
 }

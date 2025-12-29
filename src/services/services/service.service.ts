@@ -27,8 +27,8 @@ export class ServiceService {
   ) {}
 
   async create(
-    storeId: number,
-    userId: number,
+    storeId: string,
+    userId: string,
     createServiceDto: CreateServiceDto,
   ): Promise<ServiceResponseDto> {
     // Verify store ownership
@@ -64,8 +64,8 @@ export class ServiceService {
   }
 
   async findAll(
-    storeId: number,
-    userId: number,
+    storeId: string,
+    userId: string,
   ): Promise<ServiceResponseDto[]> {
     // Verify store access
     await this.storeService.validateStoreExists(storeId);
@@ -77,7 +77,7 @@ export class ServiceService {
     });
   }
 
-  async findVisible(storeId: number): Promise<ServiceResponseDto[]> {
+  async findVisible(storeId: string): Promise<ServiceResponseDto[]> {
     // Public endpoint - no auth required
     await this.storeService.validateStoreExists(storeId);
 
@@ -89,9 +89,9 @@ export class ServiceService {
   }
 
   async findOne(
-    storeId: number,
-    serviceId: number,
-    userId: number,
+    storeId: string,
+    serviceId: string,
+    userId: string,
   ): Promise<ServiceResponseDto> {
     // Verify store access
     await this.storeService.validateStoreExists(storeId);
@@ -120,9 +120,9 @@ export class ServiceService {
   }
 
   async update(
-    storeId: number,
-    serviceId: number,
-    userId: number,
+    storeId: string,
+    serviceId: string,
+    userId: string,
     updateServiceDto: UpdateServiceDto,
   ): Promise<ServiceResponseDto> {
     // Verify store ownership
@@ -169,9 +169,9 @@ export class ServiceService {
   }
 
   async remove(
-    storeId: number,
-    serviceId: number,
-    userId: number,
+    storeId: string,
+    serviceId: string,
+    userId: string,
   ): Promise<void> {
     // Verify store ownership
     await this.storeService.verifyStoreOwnership(storeId, userId);
@@ -193,9 +193,9 @@ export class ServiceService {
 
   // Service Extras methods
   async createExtra(
-    storeId: number,
-    serviceId: number,
-    userId: number,
+    storeId: string,
+    serviceId: string,
+    userId: string,
     createExtraDto: CreateServiceExtraDto,
   ): Promise<ServiceExtraResponseDto> {
     // Verify store ownership
@@ -231,9 +231,9 @@ export class ServiceService {
   }
 
   async findAllExtras(
-    storeId: number,
-    serviceId: number,
-    userId: number,
+    storeId: string,
+    serviceId: string,
+    userId: string,
   ): Promise<ServiceExtraResponseDto[]> {
     // Verify store access
     await this.storeService.validateStoreExists(storeId);
@@ -258,10 +258,10 @@ export class ServiceService {
   }
 
   async updateExtra(
-    storeId: number,
-    serviceId: number,
-    extraId: number,
-    userId: number,
+    storeId: string,
+    serviceId: string,
+    extraId: string,
+    userId: string,
     updateExtraDto: UpdateServiceExtraDto,
   ): Promise<ServiceExtraResponseDto> {
     // Verify store ownership
@@ -307,10 +307,10 @@ export class ServiceService {
   }
 
   async removeExtra(
-    storeId: number,
-    serviceId: number,
-    extraId: number,
-    userId: number,
+    storeId: string,
+    serviceId: string,
+    extraId: string,
+    userId: string,
   ): Promise<void> {
     // Verify store ownership
     await this.storeService.verifyStoreOwnership(storeId, userId);
@@ -344,8 +344,8 @@ export class ServiceService {
 
   // Helper method for other modules
   async validateServiceInStore(
-    serviceId: number,
-    storeId: number,
+    serviceId: string,
+    storeId: string,
   ): Promise<void> {
     const service = await this.serviceRepository.findByIdAndStoreId(
       serviceId,

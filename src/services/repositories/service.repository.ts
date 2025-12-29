@@ -23,7 +23,7 @@ export class ServiceRepository implements IServiceRepository {
     return service;
   }
 
-  async findById(id: number): Promise<Service | null> {
+  async findById(id: string): Promise<Service | null> {
     const [service] = await this.db
       .select()
       .from(schema.services)
@@ -32,7 +32,7 @@ export class ServiceRepository implements IServiceRepository {
     return service || null;
   }
 
-  async findByStoreId(storeId: number): Promise<Service[]> {
+  async findByStoreId(storeId: string): Promise<Service[]> {
     return await this.db
       .select()
       .from(schema.services)
@@ -41,8 +41,8 @@ export class ServiceRepository implements IServiceRepository {
   }
 
   async findByIdAndStoreId(
-    id: number,
-    storeId: number,
+    id: string,
+    storeId: string,
   ): Promise<Service | null> {
     const [service] = await this.db
       .select()
@@ -54,7 +54,7 @@ export class ServiceRepository implements IServiceRepository {
     return service || null;
   }
 
-  async findByCategoryId(categoryId: number): Promise<Service[]> {
+  async findByCategoryId(categoryId: string): Promise<Service[]> {
     return await this.db
       .select()
       .from(schema.services)
@@ -62,7 +62,7 @@ export class ServiceRepository implements IServiceRepository {
       .orderBy(schema.services.position);
   }
 
-  async findVisibleByStoreId(storeId: number): Promise<Service[]> {
+  async findVisibleByStoreId(storeId: string): Promise<Service[]> {
     return await this.db
       .select()
       .from(schema.services)
@@ -75,7 +75,7 @@ export class ServiceRepository implements IServiceRepository {
       .orderBy(schema.services.position);
   }
 
-  async update(id: number, data: Partial<Service>): Promise<Service> {
+  async update(id: string, data: Partial<Service>): Promise<Service> {
     const [updatedService] = await this.db
       .update(schema.services)
       .set({ ...data, updatedAt: new Date() })
@@ -89,7 +89,7 @@ export class ServiceRepository implements IServiceRepository {
     return updatedService;
   }
 
-  async delete(id: number): Promise<void> {
+  async delete(id: string): Promise<void> {
     const result = await this.db
       .delete(schema.services)
       .where(eq(schema.services.id, id))
@@ -100,7 +100,7 @@ export class ServiceRepository implements IServiceRepository {
     }
   }
 
-  async getMaxPosition(storeId: number): Promise<number> {
+  async getMaxPosition(storeId: string): Promise<number> {
     const [result] = await this.db
       .select()
       .from(schema.services)

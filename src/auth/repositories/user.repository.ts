@@ -12,7 +12,7 @@ export class UserRepository implements IUserRepository {
     private db: PostgresJsDatabase<typeof import('../../db/schema')>,
   ) {}
 
-  async findById(id: number) {
+  async findById(id: string) {
     const result = await this.db.select().from(users).where(eq(users.id, id));
     return result[0];
   }
@@ -65,7 +65,7 @@ export class UserRepository implements IUserRepository {
   }
 
   async update(
-    id: number,
+    id: string,
     userData: {
       firstName?: string;
       lastName?: string;
@@ -84,14 +84,14 @@ export class UserRepository implements IUserRepository {
     return result[0];
   }
 
-  async updateLastLogin(id: number) {
+  async updateLastLogin(id: string) {
     await this.db
       .update(users)
       .set({ lastLogin: new Date() })
       .where(eq(users.id, id));
   }
 
-  async findByIds(ids: number[]) {
+  async findByIds(ids: string[]) {
     if (!ids.length) {
       return [];
     }

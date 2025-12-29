@@ -7,7 +7,7 @@ import {
   Param,
   Body,
   Query,
-  ParseIntPipe,
+  ParseUUIDPipe,
   UseGuards,
   BadRequestException,
 } from '@nestjs/common';
@@ -37,7 +37,7 @@ export class AppointmentsController {
   @Post('stores/:storeId/appointments')
   @Roles('customer', 'admin', 'staff')
   async createAppointment(
-    @Param('storeId', ParseIntPipe) storeId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
     @Body() dto: CreateAppointmentDto,
     @CurrentUser() user: JwtPayload,
   ) {
@@ -80,13 +80,13 @@ export class AppointmentsController {
   @Get('appointments/:id')
   @Roles('customer', 'admin', 'staff')
   async getMyAppointment(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
   ) {
     // Note: Service should validate user owns this appointment
     const appointment = await this.appointmentsService.getAppointmentById(
       id,
-      0, // Will need to get storeId from appointment
+      '', // Will need to get storeId from appointment
     );
     return appointment;
   }
@@ -94,14 +94,14 @@ export class AppointmentsController {
   @Patch('appointments/:id')
   @Roles('customer')
   async updateMyAppointment(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateAppointmentDto,
     @CurrentUser() user: JwtPayload,
   ) {
     // Note: Service should validate user owns this appointment
     const appointment = await this.appointmentsService.getAppointmentById(
       id,
-      0,
+      '',
     );
     return await this.appointmentsService.updateAppointment(
       id,
@@ -113,7 +113,7 @@ export class AppointmentsController {
   @Delete('appointments/:id')
   @Roles('customer')
   async cancelMyAppointment(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body('reason') reason?: string,
     @CurrentUser() user?: JwtPayload,
   ) {
@@ -129,7 +129,7 @@ export class AppointmentsController {
   @Get('stores/:storeId/appointments')
   @Roles('admin', 'staff')
   async getStoreAppointments(
-    @Param('storeId', ParseIntPipe) storeId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
     @Query() query: GetStoreAppointmentsDto,
   ) {
     return await this.appointmentsService.getStoreAppointments(storeId, query);
@@ -138,8 +138,8 @@ export class AppointmentsController {
   @Get('stores/:storeId/appointments/:id')
   @Roles('admin', 'staff')
   async getStoreAppointment(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @Param('id', ParseIntPipe) id: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('id', ParseUUIDPipe) id: string,
   ) {
     return await this.appointmentsService.getAppointmentById(id, storeId);
   }
@@ -147,8 +147,8 @@ export class AppointmentsController {
   @Patch('stores/:storeId/appointments/:id')
   @Roles('admin', 'staff')
   async updateStoreAppointment(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @Param('id', ParseIntPipe) id: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateAppointmentDto,
   ) {
     return await this.appointmentsService.updateAppointment(id, storeId, dto);
@@ -157,8 +157,8 @@ export class AppointmentsController {
   @Patch('stores/:storeId/appointments/:id/status')
   @Roles('admin', 'staff')
   async updateAppointmentStatus(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @Param('id', ParseIntPipe) id: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateAppointmentStatusDto,
   ) {
     return await this.appointmentsService.updateAppointmentStatus(
@@ -171,8 +171,8 @@ export class AppointmentsController {
   @Delete('stores/:storeId/appointments/:id')
   @Roles('admin')
   async deleteAppointment(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @Param('id', ParseIntPipe) id: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('id', ParseUUIDPipe) id: string,
   ) {
     await this.appointmentsService.deleteAppointment(id, storeId);
     return { message: 'Appointment deleted successfully' };
@@ -183,29 +183,25 @@ export class AppointmentsController {
   @Get('stores/:storeId/availability')
   @Public()
   async getAvailability(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @Query('serviceId', ParseIntPipe) serviceId: number,
-    @Query('staffId', ParseIntPipe) staffId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Query('serviceId', ParseUUIDPipe) serviceId: string,
+    @Query('staffId', ParseUUIDPipe) staffId: string,
     @Query('date') date: string,
     @Query('locationId') locationId?: string,
     @Query('extrasDurationMinutes') extrasDurationMinutes?: string,
     @Query('excludeAppointmentId') excludeAppointmentId?: string,
   ) {
-    const locationIdNum = locationId ? parseInt(locationId) : undefined;
     const extrasDurationNum = extrasDurationMinutes
       ? parseInt(extrasDurationMinutes)
-      : undefined;
-    const excludeAppointmentIdNum = excludeAppointmentId
-      ? parseInt(excludeAppointmentId)
       : undefined;
     return await this.appointmentsService.getAvailability(
       storeId,
       serviceId,
       staffId,
       date,
-      locationIdNum,
+      locationId,
       extrasDurationNum,
-      excludeAppointmentIdNum,
+      excludeAppointmentId,
     );
   }
 

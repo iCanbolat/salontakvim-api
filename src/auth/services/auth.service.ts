@@ -182,11 +182,11 @@ export class AuthService {
     await this.refreshTokenRepository.deleteByToken(refreshToken);
   }
 
-  async logoutAll(userId: number): Promise<void> {
+  async logoutAll(userId: string): Promise<void> {
     await this.refreshTokenRepository.deleteAllByUserId(userId);
   }
 
-  async getProfile(userId: number): Promise<{ user: any }> {
+  async getProfile(userId: string): Promise<{ user: any }> {
     const user = await this.userRepository.findById(userId);
     if (!user) {
       throw new UserNotFoundException(userId.toString());

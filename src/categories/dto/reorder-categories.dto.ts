@@ -1,8 +1,8 @@
-import { IsArray, ArrayNotEmpty, IsInt } from 'class-validator';
+import { IsArray, ArrayNotEmpty, IsUUID } from 'class-validator';
 
 export class ReorderCategoriesDto {
   @IsArray()
   @ArrayNotEmpty()
-  @IsInt({ each: true })
-  categoryIds: number[];
+  @IsUUID('4', { each: true })
+  categoryIds: string[];
 }

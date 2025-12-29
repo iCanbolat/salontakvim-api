@@ -6,7 +6,7 @@ import {
   Delete,
   Body,
   Param,
-  ParseIntPipe,
+  ParseUUIDPipe,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -39,7 +39,7 @@ export class StoreController {
   @Get(':id')
   @Roles('admin', 'staff')
   async findById(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
   ): Promise<StoreResponseDto> {
     return this.storeService.findById(id, user.sub);
@@ -54,7 +54,7 @@ export class StoreController {
   @Patch(':id')
   @Roles('admin')
   async update(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
     @Body() updateStoreDto: UpdateStoreDto,
   ): Promise<StoreResponseDto> {
@@ -65,7 +65,7 @@ export class StoreController {
   @Roles('admin')
   @HttpCode(HttpStatus.NO_CONTENT)
   async deactivate(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
   ): Promise<void> {
     return this.storeService.deactivate(id, user.sub);
@@ -75,7 +75,7 @@ export class StoreController {
   @Roles('admin')
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
   ): Promise<void> {
     return this.storeService.delete(id, user.sub);
@@ -84,7 +84,7 @@ export class StoreController {
   @Get(':id/analytics')
   @Roles('admin', 'staff')
   async getAnalytics(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
   ): Promise<{
     totalAppointments: number;
@@ -96,7 +96,7 @@ export class StoreController {
   @Get(':storeId/customers')
   @Roles('admin', 'staff')
   async getCustomers(
-    @Param('storeId', ParseIntPipe) storeId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
     @CurrentUser() user: JwtPayload,
   ) {
     return this.storeService.getCustomers(storeId, user.sub);
@@ -105,8 +105,8 @@ export class StoreController {
   @Get(':storeId/customers/:customerId')
   @Roles('admin', 'staff')
   async getCustomerProfile(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @Param('customerId', ParseIntPipe) customerId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('customerId', ParseUUIDPipe) customerId: string,
     @CurrentUser() user: JwtPayload,
   ) {
     return this.storeService.getCustomerProfile(storeId, customerId, user.sub);

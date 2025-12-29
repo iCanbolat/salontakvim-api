@@ -7,6 +7,7 @@ import {
   integer,
   boolean,
   decimal,
+  uuid,
   pgEnum,
   json,
   time,
@@ -14,7 +15,7 @@ import {
   unique,
   index,
 } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
 
 // ================================
 // ENUMS
@@ -105,7 +106,8 @@ export const activityTypeEnum = pgEnum('activity_type', [
 export const users = pgTable(
   'users',
   {
-    id: serial('id').primaryKey(),
+    id: uuid('id').defaultRandom().primaryKey(),
+    customerNumber: serial('customer_number').unique(),
     email: varchar('email', { length: 255 }).notNull().unique(),
     firstName: varchar('first_name', { length: 255 }),
     lastName: varchar('last_name', { length: 255 }),
@@ -136,8 +138,8 @@ export const users = pgTable(
 export const stores = pgTable(
   'stores',
   {
-    id: serial('id').primaryKey(),
-    ownerId: integer('owner_id')
+    id: uuid('id').defaultRandom().primaryKey(),
+    ownerId: uuid('owner_id')
       .references(() => users.id, { onDelete: 'cascade' })
       .notNull()
       .unique(), // Admin user who owns this store
@@ -169,14 +171,46 @@ export const stores = pgTable(
   ],
 );
 
+// Store-specific customer numbering
+export const storeCustomers = pgTable(
+  'store_customers',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    storeId: uuid('store_id')
+      .references(() => stores.id, { onDelete: 'cascade' })
+      .notNull(),
+    customerId: uuid('customer_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    publicNumber: varchar('public_number', { length: 20 }).notNull(),
+    publicNumberCounter: integer('public_number_counter').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    unique('store_customers_store_customer').on(
+      table.storeId,
+      table.customerId,
+    ),
+    unique('store_customers_store_public_number').on(
+      table.storeId,
+      table.publicNumber,
+    ),
+    unique('store_customers_store_public_number_counter').on(
+      table.storeId,
+      table.publicNumberCounter,
+    ),
+    index('store_customers_store_id_idx').on(table.storeId),
+  ],
+);
+
 // ================================
 // ACTIVITIES (Timeline)
 // ================================
 export const activities = pgTable(
   'activities',
   {
-    id: serial('id').primaryKey(),
-    storeId: integer('store_id')
+    id: uuid('id').defaultRandom().primaryKey(),
+    storeId: uuid('store_id')
       .references(() => stores.id, { onDelete: 'cascade' })
       .notNull(),
     type: activityTypeEnum('type').notNull(),
@@ -193,8 +227,8 @@ export const activities = pgTable(
 export const refreshTokens = pgTable(
   'refresh_tokens',
   {
-    id: serial('id').primaryKey(),
-    userId: integer('user_id')
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
       .references(() => users.id, { onDelete: 'cascade' })
       .notNull(),
     token: text('token').notNull().unique(),
@@ -211,17 +245,17 @@ export const refreshTokens = pgTable(
 export const staffInvitations = pgTable(
   'staff_invitations',
   {
-    id: serial('id').primaryKey(),
-    storeId: integer('store_id')
+    id: uuid('id').defaultRandom().primaryKey(),
+    storeId: uuid('store_id')
       .references(() => stores.id, { onDelete: 'cascade' })
       .notNull(),
     email: varchar('email', { length: 255 }).notNull(),
     token: varchar('token', { length: 255 }).notNull().unique(),
     status: invitationStatusEnum('status').default('pending').notNull(),
-    invitedBy: integer('invited_by').references(() => users.id, {
+    invitedBy: uuid('invited_by').references(() => users.id, {
       onDelete: 'set null',
     }),
-    locationId: integer('location_id').references(() => locations.id, {
+    locationId: uuid('location_id').references(() => locations.id, {
       onDelete: 'set null',
     }),
     title: varchar('title', { length: 255 }),
@@ -243,8 +277,8 @@ export const staffInvitations = pgTable(
 export const categories = pgTable(
   'categories',
   {
-    id: serial('id').primaryKey(),
-    storeId: integer('store_id')
+    id: uuid('id').defaultRandom().primaryKey(),
+    storeId: uuid('store_id')
       .references(() => stores.id, { onDelete: 'cascade' })
       .notNull(),
     name: varchar('name', { length: 255 }).notNull(),
@@ -262,8 +296,8 @@ export const categories = pgTable(
 export const locations = pgTable(
   'locations',
   {
-    id: serial('id').primaryKey(),
-    storeId: integer('store_id')
+    id: uuid('id').defaultRandom().primaryKey(),
+    storeId: uuid('store_id')
       .references(() => stores.id, { onDelete: 'cascade' })
       .notNull(), // Store branch/location
     name: varchar('name', { length: 255 }).notNull(),
@@ -286,11 +320,11 @@ export const locations = pgTable(
 export const services = pgTable(
   'services',
   {
-    id: serial('id').primaryKey(),
-    storeId: integer('store_id')
+    id: uuid('id').defaultRandom().primaryKey(),
+    storeId: uuid('store_id')
       .references(() => stores.id, { onDelete: 'cascade' })
       .notNull(),
-    categoryId: integer('category_id').references(() => categories.id, {
+    categoryId: uuid('category_id').references(() => categories.id, {
       onDelete: 'set null',
     }),
     name: varchar('name', { length: 255 }).notNull(),
@@ -320,8 +354,8 @@ export const services = pgTable(
 export const serviceExtras = pgTable(
   'service_extras',
   {
-    id: serial('id').primaryKey(),
-    serviceId: integer('service_id')
+    id: uuid('id').defaultRandom().primaryKey(),
+    serviceId: uuid('service_id')
       .references(() => services.id, { onDelete: 'cascade' })
       .notNull(),
     name: varchar('name', { length: 255 }).notNull(),
@@ -340,15 +374,15 @@ export const serviceExtras = pgTable(
 export const staffMembers = pgTable(
   'staff_members',
   {
-    id: serial('id').primaryKey(),
-    userId: integer('user_id')
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
       .references(() => users.id, { onDelete: 'cascade' })
       .notNull()
       .unique(), // Staff user
-    storeId: integer('store_id')
+    storeId: uuid('store_id')
       .references(() => stores.id, { onDelete: 'cascade' })
       .notNull(), // Store they belong to
-    locationId: integer('location_id').references(() => locations.id, {
+    locationId: uuid('location_id').references(() => locations.id, {
       onDelete: 'set null',
     }), // Specific branch/location (optional)
     bio: text('bio'),
@@ -367,11 +401,11 @@ export const staffMembers = pgTable(
 export const serviceStaff = pgTable(
   'service_staff',
   {
-    id: serial('id').primaryKey(),
-    serviceId: integer('service_id')
+    id: uuid('id').defaultRandom().primaryKey(),
+    serviceId: uuid('service_id')
       .references(() => services.id, { onDelete: 'cascade' })
       .notNull(),
-    staffId: integer('staff_id')
+    staffId: uuid('staff_id')
       .references(() => staffMembers.id, { onDelete: 'cascade' })
       .notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -387,11 +421,11 @@ export const serviceStaff = pgTable(
 export const serviceLocations = pgTable(
   'service_locations',
   {
-    id: serial('id').primaryKey(),
-    serviceId: integer('service_id')
+    id: uuid('id').defaultRandom().primaryKey(),
+    serviceId: uuid('service_id')
       .references(() => services.id, { onDelete: 'cascade' })
       .notNull(),
-    locationId: integer('location_id')
+    locationId: uuid('location_id')
       .references(() => locations.id, { onDelete: 'cascade' })
       .notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -407,8 +441,8 @@ export const serviceLocations = pgTable(
 export const staffWorkingHours = pgTable(
   'staff_working_hours',
   {
-    id: serial('id').primaryKey(),
-    staffId: integer('staff_id')
+    id: uuid('id').defaultRandom().primaryKey(),
+    staffId: uuid('staff_id')
       .references(() => staffMembers.id, { onDelete: 'cascade' })
       .notNull(),
     dayOfWeek: dayOfWeekEnum('day_of_week').notNull(),
@@ -425,8 +459,8 @@ export const staffWorkingHours = pgTable(
 export const staffBreaks = pgTable(
   'staff_breaks',
   {
-    id: serial('id').primaryKey(),
-    staffId: integer('staff_id')
+    id: uuid('id').defaultRandom().primaryKey(),
+    staffId: uuid('staff_id')
       .references(() => staffMembers.id, { onDelete: 'cascade' })
       .notNull(),
     type: staffBreakTypeEnum('type').default('other').notNull(),
@@ -449,20 +483,22 @@ export const staffBreaks = pgTable(
 export const appointments = pgTable(
   'appointments',
   {
-    id: serial('id').primaryKey(),
-    storeId: integer('store_id')
+    id: uuid('id').defaultRandom().primaryKey(),
+    publicNumber: varchar('public_number', { length: 20 }).notNull(),
+    publicNumberCounter: integer('public_number_counter').notNull(),
+    storeId: uuid('store_id')
       .references(() => stores.id, { onDelete: 'cascade' })
       .notNull(), // Store this appointment belongs to
-    customerId: integer('customer_id').references(() => users.id, {
+    customerId: uuid('customer_id').references(() => users.id, {
       onDelete: 'set null',
     }), // Can be null for guest bookings
-    serviceId: integer('service_id').references(() => services.id, {
+    serviceId: uuid('service_id').references(() => services.id, {
       onDelete: 'set null',
     }),
-    staffId: integer('staff_id').references(() => staffMembers.id, {
+    staffId: uuid('staff_id').references(() => staffMembers.id, {
       onDelete: 'set null',
     }),
-    locationId: integer('location_id').references(() => locations.id, {
+    locationId: uuid('location_id').references(() => locations.id, {
       onDelete: 'set null',
     }),
 
@@ -493,7 +529,7 @@ export const appointments = pgTable(
     cancellationReason: text('cancellation_reason'),
 
     // Recurring
-    parentAppointmentId: integer('parent_appointment_id').references(
+    parentAppointmentId: uuid('parent_appointment_id').references(
       () => appointments.id,
       { onDelete: 'set null' },
     ),
@@ -503,6 +539,14 @@ export const appointments = pgTable(
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
   (table) => [
+    unique('appointments_store_public_number').on(
+      table.storeId,
+      table.publicNumber,
+    ),
+    unique('appointments_store_public_number_counter').on(
+      table.storeId,
+      table.publicNumberCounter,
+    ),
     index('appointments_store_id_idx').on(table.storeId),
     index('appointments_customer_id_idx').on(table.customerId),
     index('appointments_staff_id_idx').on(table.staffId),
@@ -514,11 +558,11 @@ export const appointments = pgTable(
 export const appointmentExtras = pgTable(
   'appointment_extras',
   {
-    id: serial('id').primaryKey(),
-    appointmentId: integer('appointment_id')
+    id: uuid('id').defaultRandom().primaryKey(),
+    appointmentId: uuid('appointment_id')
       .references(() => appointments.id, { onDelete: 'cascade' })
       .notNull(),
-    extraId: integer('extra_id')
+    extraId: uuid('extra_id')
       .references(() => serviceExtras.id, { onDelete: 'cascade' })
       .notNull(),
     quantity: integer('quantity').default(1).notNull(),
@@ -533,11 +577,11 @@ export const appointmentExtras = pgTable(
 export const notifications = pgTable(
   'notifications',
   {
-    id: serial('id').primaryKey(),
-    userId: integer('user_id')
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
       .references(() => users.id, { onDelete: 'cascade' })
       .notNull(),
-    storeId: integer('store_id')
+    storeId: uuid('store_id')
       .references(() => stores.id, { onDelete: 'cascade' })
       .notNull(),
     title: varchar('title', { length: 255 }).notNull(),
@@ -560,8 +604,8 @@ export const notifications = pgTable(
 export const widgetSettings = pgTable(
   'widget_settings',
   {
-    id: serial('id').primaryKey(),
-    storeId: integer('store_id')
+    id: uuid('id').defaultRandom().primaryKey(),
+    storeId: uuid('store_id')
       .references(() => stores.id, { onDelete: 'cascade' })
       .notNull()
       .unique(),
@@ -643,11 +687,11 @@ export const widgetSettings = pgTable(
 export const customFields = pgTable(
   'custom_fields',
   {
-    id: serial('id').primaryKey(),
-    storeId: integer('store_id')
+    id: uuid('id').defaultRandom().primaryKey(),
+    storeId: uuid('store_id')
       .references(() => stores.id, { onDelete: 'cascade' })
       .notNull(),
-    serviceId: integer('service_id').references(() => services.id, {
+    serviceId: uuid('service_id').references(() => services.id, {
       onDelete: 'cascade',
     }),
     label: varchar('label', { length: 255 }).notNull(),
@@ -668,11 +712,11 @@ export const customFields = pgTable(
 export const appointmentCustomFieldValues = pgTable(
   'appointment_custom_field_values',
   {
-    id: serial('id').primaryKey(),
-    appointmentId: integer('appointment_id')
+    id: uuid('id').defaultRandom().primaryKey(),
+    appointmentId: uuid('appointment_id')
       .references(() => appointments.id, { onDelete: 'cascade' })
       .notNull(),
-    customFieldId: integer('custom_field_id')
+    customFieldId: uuid('custom_field_id')
       .references(() => customFields.id, { onDelete: 'cascade' })
       .notNull(),
     value: text('value'),
@@ -691,8 +735,8 @@ export const appointmentCustomFieldValues = pgTable(
 export const notificationSettings = pgTable(
   'notification_settings',
   {
-    id: serial('id').primaryKey(),
-    storeId: integer('store_id')
+    id: uuid('id').defaultRandom().primaryKey(),
+    storeId: uuid('store_id')
       .references(() => stores.id, { onDelete: 'cascade' })
       .notNull()
       .unique(),
@@ -752,8 +796,8 @@ export const notificationSettings = pgTable(
 export const notificationTemplates = pgTable(
   'notification_templates',
   {
-    id: serial('id').primaryKey(),
-    storeId: integer('store_id')
+    id: uuid('id').defaultRandom().primaryKey(),
+    storeId: uuid('store_id')
       .references(() => stores.id, { onDelete: 'cascade' })
       .notNull(),
     type: templateTypeEnum('type').notNull(),
@@ -786,6 +830,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   }),
   appointments: many(appointments),
   refreshTokens: many(refreshTokens),
+  storeCustomers: many(storeCustomers),
 }));
 
 export const storesRelations = relations(stores, ({ one, many }) => ({
@@ -795,6 +840,7 @@ export const storesRelations = relations(stores, ({ one, many }) => ({
   services: many(services),
   staffMembers: many(staffMembers),
   appointments: many(appointments),
+  storeCustomers: many(storeCustomers),
   widgetSettings: one(widgetSettings),
   staffInvitations: many(staffInvitations),
   customFields: many(customFields),
@@ -838,11 +884,22 @@ export const servicesRelations = relations(services, ({ one, many }) => ({
     fields: [services.categoryId],
     references: [categories.id],
   }),
-  extras: many(serviceExtras),
+  serviceExtras: many(serviceExtras),
   serviceStaff: many(serviceStaff),
   serviceLocations: many(serviceLocations),
   appointments: many(appointments),
   customFields: many(customFields),
+}));
+
+export const storeCustomersRelations = relations(storeCustomers, ({ one }) => ({
+  store: one(stores, {
+    fields: [storeCustomers.storeId],
+    references: [stores.id],
+  }),
+  customer: one(users, {
+    fields: [storeCustomers.customerId],
+    references: [users.id],
+  }),
 }));
 
 export const staffMembersRelations = relations(
@@ -887,8 +944,22 @@ export const appointmentsRelations = relations(
       fields: [appointments.locationId],
       references: [locations.id],
     }),
-    extras: many(appointmentExtras),
+    appointmentExtras: many(appointmentExtras),
     customFieldValues: many(appointmentCustomFieldValues),
+  }),
+);
+
+export const appointmentExtrasRelations = relations(
+  appointmentExtras,
+  ({ one }) => ({
+    appointment: one(appointments, {
+      fields: [appointmentExtras.appointmentId],
+      references: [appointments.id],
+    }),
+    extra: one(serviceExtras, {
+      fields: [appointmentExtras.extraId],
+      references: [serviceExtras.id],
+    }),
   }),
 );
 

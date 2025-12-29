@@ -5,11 +5,11 @@ export type NewCategory = typeof categories.$inferInsert;
 
 export interface ICategoryRepository {
   create(data: NewCategory): Promise<Category>;
-  findById(id: number): Promise<Category | null>;
-  findByStoreId(storeId: number): Promise<Category[]>;
-  findByIdAndStoreId(id: number, storeId: number): Promise<Category | null>;
-  update(id: number, data: Partial<Category>): Promise<Category>;
-  delete(id: number): Promise<void>;
-  reorder(categoryIds: number[], storeId: number): Promise<void>;
-  getMaxPosition(storeId: number): Promise<number>;
+  findById(id: string): Promise<Category | null>;
+  findByStoreId(storeId: string): Promise<Category[]>;
+  findByIdAndStoreId(id: string, storeId: string): Promise<Category | null>;
+  update(id: string, data: Partial<Category>): Promise<Category>;
+  delete(id: string): Promise<void>;
+  reorder(categoryIds: string[], storeId: string): Promise<void>;
+  getMaxPosition(storeId: string): Promise<number>;
 }

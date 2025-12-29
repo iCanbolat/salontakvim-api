@@ -23,7 +23,7 @@ export class CategoryRepository implements ICategoryRepository {
     return category;
   }
 
-  async findById(id: number): Promise<Category | null> {
+  async findById(id: string): Promise<Category | null> {
     const [category] = await this.db
       .select()
       .from(schema.categories)
@@ -32,7 +32,7 @@ export class CategoryRepository implements ICategoryRepository {
     return category || null;
   }
 
-  async findByStoreId(storeId: number): Promise<Category[]> {
+  async findByStoreId(storeId: string): Promise<Category[]> {
     return await this.db
       .select()
       .from(schema.categories)
@@ -41,8 +41,8 @@ export class CategoryRepository implements ICategoryRepository {
   }
 
   async findByIdAndStoreId(
-    id: number,
-    storeId: number,
+    id: string,
+    storeId: string,
   ): Promise<Category | null> {
     const [category] = await this.db
       .select()
@@ -57,7 +57,7 @@ export class CategoryRepository implements ICategoryRepository {
     return category || null;
   }
 
-  async update(id: number, data: Partial<Category>): Promise<Category> {
+  async update(id: string, data: Partial<Category>): Promise<Category> {
     const [updatedCategory] = await this.db
       .update(schema.categories)
       .set({ ...data, updatedAt: new Date() })
@@ -71,7 +71,7 @@ export class CategoryRepository implements ICategoryRepository {
     return updatedCategory;
   }
 
-  async delete(id: number): Promise<void> {
+  async delete(id: string): Promise<void> {
     const result = await this.db
       .delete(schema.categories)
       .where(eq(schema.categories.id, id))
@@ -82,7 +82,7 @@ export class CategoryRepository implements ICategoryRepository {
     }
   }
 
-  async reorder(categoryIds: number[], storeId: number): Promise<void> {
+  async reorder(categoryIds: string[], storeId: string): Promise<void> {
     // Update each category with its new position
     await this.db.transaction(async (tx) => {
       for (let i = 0; i < categoryIds.length; i++) {
@@ -99,7 +99,7 @@ export class CategoryRepository implements ICategoryRepository {
     });
   }
 
-  async getMaxPosition(storeId: number): Promise<number> {
+  async getMaxPosition(storeId: string): Promise<number> {
     const [result] = await this.db
       .select()
       .from(schema.categories)

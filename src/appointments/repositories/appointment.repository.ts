@@ -16,10 +16,10 @@ type AppointmentStatusType =
 
 export interface AppointmentQueryFilters {
   status?: AppointmentStatusType;
-  serviceId?: number;
-  staffId?: number;
-  locationId?: number;
-  customerId?: number;
+  serviceId?: string;
+  staffId?: string;
+  locationId?: string;
+  customerId?: string;
   startDate?: string;
   endDate?: string;
   search?: string;
@@ -41,15 +41,34 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
     super(db);
   }
 
-  async create(data: NewAppointment): Promise<Appointment> {
-    const [appointment] = await this.db
-      .insert(schema.appointments)
-      .values(data)
-      .returning();
-    return appointment;
+  async create(
+    data: Omit<NewAppointment, 'publicNumber' | 'publicNumberCounter'>,
+  ): Promise<Appointment> {
+    return await this.db.transaction(async (tx) => {
+      const [next] = await tx
+        .select({
+          nextNumber: sql<number>`COALESCE(MAX(${schema.appointments.publicNumberCounter}), 0) + 1`,
+        })
+        .from(schema.appointments)
+        .where(eq(schema.appointments.storeId, data.storeId));
+
+      const publicNumberCounter = next?.nextNumber ?? 1;
+      const publicNumber = String(publicNumberCounter).padStart(2, '0');
+
+      const [appointment] = await tx
+        .insert(schema.appointments)
+        .values({
+          ...data,
+          publicNumber,
+          publicNumberCounter,
+        })
+        .returning();
+
+      return appointment;
+    });
   }
 
-  async findById(id: number): Promise<Appointment | null> {
+  async findById(id: string): Promise<Appointment | null> {
     const [appointment] = await this.db
       .select()
       .from(schema.appointments)
@@ -59,8 +78,8 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
   }
 
   async findByIdAndStoreId(
-    id: number,
-    storeId: number,
+    id: string,
+    storeId: string,
   ): Promise<Appointment | null> {
     const [appointment] = await this.db
       .select()
@@ -75,7 +94,7 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
     return appointment || null;
   }
 
-  async findByCustomerId(customerId: number): Promise<Appointment[]> {
+  async findByCustomerId(customerId: string): Promise<Appointment[]> {
     return await this.db
       .select()
       .from(schema.appointments)
@@ -83,7 +102,7 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
       .orderBy(sql`${schema.appointments.startDateTime} DESC`);
   }
 
-  async findByStoreId(storeId: number): Promise<Appointment[]> {
+  async findByStoreId(storeId: string): Promise<Appointment[]> {
     return await this.db
       .select()
       .from(schema.appointments)
@@ -95,7 +114,7 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
   }
 
   async findByStoreIdWithFilters(
-    storeId: number,
+    storeId: string,
     filters: AppointmentQueryFilters = {},
   ): Promise<PaginatedResult<Appointment>> {
     const pagination = this.normalizePagination(filters, 10, 100);
@@ -136,7 +155,7 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
   }
 
   async countByStatus(
-    storeId: number,
+    storeId: string,
     filters: AppointmentQueryFilters = {},
   ): Promise<AppointmentStatusCounts> {
     const whereCondition = this.buildWhereClause(storeId, filters, {
@@ -178,7 +197,7 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
   }
 
   async findByStaffIdAndDateRange(
-    staffId: number,
+    staffId: string,
     startDate: Date,
     endDate: Date,
   ): Promise<Appointment[]> {
@@ -197,7 +216,7 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
   }
 
   async findByStoreIdAndDateRange(
-    storeId: number,
+    storeId: string,
     startDate: Date,
     endDate: Date,
   ): Promise<Appointment[]> {
@@ -215,10 +234,10 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
   }
 
   async findOverlappingAppointments(
-    staffId: number,
+    staffId: string,
     startDateTime: Date,
     endDateTime: Date,
-    excludeAppointmentId?: number,
+    excludeAppointmentId?: string,
   ): Promise<Appointment[]> {
     const conditions = [
       eq(schema.appointments.staffId, staffId),
@@ -237,7 +256,7 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
       .where(and(...conditions));
   }
 
-  async update(id: number, data: Partial<Appointment>): Promise<Appointment> {
+  async update(id: string, data: Partial<Appointment>): Promise<Appointment> {
     const [updatedAppointment] = await this.db
       .update(schema.appointments)
       .set({ ...data, updatedAt: new Date() })
@@ -342,7 +361,7 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
     return result.length;
   }
 
-  async delete(id: number): Promise<void> {
+  async delete(id: string): Promise<void> {
     const result = await this.db
       .delete(schema.appointments)
       .where(eq(schema.appointments.id, id))
@@ -354,7 +373,7 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
   }
 
   private buildWhereClause(
-    storeId: number,
+    storeId: string,
     filters: AppointmentQueryFilters,
     options: { includeStatus?: boolean } = {},
   ): SQL | undefined {
@@ -363,7 +382,7 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
   }
 
   private buildFilterConditions(
-    storeId: number,
+    storeId: string,
     filters: AppointmentQueryFilters,
     options: { includeStatus?: boolean } = {},
   ): SQL[] {
@@ -416,7 +435,8 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
 
     return sql`
       (
-        CAST(${schema.appointments.id} AS TEXT) ILIKE ${pattern}
+        ${schema.appointments.publicNumber} ILIKE ${pattern}
+        OR CAST(${schema.appointments.id} AS TEXT) ILIKE ${pattern}
         OR ${schema.appointments.guestFirstName} ILIKE ${pattern}
         OR ${schema.appointments.guestLastName} ILIKE ${pattern}
         OR ${schema.appointments.guestEmail} ILIKE ${pattern}
@@ -441,7 +461,7 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
     `;
   }
 
-  async incrementStoreAppointmentCount(storeId: number): Promise<void> {
+  async incrementStoreAppointmentCount(storeId: string): Promise<void> {
     await this.db
       .update(schema.stores)
       .set({

@@ -14,7 +14,7 @@ export class NotificationRepository {
   /**
    * Get notification settings for a store
    */
-  async getSettings(storeId: number) {
+  async getSettings(storeId: string) {
     return this.db.query.notificationSettings.findFirst({
       where: eq(schema.notificationSettings.storeId, storeId),
     });
@@ -23,7 +23,7 @@ export class NotificationRepository {
   /**
    * Create default notification settings for a store
    */
-  async createDefaultSettings(storeId: number) {
+  async createDefaultSettings(storeId: string) {
     const defaultSettings = {
       storeId,
       appointmentConfirmationEnabled: true,
@@ -56,7 +56,7 @@ export class NotificationRepository {
    * Update notification settings
    */
   async updateSettings(
-    storeId: number,
+    storeId: string,
     data: Partial<typeof schema.notificationSettings.$inferInsert>,
   ) {
     const existing = await this.getSettings(storeId);
@@ -90,7 +90,7 @@ export class NotificationRepository {
   /**
    * Get or create notification settings
    */
-  async getOrCreateSettings(storeId: number) {
+  async getOrCreateSettings(storeId: string) {
     const existing = await this.getSettings(storeId);
 
     if (existing) {
@@ -109,7 +109,7 @@ export class NotificationRepository {
     return notification;
   }
 
-  async getUserNotifications(userId: number, limit = 20) {
+  async getUserNotifications(userId: string, limit = 20) {
     return this.db.query.notifications.findMany({
       where: eq(schema.notifications.userId, userId),
       orderBy: (notifications, { desc }) => [desc(notifications.createdAt)],
@@ -117,7 +117,7 @@ export class NotificationRepository {
     });
   }
 
-  async markAsRead(id: number, userId: number) {
+  async markAsRead(id: string, userId: string) {
     const [updated] = await this.db
       .update(schema.notifications)
       .set({ isRead: true })
@@ -132,7 +132,7 @@ export class NotificationRepository {
     return updated;
   }
 
-  async markAllAsRead(userId: number) {
+  async markAllAsRead(userId: string) {
     return this.db
       .update(schema.notifications)
       .set({ isRead: true })

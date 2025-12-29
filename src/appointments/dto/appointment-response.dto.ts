@@ -2,10 +2,10 @@ import { Exclude, Expose, Type } from 'class-transformer';
 
 class AppointmentExtraResponse {
   @Expose()
-  id: number;
+  id: string;
 
   @Expose()
-  extraId: number;
+  extraId: string;
 
   @Expose()
   quantity: number;
@@ -33,22 +33,28 @@ class GuestInfo {
 
 export class AppointmentResponseDto {
   @Expose()
-  id: number;
+  id: string;
 
   @Expose()
-  storeId: number;
+  publicNumber: string;
 
   @Expose()
-  customerId?: number;
+  storeId: string;
 
   @Expose()
-  serviceId?: number;
+  customerId?: string;
 
   @Expose()
-  staffId?: number;
+  customerNumber?: number;
 
   @Expose()
-  locationId?: number;
+  serviceId?: string;
+
+  @Expose()
+  staffId?: string;
+
+  @Expose()
+  locationId?: string;
 
   @Expose()
   @Type(() => GuestInfo)

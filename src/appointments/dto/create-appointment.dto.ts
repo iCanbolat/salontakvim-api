@@ -7,14 +7,13 @@ import {
   IsArray,
   ValidateNested,
   Min,
-  IsPositive,
+  IsUUID,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class AppointmentExtraDto {
-  @IsInt()
-  @IsPositive()
-  extraId: number;
+  @IsUUID()
+  extraId: string;
 
   @IsInt()
   @Min(1)
@@ -22,19 +21,16 @@ class AppointmentExtraDto {
 }
 
 export class CreateAppointmentDto {
-  @IsInt()
-  @IsPositive()
-  serviceId: number;
+  @IsUUID()
+  serviceId: string;
 
-  @IsInt()
-  @IsPositive()
+  @IsUUID()
   @IsOptional()
-  staffId?: number;
+  staffId?: string;
 
-  @IsInt()
-  @IsPositive()
+  @IsUUID()
   @IsOptional()
-  locationId?: number;
+  locationId?: string;
 
   @IsDateString()
   startDateTime: string;

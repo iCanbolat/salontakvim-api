@@ -6,9 +6,9 @@ import {
   IsBoolean,
   IsInt,
   Min,
-  IsDecimal,
   Matches,
   IsNumber,
+  IsUUID,
 } from 'class-validator';
 
 export class CreateServiceDto {
@@ -21,9 +21,9 @@ export class CreateServiceDto {
   @IsOptional()
   description?: string;
 
-  @IsInt()
+  @IsUUID()
   @IsOptional()
-  categoryId?: number;
+  categoryId?: string;
 
   @IsInt()
   @Min(1)

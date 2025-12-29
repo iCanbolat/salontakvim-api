@@ -76,7 +76,7 @@ export class StaffInvitationService {
     };
   }
 
-  async inviteStaff(storeId: number, dto: InviteStaffDto, invitedBy: number) {
+  async inviteStaff(storeId: string, dto: InviteStaffDto, invitedBy: string) {
     // Check if user with email already exists
     const existingUser = await this.userRepository.findByEmail(dto.email);
     if (existingUser) {
@@ -168,7 +168,7 @@ export class StaffInvitationService {
     return invitation;
   }
 
-  async getInvitations(storeId: number) {
+  async getInvitations(storeId: string) {
     const [invitations, locationMap] = await Promise.all([
       this.staffInvitationRepository.findByStoreId(storeId),
       this.locationRepository
@@ -304,7 +304,7 @@ export class StaffInvitationService {
     };
   }
 
-  async deleteInvitation(storeId: number, invitationId: number) {
+  async deleteInvitation(storeId: string, invitationId: string) {
     const invitation =
       await this.staffInvitationRepository.findById(invitationId);
 

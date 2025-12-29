@@ -134,8 +134,8 @@ export class AnalyticsService {
   }
 
   async getDashboard(
-    storeId: number,
-    ownerId: number,
+    storeId: string,
+    ownerId: string,
     query: AnalyticsQueryDto,
   ): Promise<DashboardResponseDto> {
     // Verify store ownership
@@ -224,8 +224,8 @@ export class AnalyticsService {
   }
 
   async getAppointmentAnalytics(
-    storeId: number,
-    ownerId: number,
+    storeId: string,
+    ownerId: string,
     query: AnalyticsQueryDto,
   ): Promise<AppointmentAnalyticsResponseDto> {
     await this.storeService.verifyStoreOwnership(storeId, ownerId);
@@ -307,8 +307,8 @@ export class AnalyticsService {
   }
 
   async getRevenueAnalytics(
-    storeId: number,
-    ownerId: number,
+    storeId: string,
+    ownerId: string,
     query: AnalyticsQueryDto,
   ): Promise<RevenueAnalyticsResponseDto> {
     await this.storeService.verifyStoreOwnership(storeId, ownerId);
@@ -411,8 +411,8 @@ export class AnalyticsService {
   }
 
   async getCustomerAnalytics(
-    storeId: number,
-    ownerId: number,
+    storeId: string,
+    ownerId: string,
     query: AnalyticsQueryDto,
   ): Promise<CustomerAnalyticsResponseDto> {
     await this.storeService.verifyStoreOwnership(storeId, ownerId);
@@ -501,8 +501,8 @@ export class AnalyticsService {
   }
 
   async getStaffAnalytics(
-    storeId: number,
-    ownerId: number,
+    storeId: string,
+    ownerId: string,
     query: AnalyticsQueryDto,
   ): Promise<StaffAnalyticsResponseDto> {
     await this.storeService.verifyStoreOwnership(storeId, ownerId);
@@ -627,8 +627,8 @@ export class AnalyticsService {
   }
 
   async getServiceAnalytics(
-    storeId: number,
-    ownerId: number,
+    storeId: string,
+    ownerId: string,
     query: AnalyticsQueryDto,
   ): Promise<ServiceAnalyticsResponseDto> {
     await this.storeService.verifyStoreOwnership(storeId, ownerId);
@@ -719,18 +719,18 @@ export class AnalyticsService {
 
   // ==================== HELPER METHODS ====================
 
-  private async getTotalStaff(storeId: number): Promise<number> {
+  private async getTotalStaff(storeId: string): Promise<number> {
     // This should ideally come from StaffModule, but kept simple for now
     return 0; // Placeholder - integrate with StaffRepository
   }
 
-  private async getTotalServices(storeId: number): Promise<number> {
+  private async getTotalServices(storeId: string): Promise<number> {
     // This should ideally come from ServicesModule
     return 0; // Placeholder - integrate with ServiceRepository
   }
 
   private async getAppointmentsForDate(
-    storeId: number,
+    storeId: string,
     date: Date,
   ): Promise<number> {
     const startDate = new Date(date.setHours(0, 0, 0, 0));
@@ -742,7 +742,7 @@ export class AnalyticsService {
   }
 
   private async getRevenueForDate(
-    storeId: number,
+    storeId: string,
     date: Date,
   ): Promise<string> {
     const startDate = new Date(date.setHours(0, 0, 0, 0));

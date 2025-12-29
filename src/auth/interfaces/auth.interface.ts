@@ -1,6 +1,6 @@
 export interface AuthResponse {
   user: {
-    id: number;
+    id: string;
     email: string;
     firstName: string | null;
     lastName: string | null;
@@ -13,12 +13,12 @@ export interface AuthResponse {
 }
 
 export interface JwtPayload {
-  sub: number; // user id
+  sub: string; // user id
   email: string;
   role: 'admin' | 'staff' | 'customer';
 }
 
 export interface RefreshTokenPayload {
-  sub: number;
-  tokenId: number;
+  sub: string;
+  tokenId: string;
 }

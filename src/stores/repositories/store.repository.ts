@@ -23,7 +23,7 @@ export class StoreRepository implements IStoreRepository {
     return store;
   }
 
-  async findById(id: number): Promise<Store | null> {
+  async findById(id: string): Promise<Store | null> {
     const [store] = await this.db
       .select()
       .from(schema.stores)
@@ -41,7 +41,7 @@ export class StoreRepository implements IStoreRepository {
     return store || null;
   }
 
-  async findByOwnerId(ownerId: number): Promise<Store | null> {
+  async findByOwnerId(ownerId: string): Promise<Store | null> {
     const [store] = await this.db
       .select()
       .from(schema.stores)
@@ -50,7 +50,7 @@ export class StoreRepository implements IStoreRepository {
     return store || null;
   }
 
-  async update(id: number, data: Partial<Store>): Promise<Store> {
+  async update(id: string, data: Partial<Store>): Promise<Store> {
     const [updatedStore] = await this.db
       .update(schema.stores)
       .set({ ...data, updatedAt: new Date() })
@@ -64,7 +64,7 @@ export class StoreRepository implements IStoreRepository {
     return updatedStore;
   }
 
-  async delete(id: number): Promise<void> {
+  async delete(id: string): Promise<void> {
     const result = await this.db
       .delete(schema.stores)
       .where(eq(schema.stores.id, id))
@@ -75,7 +75,7 @@ export class StoreRepository implements IStoreRepository {
     }
   }
 
-  async incrementAppointments(id: number): Promise<void> {
+  async incrementAppointments(id: string): Promise<void> {
     await this.db
       .update(schema.stores)
       .set({
@@ -85,7 +85,7 @@ export class StoreRepository implements IStoreRepository {
       .where(eq(schema.stores.id, id));
   }
 
-  async incrementCustomers(id: number): Promise<void> {
+  async incrementCustomers(id: string): Promise<void> {
     await this.db
       .update(schema.stores)
       .set({
@@ -95,8 +95,68 @@ export class StoreRepository implements IStoreRepository {
       .where(eq(schema.stores.id, id));
   }
 
+  async ensureStoreCustomer(storeId: string, customerId: string) {
+    const [existing] = await this.db
+      .select()
+      .from(schema.storeCustomers)
+      .where(
+        and(
+          eq(schema.storeCustomers.storeId, storeId),
+          eq(schema.storeCustomers.customerId, customerId),
+        ),
+      )
+      .limit(1);
+
+    if (existing) return existing;
+
+    return await this.db.transaction(async (tx) => {
+      const [already] = await tx
+        .select()
+        .from(schema.storeCustomers)
+        .where(
+          and(
+            eq(schema.storeCustomers.storeId, storeId),
+            eq(schema.storeCustomers.customerId, customerId),
+          ),
+        )
+        .limit(1);
+
+      if (already) return already;
+
+      const [next] = await tx
+        .select({
+          nextNumber: sql<number>`COALESCE(MAX(${schema.storeCustomers.publicNumberCounter}), 0) + 1`,
+        })
+        .from(schema.storeCustomers)
+        .where(eq(schema.storeCustomers.storeId, storeId));
+
+      const publicNumberCounter = next?.nextNumber ?? 1;
+      const publicNumber = String(publicNumberCounter).padStart(2, '0');
+
+      const [inserted] = await tx
+        .insert(schema.storeCustomers)
+        .values({
+          storeId,
+          customerId,
+          publicNumberCounter,
+          publicNumber,
+        })
+        .returning();
+
+      await tx
+        .update(schema.stores)
+        .set({
+          totalCustomers: sql`${schema.stores.totalCustomers} + 1`,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.stores.id, storeId));
+
+      return inserted;
+    });
+  }
+
   async updateAnalytics(
-    id: number,
+    id: string,
     data: {
       totalAppointments?: number;
       totalCustomers?: number;
@@ -115,21 +175,15 @@ export class StoreRepository implements IStoreRepository {
     return updatedStore;
   }
 
-  async getCustomers(storeId: number) {
+  async getCustomers(storeId: string) {
     const customers = await this.db
       .select({
         id: schema.users.id,
+        publicNumber: schema.storeCustomers.publicNumber,
         email: schema.users.email,
         firstName: schema.users.firstName,
         lastName: schema.users.lastName,
         phone: schema.users.phone,
-        avatar: schema.users.avatar,
-        role: schema.users.role,
-        paymentStatus: schema.users.paymentStatus,
-        authProvider: schema.users.authProvider,
-        providerId: schema.users.providerId,
-        isActive: schema.users.isActive,
-        emailVerified: schema.users.emailVerified,
         lastLogin: schema.users.lastLogin,
         createdAt: schema.users.createdAt,
         updatedAt: schema.users.updatedAt,
@@ -148,19 +202,20 @@ export class StoreRepository implements IStoreRepository {
           eq(schema.appointments.storeId, storeId),
         ),
       )
+      .leftJoin(
+        schema.storeCustomers,
+        and(
+          eq(schema.storeCustomers.storeId, storeId),
+          eq(schema.storeCustomers.customerId, schema.users.id),
+        ),
+      )
       .groupBy(
         schema.users.id,
+        schema.storeCustomers.publicNumber,
         schema.users.email,
         schema.users.firstName,
         schema.users.lastName,
         schema.users.phone,
-        schema.users.avatar,
-        schema.users.role,
-        schema.users.paymentStatus,
-        schema.users.authProvider,
-        schema.users.providerId,
-        schema.users.isActive,
-        schema.users.emailVerified,
         schema.users.lastLogin,
         schema.users.createdAt,
         schema.users.updatedAt,
@@ -170,24 +225,18 @@ export class StoreRepository implements IStoreRepository {
     return customers;
   }
 
-  async getCustomerProfile(storeId: number, customerId: number) {
+  async getCustomerProfile(storeId: string, customerId: string) {
     const [customer] = await this.db
       .select({
         id: schema.users.id,
+        publicNumber: schema.storeCustomers.publicNumber,
         email: schema.users.email,
         firstName: schema.users.firstName,
         lastName: schema.users.lastName,
         phone: schema.users.phone,
-        avatar: schema.users.avatar,
-        role: schema.users.role,
-        paymentStatus: schema.users.paymentStatus,
-        authProvider: schema.users.authProvider,
-        providerId: schema.users.providerId,
-        isActive: schema.users.isActive,
         emailVerified: schema.users.emailVerified,
         lastLogin: schema.users.lastLogin,
         createdAt: schema.users.createdAt,
-        updatedAt: schema.users.updatedAt,
         totalAppointments: sql<number>`COUNT(${schema.appointments.id})`,
         completedAppointments: sql<number>`COUNT(CASE WHEN ${schema.appointments.status} = 'completed' THEN 1 END)`,
         cancelledAppointments: sql<number>`COUNT(CASE WHEN ${schema.appointments.status} = 'cancelled' THEN 1 END)`,
@@ -197,23 +246,24 @@ export class StoreRepository implements IStoreRepository {
       })
       .from(schema.users)
       .leftJoin(
+        schema.storeCustomers,
+        and(
+          eq(schema.storeCustomers.storeId, storeId),
+          eq(schema.storeCustomers.customerId, schema.users.id),
+        ),
+      )
+      .leftJoin(
         schema.appointments,
         sql`${schema.appointments.customerId} = ${schema.users.id} AND ${schema.appointments.storeId} = ${storeId}`,
       )
       .where(eq(schema.users.id, customerId))
       .groupBy(
         schema.users.id,
+        schema.storeCustomers.publicNumber,
         schema.users.email,
         schema.users.firstName,
         schema.users.lastName,
         schema.users.phone,
-        schema.users.avatar,
-        schema.users.role,
-        schema.users.paymentStatus,
-        schema.users.authProvider,
-        schema.users.providerId,
-        schema.users.isActive,
-        schema.users.emailVerified,
         schema.users.lastLogin,
         schema.users.createdAt,
         schema.users.updatedAt,

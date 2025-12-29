@@ -3,8 +3,7 @@ import {
   IsNotEmpty,
   MaxLength,
   IsOptional,
-  IsInt,
-  Min,
+  IsUUID,
 } from 'class-validator';
 
 export class InviteStaffDto {
@@ -18,7 +17,6 @@ export class InviteStaffDto {
   title?: string;
 
   @IsOptional()
-  @IsInt()
-  @Min(1)
-  locationId?: number;
+  @IsUUID()
+  locationId?: string;
 }

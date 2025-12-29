@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsString,
   Min,
+  IsUUID,
 } from 'class-validator';
 import { appointmentStatusEnum } from '../../db/schema';
 
@@ -29,28 +30,20 @@ export class GetStoreAppointmentsDto {
   status?: AppointmentStatus;
 
   @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  serviceId?: number;
+  @IsUUID()
+  serviceId?: string;
 
   @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  staffId?: number;
+  @IsUUID()
+  staffId?: string;
 
   @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  locationId?: number;
+  @IsUUID()
+  locationId?: string;
 
   @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  customerId?: number;
+  @IsUUID()
+  customerId?: string;
 
   @IsOptional()
   @IsDateString()

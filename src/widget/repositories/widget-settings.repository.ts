@@ -23,7 +23,7 @@ export class WidgetSettingsRepository {
     return widgetSettings;
   }
 
-  async findByStoreId(storeId: number): Promise<WidgetSettings | null> {
+  async findByStoreId(storeId: string): Promise<WidgetSettings | null> {
     const [widgetSettings] = await this.db
       .select()
       .from(schema.widgetSettings)
@@ -42,7 +42,7 @@ export class WidgetSettingsRepository {
   }
 
   async update(
-    storeId: number,
+    storeId: string,
     data: Partial<WidgetSettings>,
   ): Promise<WidgetSettings> {
     const [updatedWidgetSettings] = await this.db
@@ -60,7 +60,7 @@ export class WidgetSettingsRepository {
     return updatedWidgetSettings;
   }
 
-  async delete(storeId: number): Promise<void> {
+  async delete(storeId: string): Promise<void> {
     const result = await this.db
       .delete(schema.widgetSettings)
       .where(eq(schema.widgetSettings.storeId, storeId))

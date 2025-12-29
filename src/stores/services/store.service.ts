@@ -19,7 +19,7 @@ export class StoreService {
   ) {}
 
   async create(
-    ownerId: number,
+    ownerId: string,
     createStoreDto: CreateStoreDto,
   ): Promise<StoreResponseDto> {
     // Check if user already has a store
@@ -46,7 +46,7 @@ export class StoreService {
     });
   }
 
-  async findById(id: number, userId?: number): Promise<StoreResponseDto> {
+  async findById(id: string, userId?: string): Promise<StoreResponseDto> {
     const store = await this.storeRepository.findById(id);
     if (!store) {
       throw new StoreNotFoundException(id.toString());
@@ -68,7 +68,7 @@ export class StoreService {
     });
   }
 
-  async findMyStore(userId: number): Promise<StoreResponseDto> {
+  async findMyStore(userId: string): Promise<StoreResponseDto> {
     // Owner account
     const storeByOwner = await this.storeRepository.findByOwnerId(userId);
     if (storeByOwner) {
@@ -99,8 +99,8 @@ export class StoreService {
   }
 
   async update(
-    id: number,
-    userId: number,
+    id: string,
+    userId: string,
     updateStoreDto: UpdateStoreDto,
   ): Promise<StoreResponseDto> {
     const store = await this.storeRepository.findById(id);
@@ -133,7 +133,7 @@ export class StoreService {
     });
   }
 
-  async deactivate(id: number, userId: number): Promise<void> {
+  async deactivate(id: string, userId: string): Promise<void> {
     const store = await this.storeRepository.findById(id);
     if (!store) {
       throw new StoreNotFoundException(id.toString());
@@ -150,7 +150,7 @@ export class StoreService {
     await this.storeRepository.update(id, { isActive: false });
   }
 
-  async delete(id: number, userId: number): Promise<void> {
+  async delete(id: string, userId: string): Promise<void> {
     const store = await this.storeRepository.findById(id);
     if (!store) {
       throw new StoreNotFoundException(id.toString());
@@ -168,8 +168,8 @@ export class StoreService {
   }
 
   async getAnalytics(
-    id: number,
-    userId: number,
+    id: string,
+    userId: string,
   ): Promise<{
     totalAppointments: number;
     totalCustomers: number;
@@ -194,7 +194,7 @@ export class StoreService {
   }
 
   // Helper method to verify store ownership (for other modules)
-  async verifyStoreOwnership(storeId: number, userId: number): Promise<Store> {
+  async verifyStoreOwnership(storeId: string, userId: string): Promise<Store> {
     const store = await this.storeRepository.findById(storeId);
     if (!store) {
       throw new StoreNotFoundException(storeId.toString());
@@ -211,7 +211,7 @@ export class StoreService {
   }
 
   // Helper method to check if store exists (for other modules)
-  async validateStoreExists(storeId: number): Promise<Store> {
+  async validateStoreExists(storeId: string): Promise<Store> {
     const store = await this.storeRepository.findById(storeId);
     if (!store) {
       throw new StoreNotFoundException(storeId.toString());
@@ -220,16 +220,16 @@ export class StoreService {
   }
 
   // Customers endpoint - get unique customers from appointments
-  async getCustomers(storeId: number, userId: number) {
+  async getCustomers(storeId: string, userId: string) {
     await this.verifyStoreOwnership(storeId, userId);
     return this.storeRepository.getCustomers(storeId);
   }
 
   // Get customer profile with stats
   async getCustomerProfile(
-    storeId: number,
-    customerId: number,
-    userId: number,
+    storeId: string,
+    customerId: string,
+    userId: string,
   ) {
     await this.verifyStoreOwnership(storeId, userId);
     return this.storeRepository.getCustomerProfile(storeId, customerId);

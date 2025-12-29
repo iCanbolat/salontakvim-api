@@ -20,14 +20,14 @@ export interface AppointmentByTimeSlot {
 }
 
 export interface AppointmentByService {
-  serviceId: number;
+  serviceId: string;
   serviceName: string;
   count: number;
   revenue: string;
 }
 
 export interface AppointmentByStaff {
-  staffId: number;
+  staffId: string;
   staffName: string;
   count: number;
   revenue: string;
@@ -40,14 +40,14 @@ export interface RevenueByDate {
 }
 
 export interface RevenueByService {
-  serviceId: number;
+  serviceId: string;
   serviceName: string;
   revenue: string;
   appointmentCount: number;
 }
 
 export interface RevenueByStaff {
-  staffId: number;
+  staffId: string;
   staffName: string;
   revenue: string;
   appointmentCount: number;
@@ -66,7 +66,7 @@ export interface CustomerGrowth {
 }
 
 export interface TopCustomer {
-  customerId: number;
+  customerId: string;
   customerName: string;
   customerEmail: string;
   appointmentCount: number;
@@ -80,7 +80,7 @@ export interface CustomerBySource {
 }
 
 export interface StaffPerformance {
-  staffId: number;
+  staffId: string;
   staffName: string;
   appointmentCount: number;
   completedAppointments: number;
@@ -91,14 +91,14 @@ export interface StaffPerformance {
 }
 
 export interface StaffAvailability {
-  staffId: number;
+  staffId: string;
   staffName: string;
   totalHours: number;
   bookedHours: number;
 }
 
 export interface ServicePopularity {
-  serviceId: number;
+  serviceId: string;
   serviceName: string;
   categoryName: string;
   appointmentCount: number;
@@ -108,14 +108,14 @@ export interface ServicePopularity {
 
 export interface ServiceByTime {
   date: string;
-  serviceId: number;
+  serviceId: string;
   serviceName: string;
   count: number;
   revenue: string;
 }
 
 export interface ServiceCategoryPerformance {
-  categoryId: number;
+  categoryId: string;
   categoryName: string;
   serviceCount: number;
   appointmentCount: number;
@@ -123,7 +123,7 @@ export interface ServiceCategoryPerformance {
 }
 
 export interface ServiceExtrasAnalytics {
-  extraId: number;
+  extraId: string;
   extraName: string;
   serviceName: string;
   timesAdded: number;

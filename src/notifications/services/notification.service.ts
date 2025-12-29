@@ -26,28 +26,28 @@ export class NotificationService {
   /**
    * Get notification settings
    */
-  async getSettings(storeId: number) {
+  async getSettings(storeId: string) {
     return this.repository.getOrCreateSettings(storeId);
   }
 
   /**
    * Update notification settings
    */
-  async updateSettings(storeId: number, dto: UpdateNotificationSettingsDto) {
+  async updateSettings(storeId: string, dto: UpdateNotificationSettingsDto) {
     return this.repository.updateSettings(storeId, dto);
   }
 
   /**
    * Get all templates
    */
-  async getAllTemplates(storeId: number) {
+  async getAllTemplates(storeId: string) {
     return this.templateService.getAllTemplates(storeId);
   }
 
   /**
    * Get specific template
    */
-  async getTemplate(storeId: number, templateType: string) {
+  async getTemplate(storeId: string, templateType: string) {
     return this.templateService.getTemplate(storeId, templateType);
   }
 
@@ -55,7 +55,7 @@ export class NotificationService {
    * Update template
    */
   async updateTemplate(
-    storeId: number,
+    storeId: string,
     templateType: string,
     dto: UpdateTemplateDto,
   ) {
@@ -65,14 +65,14 @@ export class NotificationService {
   /**
    * Reset template to default
    */
-  async resetTemplate(storeId: number, templateType: string) {
+  async resetTemplate(storeId: string, templateType: string) {
     return this.templateService.resetTemplate(storeId, templateType);
   }
 
   /**
    * Test notification
    */
-  async testNotification(storeId: number, dto: TestNotificationDto) {
+  async testNotification(storeId: string, dto: TestNotificationDto) {
     const { templateType, channel, recipient } = dto;
     const variables = (dto as any).variables || {};
 
@@ -130,7 +130,7 @@ export class NotificationService {
    * Send appointment confirmation notification
    */
   async sendAppointmentConfirmation(
-    storeId: number,
+    storeId: string,
     recipientEmail: string,
     recipientPhone: string | null,
     variables: TemplateVariables,
@@ -156,7 +156,7 @@ export class NotificationService {
    * Send appointment reminder (24h)
    */
   async sendAppointmentReminder24h(
-    storeId: number,
+    storeId: string,
     recipientEmail: string,
     recipientPhone: string | null,
     variables: TemplateVariables,
@@ -182,7 +182,7 @@ export class NotificationService {
    * Send appointment reminder (1h)
    */
   async sendAppointmentReminder1h(
-    storeId: number,
+    storeId: string,
     recipientEmail: string,
     recipientPhone: string | null,
     variables: TemplateVariables,
@@ -208,7 +208,7 @@ export class NotificationService {
    * Send appointment cancellation notification
    */
   async sendAppointmentCancellation(
-    storeId: number,
+    storeId: string,
     recipientEmail: string,
     recipientPhone: string | null,
     variables: TemplateVariables,
@@ -234,7 +234,7 @@ export class NotificationService {
    * Send appointment rescheduled notification
    */
   async sendAppointmentRescheduled(
-    storeId: number,
+    storeId: string,
     recipientEmail: string,
     recipientPhone: string | null,
     variables: TemplateVariables,
@@ -260,7 +260,7 @@ export class NotificationService {
    * Send staff invitation notification
    */
   async sendStaffInvitation(
-    storeId: number,
+    storeId: string,
     recipientEmail: string,
     variables: TemplateVariables,
   ) {
@@ -285,7 +285,7 @@ export class NotificationService {
    * Generic notification sender
    */
   private async sendNotification(
-    storeId: number,
+    storeId: string,
     templateType: string,
     channel: string,
     recipientEmail: string,
@@ -318,7 +318,7 @@ export class NotificationService {
         }
       }
 
-      // Send SMS if channel includes SMS 
+      // Send SMS if channel includes SMS
       if (channel === 'sms' || channel === 'both') {
         if (recipientPhone && rendered.smsContent) {
           const formattedPhone =
@@ -350,8 +350,8 @@ export class NotificationService {
   }
 
   async createInAppNotification(
-    userId: number,
-    storeId: number,
+    userId: string,
+    storeId: string,
     title: string,
     message: string,
     type: string,
@@ -371,15 +371,15 @@ export class NotificationService {
     return notification;
   }
 
-  async getUserNotifications(userId: number) {
+  async getUserNotifications(userId: string) {
     return this.repository.getUserNotifications(userId);
   }
 
-  async markAsRead(id: number, userId: number) {
+  async markAsRead(id: string, userId: string) {
     return this.repository.markAsRead(id, userId);
   }
 
-  async markAllAsRead(userId: number) {
+  async markAllAsRead(userId: string) {
     return this.repository.markAllAsRead(userId);
   }
 }

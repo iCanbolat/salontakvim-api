@@ -22,7 +22,7 @@ export class StaffInvitationRepository {
     return invitation;
   }
 
-  async findById(id: number): Promise<StaffInvitation | null> {
+  async findById(id: string): Promise<StaffInvitation | null> {
     const [invitation] = await this.db
       .select()
       .from(schema.staffInvitations)
@@ -40,7 +40,7 @@ export class StaffInvitationRepository {
     return invitation || null;
   }
 
-  async findByStoreId(storeId: number): Promise<StaffInvitation[]> {
+  async findByStoreId(storeId: string): Promise<StaffInvitation[]> {
     return await this.db
       .select()
       .from(schema.staffInvitations)
@@ -58,7 +58,7 @@ export class StaffInvitationRepository {
 
   async findPendingByEmailAndStore(
     email: string,
-    storeId: number,
+    storeId: string,
   ): Promise<StaffInvitation | null> {
     const [invitation] = await this.db
       .select()
@@ -75,7 +75,7 @@ export class StaffInvitationRepository {
   }
 
   async update(
-    id: number,
+    id: string,
     data: Partial<StaffInvitation>,
   ): Promise<StaffInvitation> {
     const [updatedInvitation] = await this.db
@@ -91,7 +91,7 @@ export class StaffInvitationRepository {
     return updatedInvitation;
   }
 
-  async delete(id: number): Promise<void> {
+  async delete(id: string): Promise<void> {
     const result = await this.db
       .delete(schema.staffInvitations)
       .where(eq(schema.staffInvitations.id, id))

@@ -19,13 +19,13 @@ export class AvailabilityResponseDto {
   date: string; // Format: YYYY-MM-DD
 
   @Expose()
-  serviceId: number;
+  serviceId: string;
 
   @Expose()
-  staffId: number;
+  staffId: string;
 
   @Expose()
-  locationId?: number;
+  locationId?: string;
 
   @Expose()
   extrasDurationMinutes?: number;

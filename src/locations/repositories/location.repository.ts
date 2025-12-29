@@ -23,7 +23,7 @@ export class LocationRepository implements ILocationRepository {
     return location;
   }
 
-  async findById(id: number): Promise<Location | null> {
+  async findById(id: string): Promise<Location | null> {
     const [location] = await this.db
       .select()
       .from(schema.locations)
@@ -32,7 +32,7 @@ export class LocationRepository implements ILocationRepository {
     return location || null;
   }
 
-  async findByStoreId(storeId: number): Promise<Location[]> {
+  async findByStoreId(storeId: string): Promise<Location[]> {
     return await this.db
       .select()
       .from(schema.locations)
@@ -40,8 +40,8 @@ export class LocationRepository implements ILocationRepository {
   }
 
   async findByIdAndStoreId(
-    id: number,
-    storeId: number,
+    id: string,
+    storeId: string,
   ): Promise<Location | null> {
     const [location] = await this.db
       .select()
@@ -53,7 +53,7 @@ export class LocationRepository implements ILocationRepository {
     return location || null;
   }
 
-  async findVisibleByStoreId(storeId: number): Promise<Location[]> {
+  async findVisibleByStoreId(storeId: string): Promise<Location[]> {
     return await this.db
       .select()
       .from(schema.locations)
@@ -65,7 +65,7 @@ export class LocationRepository implements ILocationRepository {
       );
   }
 
-  async update(id: number, data: Partial<Location>): Promise<Location> {
+  async update(id: string, data: Partial<Location>): Promise<Location> {
     const [updatedLocation] = await this.db
       .update(schema.locations)
       .set({ ...data, updatedAt: new Date() })
@@ -79,7 +79,7 @@ export class LocationRepository implements ILocationRepository {
     return updatedLocation;
   }
 
-  async delete(id: number): Promise<void> {
+  async delete(id: string): Promise<void> {
     const result = await this.db
       .delete(schema.locations)
       .where(eq(schema.locations.id, id))

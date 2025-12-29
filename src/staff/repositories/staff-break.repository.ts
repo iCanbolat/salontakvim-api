@@ -22,7 +22,7 @@ export class StaffBreakRepository {
     return staffBreak;
   }
 
-  async findById(id: number): Promise<StaffBreak | null> {
+  async findById(id: string): Promise<StaffBreak | null> {
     const [staffBreak] = await this.db
       .select()
       .from(schema.staffBreaks)
@@ -31,7 +31,7 @@ export class StaffBreakRepository {
     return staffBreak || null;
   }
 
-  async findByStaffId(staffId: number): Promise<StaffBreak[]> {
+  async findByStaffId(staffId: string): Promise<StaffBreak[]> {
     return await this.db
       .select()
       .from(schema.staffBreaks)
@@ -39,7 +39,7 @@ export class StaffBreakRepository {
   }
 
   async findByStaffIdAndDateRange(
-    staffId: number,
+    staffId: string,
     startDate: string,
     endDate: string,
   ): Promise<StaffBreak[]> {
@@ -56,8 +56,8 @@ export class StaffBreakRepository {
   }
 
   async findByIdAndStaffId(
-    id: number,
-    staffId: number,
+    id: string,
+    staffId: string,
   ): Promise<StaffBreak | null> {
     const [staffBreak] = await this.db
       .select()
@@ -72,7 +72,7 @@ export class StaffBreakRepository {
     return staffBreak || null;
   }
 
-  async update(id: number, data: Partial<StaffBreak>): Promise<StaffBreak> {
+  async update(id: string, data: Partial<StaffBreak>): Promise<StaffBreak> {
     const [updatedStaffBreak] = await this.db
       .update(schema.staffBreaks)
       .set({ ...data, updatedAt: new Date() })
@@ -87,7 +87,7 @@ export class StaffBreakRepository {
   }
 
   async findByStoreIdWithStaff(
-    storeId: number,
+    storeId: string,
     status?: StaffBreakStatusEnum,
   ): Promise<any[]> {
     const conditions = [eq(schema.staffMembers.storeId, storeId)];
@@ -128,7 +128,7 @@ export class StaffBreakRepository {
       .orderBy(schema.staffBreaks.createdAt);
   }
 
-  async delete(id: number): Promise<void> {
+  async delete(id: string): Promise<void> {
     const result = await this.db
       .delete(schema.staffBreaks)
       .where(eq(schema.staffBreaks.id, id))

@@ -22,8 +22,8 @@ export class CategoryService {
   ) {}
 
   async create(
-    storeId: number,
-    userId: number,
+    storeId: string,
+    userId: string,
     createCategoryDto: CreateCategoryDto,
   ): Promise<CategoryResponseDto> {
     // Verify store ownership
@@ -45,8 +45,8 @@ export class CategoryService {
   }
 
   async findAll(
-    storeId: number,
-    userId: number,
+    storeId: string,
+    userId: string,
   ): Promise<CategoryResponseDto[]> {
     // Verify store access (owner or staff)
     await this.storeService.validateStoreExists(storeId);
@@ -59,9 +59,9 @@ export class CategoryService {
   }
 
   async findOne(
-    storeId: number,
-    categoryId: number,
-    userId: number,
+    storeId: string,
+    categoryId: string,
+    userId: string,
   ): Promise<CategoryResponseDto> {
     // Verify store access
     await this.storeService.validateStoreExists(storeId);
@@ -83,9 +83,9 @@ export class CategoryService {
   }
 
   async update(
-    storeId: number,
-    categoryId: number,
-    userId: number,
+    storeId: string,
+    categoryId: string,
+    userId: string,
     updateCategoryDto: UpdateCategoryDto,
   ): Promise<CategoryResponseDto> {
     // Verify store ownership
@@ -114,9 +114,9 @@ export class CategoryService {
   }
 
   async remove(
-    storeId: number,
-    categoryId: number,
-    userId: number,
+    storeId: string,
+    categoryId: string,
+    userId: string,
   ): Promise<void> {
     // Verify store ownership
     await this.storeService.verifyStoreOwnership(storeId, userId);
@@ -137,8 +137,8 @@ export class CategoryService {
   }
 
   async reorder(
-    storeId: number,
-    userId: number,
+    storeId: string,
+    userId: string,
     reorderDto: ReorderCategoriesDto,
   ): Promise<CategoryResponseDto[]> {
     // Verify store ownership

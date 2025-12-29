@@ -22,7 +22,7 @@ export class StaffMemberRepository {
     return staffMember;
   }
 
-  async findById(id: number): Promise<StaffMember | null> {
+  async findById(id: string): Promise<StaffMember | null> {
     const [staffMember] = await this.db
       .select()
       .from(schema.staffMembers)
@@ -31,7 +31,7 @@ export class StaffMemberRepository {
     return staffMember || null;
   }
 
-  async findByUserId(userId: number): Promise<StaffMember | null> {
+  async findByUserId(userId: string): Promise<StaffMember | null> {
     const [staffMember] = await this.db
       .select()
       .from(schema.staffMembers)
@@ -40,7 +40,7 @@ export class StaffMemberRepository {
     return staffMember || null;
   }
 
-  async findByStoreId(storeId: number): Promise<StaffMember[]> {
+  async findByStoreId(storeId: string): Promise<StaffMember[]> {
     return await this.db
       .select()
       .from(schema.staffMembers)
@@ -48,8 +48,8 @@ export class StaffMemberRepository {
   }
 
   async findByIdAndStoreId(
-    id: number,
-    storeId: number,
+    id: string,
+    storeId: string,
   ): Promise<StaffMember | null> {
     const [staffMember] = await this.db
       .select()
@@ -65,8 +65,8 @@ export class StaffMemberRepository {
   }
 
   async findByUserIdAndStoreId(
-    userId: number,
-    storeId: number,
+    userId: string,
+    storeId: string,
   ): Promise<StaffMember | null> {
     const [staffMember] = await this.db
       .select()
@@ -81,7 +81,7 @@ export class StaffMemberRepository {
     return staffMember || null;
   }
 
-  async findVisibleByStoreId(storeId: number): Promise<StaffMember[]> {
+  async findVisibleByStoreId(storeId: string): Promise<StaffMember[]> {
     return await this.db
       .select()
       .from(schema.staffMembers)
@@ -93,7 +93,7 @@ export class StaffMemberRepository {
       );
   }
 
-  async update(id: number, data: Partial<StaffMember>): Promise<StaffMember> {
+  async update(id: string, data: Partial<StaffMember>): Promise<StaffMember> {
     const [updatedStaffMember] = await this.db
       .update(schema.staffMembers)
       .set({ ...data, updatedAt: new Date() })
@@ -107,7 +107,7 @@ export class StaffMemberRepository {
     return updatedStaffMember;
   }
 
-  async delete(id: number): Promise<void> {
+  async delete(id: string): Promise<void> {
     const result = await this.db
       .delete(schema.staffMembers)
       .where(eq(schema.staffMembers.id, id))

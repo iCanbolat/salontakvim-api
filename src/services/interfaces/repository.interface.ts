@@ -8,12 +8,12 @@ export type NewServiceExtra = typeof serviceExtras.$inferInsert;
 
 export interface IServiceRepository {
   create(data: NewService): Promise<Service>;
-  findById(id: number): Promise<Service | null>;
-  findByStoreId(storeId: number): Promise<Service[]>;
-  findByIdAndStoreId(id: number, storeId: number): Promise<Service | null>;
-  findByCategoryId(categoryId: number): Promise<Service[]>;
-  findVisibleByStoreId(storeId: number): Promise<Service[]>;
-  update(id: number, data: Partial<Service>): Promise<Service>;
-  delete(id: number): Promise<void>;
-  getMaxPosition(storeId: number): Promise<number>;
+  findById(id: string): Promise<Service | null>;
+  findByStoreId(storeId: string): Promise<Service[]>;
+  findByIdAndStoreId(id: string, storeId: string): Promise<Service | null>;
+  findByCategoryId(categoryId: string): Promise<Service[]>;
+  findVisibleByStoreId(storeId: string): Promise<Service[]>;
+  update(id: string, data: Partial<Service>): Promise<Service>;
+  delete(id: string): Promise<void>;
+  getMaxPosition(storeId: string): Promise<number>;
 }

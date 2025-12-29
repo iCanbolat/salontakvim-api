@@ -35,7 +35,7 @@ export class AnalyticsRepository {
   // ==================== DASHBOARD ====================
 
   async getTotalAppointments(
-    storeId: number,
+    storeId: string,
     dateRange?: DateRange,
   ): Promise<number> {
     const conditions = [eq(schema.appointments.storeId, storeId)];
@@ -56,7 +56,7 @@ export class AnalyticsRepository {
   }
 
   async getTotalRevenue(
-    storeId: number,
+    storeId: string,
     dateRange?: DateRange,
   ): Promise<string> {
     const conditions = [
@@ -79,7 +79,7 @@ export class AnalyticsRepository {
     return result[0]?.total || '0';
   }
 
-  async getTotalCustomers(storeId: number): Promise<number> {
+  async getTotalCustomers(storeId: string): Promise<number> {
     const result = await this.db
       .select({ count: count() })
       .from(schema.appointments)
@@ -90,7 +90,7 @@ export class AnalyticsRepository {
   }
 
   async getAppointmentsByStatus(
-    storeId: number,
+    storeId: string,
     dateRange?: DateRange,
   ): Promise<AppointmentStatusCount[]> {
     const conditions = [eq(schema.appointments.storeId, storeId)];
@@ -118,7 +118,7 @@ export class AnalyticsRepository {
   }
 
   async getPopularTimeSlot(
-    storeId: number,
+    storeId: string,
     dateRange?: DateRange,
   ): Promise<string> {
     const conditions = [eq(schema.appointments.storeId, storeId)];
@@ -156,7 +156,7 @@ export class AnalyticsRepository {
   // ==================== APPOINTMENTS ANALYTICS ====================
 
   async getAppointmentsByDate(
-    storeId: number,
+    storeId: string,
     dateRange: DateRange,
     groupBy: 'day' | 'week' | 'month' = 'day',
   ): Promise<AppointmentByDate[]> {
@@ -202,7 +202,7 @@ export class AnalyticsRepository {
   }
 
   async getAppointmentsByTimeSlot(
-    storeId: number,
+    storeId: string,
     dateRange: DateRange,
   ): Promise<AppointmentByTimeSlot[]> {
     const hourColumn =
@@ -233,7 +233,7 @@ export class AnalyticsRepository {
   }
 
   async getAppointmentsByService(
-    storeId: number,
+    storeId: string,
     dateRange: DateRange,
   ): Promise<AppointmentByService[]> {
     const result = await this.db
@@ -267,7 +267,7 @@ export class AnalyticsRepository {
   }
 
   async getAppointmentsByStaff(
-    storeId: number,
+    storeId: string,
     dateRange: DateRange,
   ): Promise<AppointmentByStaff[]> {
     const result = await this.db
@@ -308,7 +308,7 @@ export class AnalyticsRepository {
   // ==================== REVENUE ANALYTICS ====================
 
   async getRevenueByDate(
-    storeId: number,
+    storeId: string,
     dateRange: DateRange,
     groupBy: 'day' | 'week' | 'month' = 'day',
   ): Promise<RevenueByDate[]> {
@@ -355,7 +355,7 @@ export class AnalyticsRepository {
   }
 
   async getRevenueByService(
-    storeId: number,
+    storeId: string,
     dateRange: DateRange,
   ): Promise<RevenueByService[]> {
     const result = await this.db
@@ -390,7 +390,7 @@ export class AnalyticsRepository {
   }
 
   async getRevenueByStaff(
-    storeId: number,
+    storeId: string,
     dateRange: DateRange,
   ): Promise<RevenueByStaff[]> {
     const result = await this.db
@@ -430,7 +430,7 @@ export class AnalyticsRepository {
   }
 
   async getRevenueByPaymentMethod(
-    storeId: number,
+    storeId: string,
     dateRange: DateRange,
   ): Promise<RevenueByPaymentMethod[]> {
     const result = await this.db
@@ -459,7 +459,7 @@ export class AnalyticsRepository {
   }
 
   async getPaidUnpaidCounts(
-    storeId: number,
+    storeId: string,
     dateRange: DateRange,
   ): Promise<{ paid: number; unpaid: number }> {
     const result = await this.db
@@ -486,7 +486,7 @@ export class AnalyticsRepository {
   // ==================== CUSTOMER ANALYTICS ====================
 
   async getCustomerGrowth(
-    storeId: number,
+    storeId: string,
     dateRange: DateRange,
     groupBy: 'day' | 'week' | 'month' = 'day',
   ): Promise<CustomerGrowth[]> {
@@ -536,7 +536,7 @@ export class AnalyticsRepository {
   }
 
   async getTopCustomers(
-    storeId: number,
+    storeId: string,
     dateRange: DateRange,
     limit: number = 10,
   ): Promise<TopCustomer[]> {
@@ -581,7 +581,7 @@ export class AnalyticsRepository {
   }
 
   async getCustomerRetention(
-    storeId: number,
+    storeId: string,
     dateRange: DateRange,
   ): Promise<{ newCustomers: number; returningCustomers: number }> {
     // Get all customers who had appointments in the period
@@ -628,7 +628,7 @@ export class AnalyticsRepository {
     };
   }
 
-  async getCustomersBySource(storeId: number): Promise<CustomerBySource[]> {
+  async getCustomersBySource(storeId: string): Promise<CustomerBySource[]> {
     const result = await this.db
       .select({
         source: schema.users.authProvider,
@@ -656,7 +656,7 @@ export class AnalyticsRepository {
   // ==================== STAFF ANALYTICS ====================
 
   async getStaffPerformance(
-    storeId: number,
+    storeId: string,
     dateRange: DateRange,
   ): Promise<StaffPerformance[]> {
     const result = await this.db
@@ -699,7 +699,7 @@ export class AnalyticsRepository {
     }));
   }
 
-  async getStaffAvailability(storeId: number): Promise<StaffAvailability[]> {
+  async getStaffAvailability(storeId: string): Promise<StaffAvailability[]> {
     // Get all staff working hours
     const workingHours = await this.db
       .select({
@@ -733,7 +733,7 @@ export class AnalyticsRepository {
   // ==================== SERVICE ANALYTICS ====================
 
   async getServicePopularity(
-    storeId: number,
+    storeId: string,
     dateRange: DateRange,
     limit?: number,
   ): Promise<ServicePopularity[]> {
@@ -782,7 +782,7 @@ export class AnalyticsRepository {
   }
 
   async getServiceByTime(
-    storeId: number,
+    storeId: string,
     dateRange: DateRange,
     groupBy: 'day' | 'week' | 'month' = 'day',
   ): Promise<ServiceByTime[]> {
@@ -836,7 +836,7 @@ export class AnalyticsRepository {
   }
 
   async getServiceCategoryPerformance(
-    storeId: number,
+    storeId: string,
     dateRange: DateRange,
   ): Promise<ServiceCategoryPerformance[]> {
     const result = await this.db
@@ -876,7 +876,7 @@ export class AnalyticsRepository {
   }
 
   async getServiceExtrasAnalytics(
-    storeId: number,
+    storeId: string,
     dateRange: DateRange,
   ): Promise<ServiceExtrasAnalytics[]> {
     const result = await this.db

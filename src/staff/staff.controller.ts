@@ -6,7 +6,7 @@ import {
   Delete,
   Param,
   Body,
-  ParseIntPipe,
+  ParseUUIDPipe,
   ParseEnumPipe,
   UseGuards,
   Query,
@@ -47,7 +47,7 @@ export class StaffController {
   @Post('stores/:storeId/staff/invite')
   @Roles('admin')
   async inviteStaff(
-    @Param('storeId', ParseIntPipe) storeId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
     @Body() dto: InviteStaffDto,
     @CurrentUser() user: JwtPayload,
   ) {
@@ -60,7 +60,7 @@ export class StaffController {
 
   @Get('stores/:storeId/staff/invitations')
   @Roles('admin')
-  async getInvitations(@Param('storeId', ParseIntPipe) storeId: number) {
+  async getInvitations(@Param('storeId', ParseUUIDPipe) storeId: string) {
     return await this.staffInvitationService.getInvitations(storeId);
   }
 
@@ -82,8 +82,8 @@ export class StaffController {
   @Delete('stores/:storeId/staff/invitations/:invitationId')
   @Roles('admin')
   async deleteInvitation(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @Param('invitationId', ParseIntPipe) invitationId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('invitationId', ParseUUIDPipe) invitationId: string,
   ) {
     await this.staffInvitationService.deleteInvitation(storeId, invitationId);
     return { message: 'Invitation deleted successfully' };
@@ -94,26 +94,24 @@ export class StaffController {
   @Get('stores/:storeId/staff')
   @Roles('admin', 'staff')
   async getStaffMembers(
-    @Param('storeId', ParseIntPipe) storeId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
     @Query('includeHidden') includeHidden?: string,
     @Query('serviceId') serviceId?: string,
     @Query('locationId') locationId?: string,
   ) {
     const includeHiddenBool = includeHidden === 'true';
-    const serviceIdNum = serviceId ? parseInt(serviceId) : undefined;
-    const locationIdNum = locationId ? parseInt(locationId) : undefined;
 
     return await this.staffService.getStaffMembers(storeId, includeHiddenBool, {
-      serviceId: serviceIdNum,
-      locationId: locationIdNum,
+      serviceId: serviceId,
+      locationId: locationId,
     });
   }
 
   @Get('stores/:storeId/staff/:staffId')
   @Roles('admin', 'staff')
   async getStaffMember(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @Param('staffId', ParseIntPipe) staffId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('staffId', ParseUUIDPipe) staffId: string,
   ) {
     return await this.staffService.getStaffMember(storeId, staffId);
   }
@@ -121,8 +119,8 @@ export class StaffController {
   @Patch('stores/:storeId/staff/:staffId')
   @Roles('admin')
   async updateStaffProfile(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @Param('staffId', ParseIntPipe) staffId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('staffId', ParseUUIDPipe) staffId: string,
     @Body() dto: UpdateStaffProfileDto,
   ) {
     return await this.staffService.updateStaffProfile(storeId, staffId, dto);
@@ -131,8 +129,8 @@ export class StaffController {
   @Delete('stores/:storeId/staff/:staffId')
   @Roles('admin')
   async deleteStaffMember(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @Param('staffId', ParseIntPipe) staffId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('staffId', ParseUUIDPipe) staffId: string,
   ) {
     await this.staffService.deleteStaffMember(storeId, staffId);
     return { message: 'Staff member deleted successfully' };
@@ -143,8 +141,8 @@ export class StaffController {
   @Post('stores/:storeId/staff/:staffId/services')
   @Roles('admin')
   async assignServices(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @Param('staffId', ParseIntPipe) staffId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('staffId', ParseUUIDPipe) staffId: string,
     @Body() dto: AssignServicesDto,
   ) {
     return await this.staffService.assignServices(storeId, staffId, dto);
@@ -153,8 +151,8 @@ export class StaffController {
   @Get('stores/:storeId/staff/:staffId/services')
   @Roles('admin', 'staff')
   async getStaffServices(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @Param('staffId', ParseIntPipe) staffId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('staffId', ParseUUIDPipe) staffId: string,
   ) {
     return await this.staffService.getStaffServices(storeId, staffId);
   }
@@ -162,9 +160,9 @@ export class StaffController {
   @Delete('stores/:storeId/staff/:staffId/services/:serviceId')
   @Roles('admin')
   async removeServiceFromStaff(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @Param('staffId', ParseIntPipe) staffId: number,
-    @Param('serviceId', ParseIntPipe) serviceId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('staffId', ParseUUIDPipe) staffId: string,
+    @Param('serviceId', ParseUUIDPipe) serviceId: string,
   ) {
     await this.staffService.removeServiceFromStaff(storeId, staffId, serviceId);
     return { message: 'Service removed from staff successfully' };
@@ -175,8 +173,8 @@ export class StaffController {
   @Post('stores/:storeId/staff/:staffId/working-hours')
   @Roles('admin')
   async createWorkingHours(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @Param('staffId', ParseIntPipe) staffId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('staffId', ParseUUIDPipe) staffId: string,
     @Body() dto: CreateWorkingHoursDto,
   ) {
     return await this.staffScheduleService.createWorkingHours(
@@ -189,8 +187,8 @@ export class StaffController {
   @Get('stores/:storeId/staff/:staffId/working-hours')
   @Roles('admin', 'staff')
   async getWorkingHours(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @Param('staffId', ParseIntPipe) staffId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('staffId', ParseUUIDPipe) staffId: string,
   ) {
     return await this.staffScheduleService.getWorkingHours(storeId, staffId);
   }
@@ -198,9 +196,9 @@ export class StaffController {
   @Patch('stores/:storeId/staff/:staffId/working-hours/:workingHoursId')
   @Roles('admin')
   async updateWorkingHours(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @Param('staffId', ParseIntPipe) staffId: number,
-    @Param('workingHoursId', ParseIntPipe) workingHoursId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('staffId', ParseUUIDPipe) staffId: string,
+    @Param('workingHoursId', ParseUUIDPipe) workingHoursId: string,
     @Body() dto: UpdateWorkingHoursDto,
   ) {
     return await this.staffScheduleService.updateWorkingHours(
@@ -214,9 +212,9 @@ export class StaffController {
   @Delete('stores/:storeId/staff/:staffId/working-hours/:workingHoursId')
   @Roles('admin')
   async deleteWorkingHours(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @Param('staffId', ParseIntPipe) staffId: number,
-    @Param('workingHoursId', ParseIntPipe) workingHoursId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('staffId', ParseUUIDPipe) staffId: string,
+    @Param('workingHoursId', ParseUUIDPipe) workingHoursId: string,
   ) {
     await this.staffScheduleService.deleteWorkingHours(
       storeId,
@@ -231,7 +229,7 @@ export class StaffController {
   @Get('stores/:storeId/breaks')
   @Roles('admin')
   async getStoreBreaks(
-    @Param('storeId', ParseIntPipe) storeId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
     @Query('status', new ParseEnumPipe(StaffBreakStatus, { optional: true }))
     status?: StaffBreakStatus,
   ) {
@@ -241,8 +239,8 @@ export class StaffController {
   @Post('stores/:storeId/staff/:staffId/breaks')
   @Roles('admin', 'staff')
   async createStaffBreak(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @Param('staffId', ParseIntPipe) staffId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('staffId', ParseUUIDPipe) staffId: string,
     @Body() dto: CreateStaffBreakDto,
     @CurrentUser() user: JwtPayload,
   ) {
@@ -263,8 +261,8 @@ export class StaffController {
   @Get('stores/:storeId/staff/:staffId/breaks')
   @Roles('admin', 'staff')
   async getStaffBreaks(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @Param('staffId', ParseIntPipe) staffId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('staffId', ParseUUIDPipe) staffId: string,
   ) {
     return await this.staffScheduleService.getStaffBreaks(storeId, staffId);
   }
@@ -272,9 +270,9 @@ export class StaffController {
   @Patch('stores/:storeId/staff/:staffId/breaks/:breakId')
   @Roles('admin')
   async updateStaffBreak(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @Param('staffId', ParseIntPipe) staffId: number,
-    @Param('breakId', ParseIntPipe) breakId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('staffId', ParseUUIDPipe) staffId: string,
+    @Param('breakId', ParseUUIDPipe) breakId: string,
     @Body() dto: UpdateStaffBreakDto,
   ) {
     return await this.staffScheduleService.updateStaffBreak(
@@ -288,9 +286,9 @@ export class StaffController {
   @Delete('stores/:storeId/staff/:staffId/breaks/:breakId')
   @Roles('admin', 'staff')
   async deleteStaffBreak(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @Param('staffId', ParseIntPipe) staffId: number,
-    @Param('breakId', ParseIntPipe) breakId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('staffId', ParseUUIDPipe) staffId: string,
+    @Param('breakId', ParseUUIDPipe) breakId: string,
     @CurrentUser() user: JwtPayload,
   ) {
     if (user.role === 'staff') {

@@ -2,7 +2,7 @@ import {
   Controller,
   Get,
   Param,
-  ParseIntPipe,
+  ParseUUIDPipe,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -19,7 +19,7 @@ export class ActivitiesController {
   @Get('stores/:storeId/activities')
   @Roles('admin', 'staff')
   async getRecentActivities(
-    @Param('storeId', ParseIntPipe) storeId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
     @Query('limit') limit?: string,
   ) {
     const parsed = Number.parseInt(limit ?? '', 10);

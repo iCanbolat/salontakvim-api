@@ -9,15 +9,15 @@ import {
 
 export interface IServiceExtraRepository {
   create(data: NewServiceExtra): Promise<ServiceExtra>;
-  findById(id: number): Promise<ServiceExtra | null>;
-  findByServiceId(serviceId: number): Promise<ServiceExtra[]>;
+  findById(id: string): Promise<ServiceExtra | null>;
+  findByServiceId(serviceId: string): Promise<ServiceExtra[]>;
   findByIdAndServiceId(
-    id: number,
-    serviceId: number,
+    id: string,
+    serviceId: string,
   ): Promise<ServiceExtra | null>;
-  update(id: number, data: Partial<ServiceExtra>): Promise<ServiceExtra>;
-  delete(id: number): Promise<void>;
-  getMaxPosition(serviceId: number): Promise<number>;
+  update(id: string, data: Partial<ServiceExtra>): Promise<ServiceExtra>;
+  delete(id: string): Promise<void>;
+  getMaxPosition(serviceId: string): Promise<number>;
 }
 
 @Injectable()
@@ -35,7 +35,7 @@ export class ServiceExtraRepository implements IServiceExtraRepository {
     return extra;
   }
 
-  async findById(id: number): Promise<ServiceExtra | null> {
+  async findById(id: string): Promise<ServiceExtra | null> {
     const [extra] = await this.db
       .select()
       .from(schema.serviceExtras)
@@ -44,7 +44,7 @@ export class ServiceExtraRepository implements IServiceExtraRepository {
     return extra || null;
   }
 
-  async findByServiceId(serviceId: number): Promise<ServiceExtra[]> {
+  async findByServiceId(serviceId: string): Promise<ServiceExtra[]> {
     return await this.db
       .select()
       .from(schema.serviceExtras)
@@ -53,8 +53,8 @@ export class ServiceExtraRepository implements IServiceExtraRepository {
   }
 
   async findByIdAndServiceId(
-    id: number,
-    serviceId: number,
+    id: string,
+    serviceId: string,
   ): Promise<ServiceExtra | null> {
     const [extra] = await this.db
       .select()
@@ -69,7 +69,7 @@ export class ServiceExtraRepository implements IServiceExtraRepository {
     return extra || null;
   }
 
-  async update(id: number, data: Partial<ServiceExtra>): Promise<ServiceExtra> {
+  async update(id: string, data: Partial<ServiceExtra>): Promise<ServiceExtra> {
     const [updatedExtra] = await this.db
       .update(schema.serviceExtras)
       .set({ ...data, updatedAt: new Date() })
@@ -83,7 +83,7 @@ export class ServiceExtraRepository implements IServiceExtraRepository {
     return updatedExtra;
   }
 
-  async delete(id: number): Promise<void> {
+  async delete(id: string): Promise<void> {
     const result = await this.db
       .delete(schema.serviceExtras)
       .where(eq(schema.serviceExtras.id, id))
@@ -94,7 +94,7 @@ export class ServiceExtraRepository implements IServiceExtraRepository {
     }
   }
 
-  async getMaxPosition(serviceId: number): Promise<number> {
+  async getMaxPosition(serviceId: string): Promise<number> {
     const [result] = await this.db
       .select()
       .from(schema.serviceExtras)

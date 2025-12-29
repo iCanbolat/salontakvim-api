@@ -23,14 +23,14 @@ export class ServiceStaffRepository {
     return serviceStaff;
   }
 
-  async findByStaffId(staffId: number): Promise<ServiceStaff[]> {
+  async findByStaffId(staffId: string): Promise<ServiceStaff[]> {
     return await this.db
       .select()
       .from(schema.serviceStaff)
       .where(eq(schema.serviceStaff.staffId, staffId));
   }
 
-  async findServicesByStaffId(staffId: number): Promise<Service[]> {
+  async findServicesByStaffId(staffId: string): Promise<Service[]> {
     const rows = await this.db
       .select({ service: schema.services })
       .from(schema.serviceStaff)
@@ -44,14 +44,14 @@ export class ServiceStaffRepository {
     return rows.map((row: { service: Service }) => row.service);
   }
 
-  async findByServiceId(serviceId: number): Promise<ServiceStaff[]> {
+  async findByServiceId(serviceId: string): Promise<ServiceStaff[]> {
     return await this.db
       .select()
       .from(schema.serviceStaff)
       .where(eq(schema.serviceStaff.serviceId, serviceId));
   }
 
-  async findServiceIdsByStaffIds(staffIds: number[]): Promise<number[]> {
+  async findServiceIdsByStaffIds(staffIds: string[]): Promise<string[]> {
     if (!staffIds.length) {
       return [];
     }
@@ -62,12 +62,12 @@ export class ServiceStaffRepository {
       .where(inArray(schema.serviceStaff.staffId, staffIds))
       .groupBy(schema.serviceStaff.serviceId);
 
-    return rows.map((row: { serviceId: number }) => row.serviceId);
+    return rows.map((row: { serviceId: string }) => row.serviceId);
   }
 
   async findByServiceAndStaff(
-    serviceId: number,
-    staffId: number,
+    serviceId: string,
+    staffId: string,
   ): Promise<ServiceStaff | null> {
     const [serviceStaff] = await this.db
       .select()
@@ -82,7 +82,7 @@ export class ServiceStaffRepository {
     return serviceStaff || null;
   }
 
-  async unassign(serviceId: number, staffId: number): Promise<void> {
+  async unassign(serviceId: string, staffId: string): Promise<void> {
     const result = await this.db
       .delete(schema.serviceStaff)
       .where(
@@ -100,7 +100,7 @@ export class ServiceStaffRepository {
     }
   }
 
-  async unassignAllFromStaff(staffId: number): Promise<void> {
+  async unassignAllFromStaff(staffId: string): Promise<void> {
     await this.db
       .delete(schema.serviceStaff)
       .where(eq(schema.serviceStaff.staffId, staffId));

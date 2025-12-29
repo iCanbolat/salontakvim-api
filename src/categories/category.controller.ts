@@ -6,7 +6,7 @@ import {
   Delete,
   Body,
   Param,
-  ParseIntPipe,
+  ParseUUIDPipe,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -29,7 +29,7 @@ export class CategoryController {
   @Roles('admin', 'staff')
   @HttpCode(HttpStatus.CREATED)
   async create(
-    @Param('storeId', ParseIntPipe) storeId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
     @CurrentUser() user: JwtPayload,
     @Body() createCategoryDto: CreateCategoryDto,
   ): Promise<CategoryResponseDto> {
@@ -39,7 +39,7 @@ export class CategoryController {
   @Get()
   @Roles('admin', 'staff')
   async findAll(
-    @Param('storeId', ParseIntPipe) storeId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
     @CurrentUser() user: JwtPayload,
   ): Promise<CategoryResponseDto[]> {
     return this.categoryService.findAll(storeId, user.sub);
@@ -48,8 +48,8 @@ export class CategoryController {
   @Get(':id')
   @Roles('admin', 'staff')
   async findOne(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @Param('id', ParseIntPipe) id: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
   ): Promise<CategoryResponseDto> {
     return this.categoryService.findOne(storeId, id, user.sub);
@@ -58,8 +58,8 @@ export class CategoryController {
   @Patch(':id')
   @Roles('admin', 'staff')
   async update(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @Param('id', ParseIntPipe) id: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
     @Body() updateCategoryDto: UpdateCategoryDto,
   ): Promise<CategoryResponseDto> {
@@ -75,8 +75,8 @@ export class CategoryController {
   @Roles('admin', 'staff')
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(
-    @Param('storeId', ParseIntPipe) storeId: number,
-    @Param('id', ParseIntPipe) id: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
   ): Promise<void> {
     return this.categoryService.remove(storeId, id, user.sub);
@@ -85,7 +85,7 @@ export class CategoryController {
   @Patch()
   @Roles('admin', 'staff')
   async reorder(
-    @Param('storeId', ParseIntPipe) storeId: number,
+    @Param('storeId', ParseUUIDPipe) storeId: string,
     @CurrentUser() user: JwtPayload,
     @Body() reorderDto: ReorderCategoriesDto,
   ): Promise<CategoryResponseDto[]> {

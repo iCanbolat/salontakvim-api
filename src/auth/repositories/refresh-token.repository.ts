@@ -12,7 +12,7 @@ export class RefreshTokenRepository implements IRefreshTokenRepository {
     private db: PostgresJsDatabase<typeof import('../../db/schema')>,
   ) {}
 
-  async create(userId: number, token: string, expiresAt: Date) {
+  async create(userId: string, token: string, expiresAt: Date) {
     const result = await this.db
       .insert(refreshTokens)
       .values({
@@ -36,7 +36,7 @@ export class RefreshTokenRepository implements IRefreshTokenRepository {
     await this.db.delete(refreshTokens).where(eq(refreshTokens.token, token));
   }
 
-  async deleteAllByUserId(userId: number) {
+  async deleteAllByUserId(userId: string) {
     await this.db.delete(refreshTokens).where(eq(refreshTokens.userId, userId));
   }
 }
