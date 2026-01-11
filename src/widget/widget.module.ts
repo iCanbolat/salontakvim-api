@@ -10,7 +10,9 @@ import { CategoryModule } from '../categories/category.module';
 import { LocationModule } from '../locations/location.module';
 import { StaffModule } from '../staff/staff.module';
 import { AppointmentsModule } from '../appointments/appointments.module';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { PublicRateLimitGuard } from '../common/guards/public-rate-limit.guard';
+import { EmbedTokenService } from './utils/embed-token';
 
 @Module({
   imports: [
@@ -25,7 +27,30 @@ import { ConfigModule } from '@nestjs/config';
     ConfigModule,
   ],
   controllers: [WidgetController],
-  providers: [WidgetService, WidgetSettingsRepository],
-  exports: [WidgetService, WidgetSettingsRepository],
+  providers: [
+    WidgetService,
+    WidgetSettingsRepository,
+    PublicRateLimitGuard,
+    {
+      provide: EmbedTokenService,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const secret =
+          config.get<string>('EMBED_TOKEN_SECRET') ||
+          config.get<string>('JWT_SECRET') ||
+          'change-me';
+        const ttlSeconds = Number(
+          config.get<string>('EMBED_TOKEN_TTL_SECONDS') || '900',
+        );
+        return new EmbedTokenService(secret, ttlSeconds);
+      },
+    },
+  ],
+  exports: [
+    WidgetService,
+    WidgetSettingsRepository,
+    PublicRateLimitGuard,
+    EmbedTokenService,
+  ],
 })
 export class WidgetModule {}

@@ -18,10 +18,12 @@ async function bootstrap() {
     }),
   );
 
-  // CORS - Allow both admin frontend and widget
+  // CORS - Allow admin frontend, widget, demo apps
   const allowedOrigins = [
     process.env.FRONTEND_URL || 'http://localhost:3000',
     process.env.WIDGET_URL || 'http://localhost:5173',
+    'http://localhost:4173', // widget preview
+    'http://localhost:5174', // deneme demo app
   ];
 
   app.enableCors({
@@ -29,12 +31,16 @@ async function bootstrap() {
       // Allow requests with no origin (mobile apps, curl, postman)
       if (!origin) return callback(null, true);
 
+      // Check if it's an admin/widget origin
       if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        console.warn(`CORS blocked origin: ${origin}`);
-        callback(new Error('Not allowed by CORS'));
+        return callback(null, true);
       }
+
+      // For public widget endpoints (/api/public/*), allow all origins
+      // Domain validation is handled at the application layer via allowedDomains
+      // This enables widgets to be embedded on customer websites
+      // Note: Origin is available in request headers for application-level validation
+      callback(null, true);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],

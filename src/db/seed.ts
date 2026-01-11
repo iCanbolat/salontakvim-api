@@ -543,6 +543,9 @@ async function seed() {
     // 11. Create Widget Settings
     console.log('Creating widget settings...');
 
+    const publicToken = 'demo-public-token';
+    const allowedDomains = ['localhost'];
+
     const [widgetSettings] = await db
       .insert(schema.widgetSettings)
       .values({
@@ -577,11 +580,15 @@ async function seed() {
         allowGuestBooking: true,
         redirectUrlAfterBooking: null,
         widgetKey: 'demo-widget-key',
+        publicToken,
+        allowedDomains,
       })
       .returning();
 
     console.log('✓ Widget settings created');
     console.log('🔑 Widget Key:', widgetSettings.widgetKey);
+    console.log('🔒 Public Token:', widgetSettings.publicToken);
+    console.log('🌐 Allowed Domains:', allowedDomains.join(', '));
 
     // 12. Create Notification Settings
     console.log('Creating notification settings...');
@@ -617,6 +624,8 @@ async function seed() {
     console.log('   - 9 Services');
     console.log('   - 5 Service Extras');
     console.log('   - Widget Key: demo-widget-key');
+    console.log('   - Public Token: demo-public-token');
+    console.log('   - Allowed Domains: localhost');
     console.log('\n🚀 You can now test the widget at:');
     console.log('   http://localhost:5173?key=demo-widget-key');
   } catch (error) {

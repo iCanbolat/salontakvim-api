@@ -98,6 +98,12 @@ export class WidgetSettingsResponseDto {
   widgetKey: string;
 
   @Expose()
+  publicToken: string;
+
+  @Expose()
+  allowedDomains: string[];
+
+  @Expose()
   createdAt: Date;
 
   @Expose()

@@ -30,6 +30,9 @@ class WidgetStoreInfo {
 // Widget configuration for public use
 export class WidgetConfigResponseDto {
   @Expose()
+  widgetKey?: string;
+
+  @Expose()
   @Type(() => WidgetStoreInfo)
   store: WidgetStoreInfo;
 

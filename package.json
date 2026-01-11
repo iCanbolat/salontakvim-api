@@ -22,7 +22,9 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "ts-node src/db/seed.ts"
+    "db:seed": "ts-node src/db/seed.ts",
+    "db:drop": "ts-node scripts/drop-db.ts",
+    "db:reset": "npm run db:drop && npm run db:push && npm run db:seed"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -42,6 +44,7 @@
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.44.7",
     "exceljs": "^4.4.0",
+    "multer": "^2.0.2",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
@@ -63,6 +66,7 @@
     "@types/exceljs": "^1.3.2",
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
+    "@types/multer": "^2.0.0",
     "@types/node": "^22.10.7",
     "@types/passport-jwt": "^4.0.1",
     "@types/passport-local": "^1.0.38",

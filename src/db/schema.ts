@@ -100,6 +100,13 @@ export const activityTypeEnum = pgEnum('activity_type', [
   'staff',
 ]);
 
+export const fileTypeEnum = pgEnum('file_type', [
+  'image',
+  'pdf',
+  'document',
+  'other',
+]);
+
 // ================================
 // USERS & AUTHENTICATION
 // ================================
@@ -674,6 +681,10 @@ export const widgetSettings = pgTable(
     // Widget embed code/key
     widgetKey: varchar('widget_key', { length: 255 }).notNull().unique(),
 
+    // Public access token & domain allowlist
+    publicToken: varchar('public_token', { length: 255 }).notNull().unique(),
+    allowedDomains: json('allowed_domains').$type<string[]>().default([]),
+
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
@@ -820,6 +831,49 @@ export const notificationTemplates = pgTable(
 );
 
 // ================================
+// CUSTOMER FILES
+// ================================
+export const customerFiles = pgTable(
+  'customer_files',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    storeId: uuid('store_id')
+      .references(() => stores.id, { onDelete: 'cascade' })
+      .notNull(),
+    customerId: uuid('customer_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    uploadedBy: uuid('uploaded_by').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    // File metadata
+    fileName: varchar('file_name', { length: 255 }).notNull(),
+    originalName: varchar('original_name', { length: 255 }).notNull(),
+    mimeType: varchar('mime_type', { length: 100 }).notNull(),
+    fileType: fileTypeEnum('file_type').notNull(),
+    fileSize: integer('file_size').notNull(), // in bytes
+    // Storage info
+    storagePath: text('storage_path').notNull(), // Local path or S3 key
+    storageProvider: varchar('storage_provider', { length: 50 })
+      .default('local')
+      .notNull(), // 'local', 's3', etc.
+    // Optional metadata
+    description: text('description'),
+    tags: json('tags').$type<string[]>(),
+    // Timestamps
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('customer_files_store_id_idx').on(table.storeId),
+    index('customer_files_customer_id_idx').on(table.customerId),
+    index('customer_files_uploaded_by_idx').on(table.uploadedBy),
+    index('customer_files_file_type_idx').on(table.fileType),
+    index('customer_files_created_at_idx').on(table.createdAt),
+  ],
+);
+
+// ================================
 // RELATIONS (for Drizzle ORM queries)
 // ================================
 export const usersRelations = relations(users, ({ one, many }) => ({
@@ -831,6 +885,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   appointments: many(appointments),
   refreshTokens: many(refreshTokens),
   storeCustomers: many(storeCustomers),
+  customerFiles: many(customerFiles),
 }));
 
 export const storesRelations = relations(stores, ({ one, many }) => ({
@@ -846,6 +901,7 @@ export const storesRelations = relations(stores, ({ one, many }) => ({
   customFields: many(customFields),
   notificationSettings: one(notificationSettings),
   notificationTemplates: many(notificationTemplates),
+  customerFiles: many(customerFiles),
 }));
 
 export const staffInvitationsRelations = relations(
@@ -968,5 +1024,20 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
   store: one(stores, {
     fields: [notifications.storeId],
     references: [stores.id],
+  }),
+}));
+
+export const customerFilesRelations = relations(customerFiles, ({ one }) => ({
+  store: one(stores, {
+    fields: [customerFiles.storeId],
+    references: [stores.id],
+  }),
+  customer: one(users, {
+    fields: [customerFiles.customerId],
+    references: [users.id],
+  }),
+  uploader: one(users, {
+    fields: [customerFiles.uploadedBy],
+    references: [users.id],
   }),
 }));
