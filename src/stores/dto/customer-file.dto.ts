@@ -1,4 +1,4 @@
-import { Expose, Type } from 'class-transformer';
+import { Expose, Transform, Type } from 'class-transformer';
 import {
   IsString,
   IsOptional,
@@ -14,6 +14,20 @@ export class UploadCustomerFileDto {
   description?: string;
 
   @IsOptional()
+  @Transform(({ value }) => {
+    if (value === undefined || value === null) return undefined;
+    if (Array.isArray(value)) {
+      return value
+        .filter((v) => typeof v === 'string')
+        .map((v) => v.trim())
+        .filter(Boolean);
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      return trimmed ? [trimmed] : undefined;
+    }
+    return undefined;
+  })
   @IsArray()
   @IsString({ each: true })
   tags?: string[];
@@ -26,6 +40,20 @@ export class UpdateCustomerFileDto {
   description?: string;
 
   @IsOptional()
+  @Transform(({ value }) => {
+    if (value === undefined || value === null) return undefined;
+    if (Array.isArray(value)) {
+      return value
+        .filter((v) => typeof v === 'string')
+        .map((v) => v.trim())
+        .filter(Boolean);
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      return trimmed ? [trimmed] : undefined;
+    }
+    return undefined;
+  })
   @IsArray()
   @IsString({ each: true })
   tags?: string[];
