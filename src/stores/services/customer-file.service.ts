@@ -10,6 +10,7 @@ import {
   CustomerFileRepository,
   CreateCustomerFileData,
 } from '../repositories/customer-file.repository';
+import { StaffMemberRepository } from '../../staff/repositories/staff-member.repository';
 import {
   CustomerFileResponseDto,
   CustomerFileListResponseDto,
@@ -65,6 +66,7 @@ export class CustomerFileService {
 
   constructor(
     private readonly customerFileRepository: CustomerFileRepository,
+    private readonly staffMemberRepository: StaffMemberRepository,
     private readonly storeService: StoreService,
     private readonly configService: ConfigService,
   ) {
@@ -161,6 +163,56 @@ export class CustomerFileService {
     return this.toResponseDto(customerFile);
   }
 
+  /**
+   * Get all files for a store
+   * Admin gets all files, staff only gets files from their assigned customers
+   */
+  async getAllStoreFiles(
+    storeId: string,
+    userId: string,
+    userRole: string,
+    options?: {
+      fileType?: string;
+      search?: string;
+      limit?: number;
+      offset?: number;
+    },
+  ): Promise<CustomerFileListResponseDto> {
+    // Verify store ownership/access
+    await this.storeService.verifyStoreOwnership(storeId, userId);
+
+    let staffId: string | undefined;
+
+    // If user is staff, filter to only their customers' files
+    if (userRole === 'staff') {
+      const staffMember =
+        await this.staffMemberRepository.findByUserIdAndStoreId(
+          userId,
+          storeId,
+        );
+      if (!staffMember) {
+        throw new ForbiddenException('Staff member not found');
+      }
+      staffId = staffMember.id;
+    }
+
+    const { files, total, totalSize } =
+      await this.customerFileRepository.findByStore(storeId, {
+        ...options,
+        staffId,
+      });
+
+    return plainToInstance(
+      CustomerFileListResponseDto,
+      {
+        files: files.map((f) => this.toResponseDto(f)),
+        total,
+        totalSize,
+      },
+      { excludeExtraneousValues: true },
+    );
+  }
+
   async getFiles(
     storeId: string,
     customerId: string,
@@ -232,6 +284,72 @@ export class CustomerFileService {
 
     if (!file) {
       throw new NotFoundException('File not found');
+    }
+
+    // Check if file exists on disk
+    if (!fs.existsSync(file.storagePath)) {
+      throw new NotFoundException('File not found on disk');
+    }
+
+    return {
+      path: file.storagePath,
+      fileName: file.originalName,
+      mimeType: file.mimeType,
+    };
+  }
+
+  /**
+   * Get file for download by fileId only (store-level endpoint)
+   * Validates that staff can only download files from their assigned customers
+   */
+  async getFileForDownloadById(
+    storeId: string,
+    fileId: string,
+    userId: string,
+    userRole: string,
+  ): Promise<{ path: string; fileName: string; mimeType: string }> {
+    // Verify store ownership/access
+    await this.storeService.verifyStoreOwnership(storeId, userId);
+
+    const file = await this.customerFileRepository.findById(fileId);
+
+    if (!file || file.storeId !== storeId) {
+      throw new NotFoundException('File not found');
+    }
+
+    // If staff, verify they have access to this customer's files
+    if (userRole === 'staff') {
+      const staffMember =
+        await this.staffMemberRepository.findByUserIdAndStoreId(
+          userId,
+          storeId,
+        );
+      if (!staffMember) {
+        throw new ForbiddenException('Staff member not found');
+      }
+
+      // Check if staff has any appointments with this customer
+      const { files } = await this.customerFileRepository.findByStore(storeId, {
+        staffId: staffMember.id,
+        limit: 1,
+      });
+
+      const hasAccess = files.some((f) => f.customerId === file.customerId);
+      if (!hasAccess) {
+        // Do a more thorough check
+        const allStaffFiles = await this.customerFileRepository.findByStore(
+          storeId,
+          { staffId: staffMember.id },
+        );
+        const customerIds = new Set(
+          allStaffFiles.files.map((f) => f.customerId),
+        );
+        if (!customerIds.has(file.customerId)) {
+          throw new ForbiddenException(
+            "You do not have access to this customer's files",
+          );
+        }
+      }
     }
 
     // Check if file exists on disk

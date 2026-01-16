@@ -1,7 +1,7 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { eq, and, desc, sql, ilike, or, inArray } from 'drizzle-orm';
 import { DRIZZLE_ORM } from '../../db/drizzle.module';
-import { customerFiles } from '../../db/schema';
+import { customerFiles, appointments } from '../../db/schema';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type * as schema from '../../db/schema';
 
@@ -131,6 +131,7 @@ export class CustomerFileRepository {
         or(
           ilike(customerFiles.originalName, `%${options.search}%`),
           ilike(customerFiles.description, `%${options.search}%`),
+          sql<boolean>`coalesce(${customerFiles.tags}::text, '') ilike ${`%${options.search}%`}`,
         )!,
       );
     }
@@ -207,5 +208,100 @@ export class CustomerFileRepository {
       .returning();
 
     return files as CustomerFile[];
+  }
+
+  /**
+   * Find all files for a store with optional filtering
+   * If staffId is provided, only returns files from customers who have had appointments with that staff member
+   */
+  async findByStore(
+    storeId: string,
+    options?: {
+      fileType?: string;
+      search?: string;
+      limit?: number;
+      offset?: number;
+      staffId?: string; // For staff-only filtering
+    },
+  ): Promise<{
+    files: (CustomerFile & { customerName?: string })[];
+    total: number;
+    totalSize: number;
+  }> {
+    // Build base conditions
+    const conditions = [eq(customerFiles.storeId, storeId)];
+
+    if (options?.fileType) {
+      conditions.push(
+        eq(
+          customerFiles.fileType,
+          options.fileType as 'image' | 'pdf' | 'document' | 'other',
+        ),
+      );
+    }
+
+    if (options?.search) {
+      conditions.push(
+        or(
+          ilike(customerFiles.originalName, `%${options.search}%`),
+          ilike(customerFiles.description, `%${options.search}%`),
+          sql<boolean>`coalesce(${customerFiles.tags}::text, '') ilike ${`%${options.search}%`}`,
+        )!,
+      );
+    }
+
+    // If staffId provided, filter to only customers who have appointments with this staff
+    if (options?.staffId) {
+      // Get distinct customer IDs that have appointments with this staff member
+      const staffCustomerIds = await this.db
+        .selectDistinct({ customerId: appointments.customerId })
+        .from(appointments)
+        .where(
+          and(
+            eq(appointments.storeId, storeId),
+            eq(appointments.staffId, options.staffId),
+          ),
+        );
+
+      const customerIds = staffCustomerIds.map((r) => r.customerId);
+
+      if (customerIds.length === 0) {
+        // Staff has no customers, return empty
+        return { files: [], total: 0, totalSize: 0 };
+      }
+
+      conditions.push(inArray(customerFiles.customerId, customerIds));
+    }
+
+    // Get total count and total size
+    const [stats] = await this.db
+      .select({
+        total: sql<number>`count(*)::int`,
+        totalSize: sql<number>`coalesce(sum(${customerFiles.fileSize}), 0)::bigint`,
+      })
+      .from(customerFiles)
+      .where(and(...conditions));
+
+    // Get files with pagination
+    let query = this.db
+      .select()
+      .from(customerFiles)
+      .where(and(...conditions))
+      .orderBy(desc(customerFiles.createdAt));
+
+    if (options?.limit) {
+      query = query.limit(options.limit) as typeof query;
+    }
+    if (options?.offset) {
+      query = query.offset(options.offset) as typeof query;
+    }
+
+    const files = await query;
+
+    return {
+      files: files as CustomerFile[],
+      total: stats?.total || 0,
+      totalSize: Number(stats?.totalSize) || 0,
+    };
   }
 }
