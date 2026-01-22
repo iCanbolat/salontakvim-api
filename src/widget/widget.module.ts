@@ -10,6 +10,7 @@ import { CategoryModule } from '../categories/category.module';
 import { LocationModule } from '../locations/location.module';
 import { StaffModule } from '../staff/staff.module';
 import { AppointmentsModule } from '../appointments/appointments.module';
+import { CouponModule } from '../coupons/coupon.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PublicRateLimitGuard } from '../common/guards/public-rate-limit.guard';
 import { EmbedTokenService } from './utils/embed-token';
@@ -24,6 +25,7 @@ import { EmbedTokenService } from './utils/embed-token';
     LocationModule,
     StaffModule,
     AppointmentsModule,
+    CouponModule,
     ConfigModule,
   ],
   controllers: [WidgetController],

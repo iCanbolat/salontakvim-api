@@ -72,4 +72,8 @@ export class CreateAppointmentDto {
   @IsString()
   @IsOptional()
   guestPhone?: string;
+
+  @IsString()
+  @IsOptional()
+  couponCode?: string;
 }

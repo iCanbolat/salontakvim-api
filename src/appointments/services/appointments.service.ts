@@ -22,6 +22,7 @@ import { UserRepository } from '../../auth/repositories/user.repository';
 import { StoreRepository } from '../../stores/repositories/store.repository';
 import { NotificationService } from '../../notifications/services/notification.service';
 import { ActivitiesService } from '../../activities/services/activities.service';
+import { CouponService } from '../../coupons/services/coupon.service';
 import { FEEDBACK_QUEUE } from '../../queue/queue.module';
 import type { FeedbackJobData } from '../../queue/processors/feedback.processor';
 import {
@@ -68,6 +69,7 @@ export class AppointmentsService {
     private readonly storeRepository: StoreRepository,
     private readonly notificationService: NotificationService,
     private readonly activitiesService: ActivitiesService,
+    private readonly couponService: CouponService,
     @InjectQueue(FEEDBACK_QUEUE)
     private readonly feedbackQueue: Queue<FeedbackJobData>,
   ) {}
@@ -153,6 +155,25 @@ export class AppointmentsService {
       }
     }
 
+    const originalTotalPrice = totalPrice;
+    let appliedCouponId: string | null = null;
+    let discountAmount = 0;
+
+    if (dto.couponCode) {
+      const code = dto.couponCode.trim().toUpperCase();
+      const validation = await this.couponService.validateCoupon(
+        storeId,
+        code,
+        customerId,
+        dto.serviceId,
+        totalPrice,
+      );
+
+      discountAmount = Number(validation.discountAmount || 0);
+      totalPrice = Math.max(0, totalPrice - discountAmount);
+      appliedCouponId = validation.coupon?.id || null;
+    }
+
     // Calculate end time (service duration + extras duration)
     const startDateTime = new Date(dto.startDateTime);
     const totalDurationMinutes = service.duration + extrasDurationMinutes;
@@ -228,6 +249,16 @@ export class AppointmentsService {
       appointment.id,
       storeId,
     );
+    if (appliedCouponId && discountAmount > 0) {
+      await this.couponService.applyCoupon(
+        storeId,
+        appliedCouponId,
+        customerId,
+        appointment.id,
+        discountAmount,
+        originalTotalPrice,
+      );
+    }
 
     return appointmentWithExtras;
   }

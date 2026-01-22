@@ -13,6 +13,7 @@ import { StoreModule } from '../stores/store.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ActivitiesModule } from '../activities/activities.module';
 import { QueueModule } from '../queue/queue.module';
+import { CouponModule } from '../coupons/coupon.module';
 import { AppointmentExpirationService } from './services/appointment-expiration.service';
 import { AppointmentCleanupService } from './services/appointment-cleanup.service';
 
@@ -27,6 +28,7 @@ import { AppointmentCleanupService } from './services/appointment-cleanup.servic
     NotificationsModule,
     ActivitiesModule,
     QueueModule,
+    CouponModule,
   ],
   controllers: [AppointmentsController],
   providers: [

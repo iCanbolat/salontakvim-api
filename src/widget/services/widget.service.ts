@@ -18,6 +18,7 @@ import { WidgetKeyNotFoundException } from '../exceptions';
 import { StoreNotFoundException } from '../../stores/exceptions';
 import { UserRepository } from '../../auth/repositories/user.repository';
 import { AppointmentsService } from '../../appointments/services/appointments.service';
+import { CouponService } from '../../coupons/services/coupon.service';
 import { CreateGuestAppointmentDto } from '../../appointments/dto';
 import { randomBytes } from 'crypto';
 import { EmbedTokenService, EmbedTokenPayload } from '../utils/embed-token';
@@ -36,6 +37,7 @@ export class WidgetService {
     private readonly configService: ConfigService,
     private readonly userRepository: UserRepository,
     private readonly appointmentsService: AppointmentsService,
+    private readonly couponService: CouponService,
     private readonly embedTokenService: EmbedTokenService,
   ) {}
 
@@ -557,6 +559,51 @@ export class WidgetService {
     return this.appointmentsService.createGuestAppointment(store.id, dto);
   }
 
+  async validateWidgetCoupon(
+    widgetKey: string,
+    dto: {
+      code: string;
+      serviceId?: string;
+      amount?: number;
+      guestEmail?: string;
+    },
+    token?: string,
+    origin?: string,
+  ) {
+    const { store } = await this.resolveContextByWidgetKey(
+      widgetKey,
+      token,
+      origin,
+    );
+
+    const customer = dto.guestEmail
+      ? await this.userRepository.findByEmail(dto.guestEmail)
+      : null;
+
+    const validation = await this.couponService.validateCoupon(
+      store.id,
+      dto.code.trim().toUpperCase(),
+      customer?.id,
+      dto.serviceId,
+      dto.amount,
+    );
+
+    return {
+      valid: true,
+      discountAmount: Number(validation.discountAmount || 0),
+      finalAmount: validation.finalAmount,
+      coupon: {
+        code: validation.coupon.code,
+        name: validation.coupon.name,
+        type: validation.coupon.type,
+        value: validation.coupon.value,
+        validUntil: validation.coupon.validUntil?.toISOString?.()
+          ? validation.coupon.validUntil.toISOString()
+          : String(validation.coupon.validUntil),
+      },
+    };
+  }
+
   async createWidgetAppointmentBySlug(
     slug: string,
     dto: CreateGuestAppointmentDto,
@@ -565,6 +612,47 @@ export class WidgetService {
   ) {
     const { store } = await this.resolveContextBySlug(slug, token, origin);
     return this.appointmentsService.createGuestAppointment(store.id, dto);
+  }
+
+  async validateWidgetCouponBySlug(
+    slug: string,
+    dto: {
+      code: string;
+      serviceId?: string;
+      amount?: number;
+      guestEmail?: string;
+    },
+    token?: string,
+    origin?: string,
+  ) {
+    const { store } = await this.resolveContextBySlug(slug, token, origin);
+
+    const customer = dto.guestEmail
+      ? await this.userRepository.findByEmail(dto.guestEmail)
+      : null;
+
+    const validation = await this.couponService.validateCoupon(
+      store.id,
+      dto.code.trim().toUpperCase(),
+      customer?.id,
+      dto.serviceId,
+      dto.amount,
+    );
+
+    return {
+      valid: true,
+      discountAmount: Number(validation.discountAmount || 0),
+      finalAmount: validation.finalAmount,
+      coupon: {
+        code: validation.coupon.code,
+        name: validation.coupon.name,
+        type: validation.coupon.type,
+        value: validation.coupon.value,
+        validUntil: validation.coupon.validUntil?.toISOString?.()
+          ? validation.coupon.validUntil.toISOString()
+          : String(validation.coupon.validUntil),
+      },
+    };
   }
 
   private async resolveContextByWidgetKey(

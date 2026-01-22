@@ -12,11 +12,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { CouponService } from './services/coupon.service';
-import {
-  CreateCouponDto,
-  UpdateCouponDto,
-  BulkAssignCouponDto,
-} from './dto';
+import { CreateCouponDto, UpdateCouponDto, BulkAssignCouponDto } from './dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import type { JwtPayload } from '../auth/interfaces/auth.interface';
@@ -144,24 +140,24 @@ export class CouponController {
   }
 
   // Validate coupon (for widget/booking)
-  @Post('validate')
-  @Roles('admin', 'staff', 'customer')
-  async validateCoupon(
-    @Param('storeId', ParseUUIDPipe) storeId: string,
-    @Body()
-    body: {
-      code: string;
-      customerId?: string;
-      serviceId?: string;
-      amount?: number;
-    },
-  ) {
-    return this.couponService.validateCoupon(
-      storeId,
-      body.code,
-      body.customerId,
-      body.serviceId,
-      body.amount,
-    );
-  }
+  // @Post('validate')
+  // @Roles('admin', 'staff', 'customer')
+  // async validateCoupon(
+  //   @Param('storeId', ParseUUIDPipe) storeId: string,
+  //   @Body()
+  //   body: {
+  //     code: string;
+  //     customerId?: string;
+  //     serviceId?: string;
+  //     amount?: number;
+  //   },
+  // ) {
+  //   return this.couponService.validateCoupon(
+  //     storeId,
+  //     body.code,
+  //     body.customerId,
+  //     body.serviceId,
+  //     body.amount,
+  //   );
+  // }
 }

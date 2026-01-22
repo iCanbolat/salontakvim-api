@@ -359,6 +359,31 @@ export class WidgetController {
     );
   }
 
+  @Post('public/widget/:widgetKey/coupons/validate')
+  @Public()
+  @UseGuards(PublicRateLimitGuard)
+  async validateWidgetCoupon(
+    @Param('widgetKey') widgetKey: string,
+    @Body()
+    body: {
+      code: string;
+      serviceId?: string;
+      amount?: number;
+      guestEmail?: string;
+    },
+    @Query('token') token?: string,
+    @Headers('origin') origin?: string,
+    @Headers('referer') referer?: string,
+  ) {
+    const requestOrigin = origin || referer;
+    return await this.widgetService.validateWidgetCoupon(
+      widgetKey,
+      body,
+      token,
+      requestOrigin,
+    );
+  }
+
   @Post('public/store/:slug/appointments')
   @Public()
   @UseGuards(PublicRateLimitGuard)
@@ -373,6 +398,31 @@ export class WidgetController {
     return await this.widgetService.createWidgetAppointmentBySlug(
       slug,
       dto,
+      token,
+      requestOrigin,
+    );
+  }
+
+  @Post('public/store/:slug/coupons/validate')
+  @Public()
+  @UseGuards(PublicRateLimitGuard)
+  async validateWidgetCouponBySlug(
+    @Param('slug') slug: string,
+    @Body()
+    body: {
+      code: string;
+      serviceId?: string;
+      amount?: number;
+      guestEmail?: string;
+    },
+    @Query('token') token?: string,
+    @Headers('origin') origin?: string,
+    @Headers('referer') referer?: string,
+  ) {
+    const requestOrigin = origin || referer;
+    return await this.widgetService.validateWidgetCouponBySlug(
+      slug,
+      body,
       token,
       requestOrigin,
     );
