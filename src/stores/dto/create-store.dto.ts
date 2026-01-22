@@ -6,6 +6,7 @@ import {
   MinLength,
   Matches,
   IsNotEmpty,
+  IsBoolean,
 } from 'class-validator';
 
 export class CreateStoreDto {
@@ -45,4 +46,8 @@ export class CreateStoreDto {
   @IsOptional()
   @MaxLength(3)
   currency?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  sendFeedbackViaSms?: boolean;
 }

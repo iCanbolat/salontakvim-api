@@ -16,6 +16,10 @@ import { WidgetModule } from './widget/widget.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ActivitiesModule } from './activities/activities.module';
+import { CouponModule } from './coupons/coupon.module';
+import { FeedbackModule } from './feedback/feedback.module';
+import { QueueModule } from './queue/queue.module';
+import { FeedbackProcessor } from './queue/processors/feedback.processor';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 
 @Module({
@@ -37,10 +41,14 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
     AnalyticsModule,
     NotificationsModule,
     ActivitiesModule,
+    CouponModule,
+    FeedbackModule,
+    QueueModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
+    FeedbackProcessor,
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,

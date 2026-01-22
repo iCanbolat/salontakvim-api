@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { DrizzleModule } from '../db/drizzle.module';
@@ -13,10 +14,17 @@ import { TemplateService } from './services/template.service';
 import { NotificationRepository } from './repositories/notification.repository';
 import { NotificationsGateway } from './notifications.gateway';
 import { StaffMemberRepository } from '../staff/repositories/staff-member.repository';
+import { AppointmentRepository } from '../appointments/repositories/appointment.repository';
+import { StoreRepository } from '../stores/repositories/store.repository';
+import { ServiceRepository } from '../services/repositories/service.repository';
+import { UserRepository } from '../auth/repositories/user.repository';
+import { AppointmentReminderWorker } from './services/appointment-reminder.worker';
+import { LocationRepository } from '../locations/repositories/location.repository';
 
 @Module({
   imports: [
     ConfigModule,
+    ScheduleModule.forRoot(),
     DrizzleModule,
     AuthModule,
     StoreModule,
@@ -42,6 +50,12 @@ import { StaffMemberRepository } from '../staff/repositories/staff-member.reposi
     NotificationRepository,
     NotificationsGateway,
     StaffMemberRepository,
+    AppointmentRepository,
+    StoreRepository,
+    ServiceRepository,
+    UserRepository,
+    LocationRepository,
+    AppointmentReminderWorker,
   ],
   exports: [NotificationService, NotificationsGateway],
 })

@@ -605,6 +605,7 @@ async function seed() {
       appointmentCancellationChannel: 'email',
       appointmentRescheduledEnabled: true,
       appointmentRescheduledChannel: 'email',
+      feedbackRequestSmsEnabled: false,
       staffInvitationEnabled: true,
       senderEmail: 'noreply@guzelliklsalonu.com',
       senderName: 'Güzellik Salonu',

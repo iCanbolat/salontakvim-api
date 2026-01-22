@@ -31,11 +31,12 @@ export class NotificationRepository {
       appointmentReminderEnabled: true,
       appointmentReminderChannel: 'email' as const,
       reminder24hEnabled: true,
-      reminder1hEnabled: true,
+      reminder1hEnabled: false,
       appointmentCancellationEnabled: true,
       appointmentCancellationChannel: 'email' as const,
       appointmentRescheduledEnabled: true,
       appointmentRescheduledChannel: 'email' as const,
+      feedbackRequestSmsEnabled: false,
       staffInvitationEnabled: true,
       senderEmail: null,
       senderName: null,
@@ -98,6 +99,21 @@ export class NotificationRepository {
     }
 
     return this.createDefaultSettings(storeId);
+  }
+
+  async getReminderEnabledSettings() {
+    return this.db
+      .select({
+        storeId: schema.notificationSettings.storeId,
+        appointmentReminderEnabled:
+          schema.notificationSettings.appointmentReminderEnabled,
+        appointmentReminderChannel:
+          schema.notificationSettings.appointmentReminderChannel,
+        reminder24hEnabled: schema.notificationSettings.reminder24hEnabled,
+        reminder1hEnabled: schema.notificationSettings.reminder1hEnabled,
+      })
+      .from(schema.notificationSettings)
+      .where(eq(schema.notificationSettings.appointmentReminderEnabled, true));
   }
 
   async createNotification(data: typeof schema.notifications.$inferInsert) {

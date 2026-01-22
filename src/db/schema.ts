@@ -76,6 +76,7 @@ export const templateTypeEnum = pgEnum('template_type', [
   'appointment_reminder_1h',
   'appointment_cancelled',
   'appointment_rescheduled',
+  'appointment_feedback',
   'staff_invitation',
   'password_reset',
 ]);
@@ -158,6 +159,11 @@ export const stores = pgTable(
     phone: varchar('phone', { length: 50 }),
 
     currency: varchar('currency', { length: 3 }).default('TRY'),
+
+    // Feedback
+    sendFeedbackViaSms: boolean('send_feedback_via_sms')
+      .default(false)
+      .notNull(),
 
     // Analytics & Stats
     totalAppointments: integer('total_appointments').default(0),
@@ -542,6 +548,15 @@ export const appointments = pgTable(
     ),
     isRecurring: boolean('is_recurring').default(false),
 
+    // Reminder flags
+    reminder24hSent: boolean('reminder_24h_sent').default(false),
+    reminder1hSent: boolean('reminder_1h_sent').default(false),
+
+    // Feedback token (for secure feedback submission)
+    feedbackToken: varchar('feedback_token', { length: 64 }),
+    feedbackTokenExpiresAt: timestamp('feedback_token_expires_at'),
+    feedbackSentAt: timestamp('feedback_sent_at'),
+
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
@@ -554,6 +569,7 @@ export const appointments = pgTable(
       table.storeId,
       table.publicNumberCounter,
     ),
+    unique('appointments_feedback_token').on(table.feedbackToken),
     index('appointments_store_id_idx').on(table.storeId),
     index('appointments_customer_id_idx').on(table.customerId),
     index('appointments_staff_id_idx').on(table.staffId),
@@ -578,6 +594,186 @@ export const appointmentExtras = pgTable(
   },
   (table) => [
     index('appointment_extras_appointment_id_idx').on(table.appointmentId),
+  ],
+);
+
+// ================================
+// DISCOUNT COUPONS
+// ================================
+export const couponTypeEnum = pgEnum('coupon_type', [
+  'percentage',
+  'fixed_amount',
+]);
+
+export const couponStatusEnum = pgEnum('coupon_status', [
+  'active',
+  'expired',
+  'used',
+  'cancelled',
+]);
+
+export const coupons = pgTable(
+  'coupons',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    storeId: uuid('store_id')
+      .references(() => stores.id, { onDelete: 'cascade' })
+      .notNull(),
+    code: varchar('code', { length: 50 }).notNull(),
+    name: varchar('name', { length: 255 }).notNull(),
+    description: text('description'),
+    type: couponTypeEnum('type').notNull(),
+    value: decimal('value', { precision: 10, scale: 2 }).notNull(), // Percentage (0-100) or fixed amount
+    minPurchaseAmount: decimal('min_purchase_amount', {
+      precision: 10,
+      scale: 2,
+    }),
+    maxDiscountAmount: decimal('max_discount_amount', {
+      precision: 10,
+      scale: 2,
+    }), // Max discount for percentage type
+    usageLimit: integer('usage_limit'), // Total usage limit (null = unlimited)
+    usageLimitPerCustomer: integer('usage_limit_per_customer').default(1),
+    usedCount: integer('used_count').default(0),
+    validFrom: timestamp('valid_from').notNull(),
+    validUntil: timestamp('valid_until').notNull(),
+    isActive: boolean('is_active').default(true).notNull(),
+    // Applicable services (null = all services)
+    applicableServiceIds: json('applicable_service_ids').$type<string[]>(),
+    createdBy: uuid('created_by').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    unique('coupons_store_code').on(table.storeId, table.code),
+    index('coupons_store_id_idx').on(table.storeId),
+    index('coupons_code_idx').on(table.code),
+    index('coupons_valid_until_idx').on(table.validUntil),
+  ],
+);
+
+// Customer-specific coupon assignments (for personal coupons)
+export const customerCoupons = pgTable(
+  'customer_coupons',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    couponId: uuid('coupon_id')
+      .references(() => coupons.id, { onDelete: 'cascade' })
+      .notNull(),
+    customerId: uuid('customer_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    storeId: uuid('store_id')
+      .references(() => stores.id, { onDelete: 'cascade' })
+      .notNull(),
+    status: couponStatusEnum('status').default('active').notNull(),
+    usedCount: integer('used_count').default(0),
+    usedAt: timestamp('used_at'),
+    notifiedAt: timestamp('notified_at'), // When customer was notified about this coupon
+    assignedBy: uuid('assigned_by').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    unique('customer_coupons_coupon_customer').on(
+      table.couponId,
+      table.customerId,
+    ),
+    index('customer_coupons_coupon_id_idx').on(table.couponId),
+    index('customer_coupons_customer_id_idx').on(table.customerId),
+    index('customer_coupons_store_id_idx').on(table.storeId),
+    index('customer_coupons_status_idx').on(table.status),
+  ],
+);
+
+// Coupon usage history
+export const couponUsages = pgTable(
+  'coupon_usages',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    couponId: uuid('coupon_id')
+      .references(() => coupons.id, { onDelete: 'cascade' })
+      .notNull(),
+    customerId: uuid('customer_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    appointmentId: uuid('appointment_id').references(() => appointments.id, {
+      onDelete: 'set null',
+    }),
+    storeId: uuid('store_id')
+      .references(() => stores.id, { onDelete: 'cascade' })
+      .notNull(),
+    discountAmount: decimal('discount_amount', {
+      precision: 10,
+      scale: 2,
+    }).notNull(),
+    originalAmount: decimal('original_amount', {
+      precision: 10,
+      scale: 2,
+    }).notNull(),
+    usedAt: timestamp('used_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('coupon_usages_coupon_id_idx').on(table.couponId),
+    index('coupon_usages_customer_id_idx').on(table.customerId),
+    index('coupon_usages_appointment_id_idx').on(table.appointmentId),
+  ],
+);
+
+// ================================
+// APPOINTMENT FEEDBACK
+// ================================
+export const appointmentFeedback = pgTable(
+  'appointment_feedback',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    appointmentId: uuid('appointment_id')
+      .references(() => appointments.id, { onDelete: 'cascade' })
+      .notNull()
+      .unique(),
+    storeId: uuid('store_id')
+      .references(() => stores.id, { onDelete: 'cascade' })
+      .notNull(),
+    customerId: uuid('customer_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    staffId: uuid('staff_id').references(() => staffMembers.id, {
+      onDelete: 'set null',
+    }),
+    serviceId: uuid('service_id').references(() => services.id, {
+      onDelete: 'set null',
+    }),
+    // Ratings (1-5)
+    overallRating: integer('overall_rating').notNull(),
+    serviceRating: integer('service_rating'),
+    staffRating: integer('staff_rating'),
+    cleanlinessRating: integer('cleanliness_rating'),
+    valueRating: integer('value_rating'), // Value for money
+    // Feedback text
+    comment: text('comment'),
+    // Response from store
+    storeResponse: text('store_response'),
+    respondedAt: timestamp('responded_at'),
+    respondedBy: uuid('responded_by').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    // Visibility
+    isPublic: boolean('is_public').default(true).notNull(),
+    isVerified: boolean('is_verified').default(true).notNull(), // Verified purchase
+    // Timestamps
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('appointment_feedback_store_id_idx').on(table.storeId),
+    index('appointment_feedback_customer_id_idx').on(table.customerId),
+    index('appointment_feedback_staff_id_idx').on(table.staffId),
+    index('appointment_feedback_service_id_idx').on(table.serviceId),
+    index('appointment_feedback_overall_rating_idx').on(table.overallRating),
+    index('appointment_feedback_created_at_idx').on(table.createdAt),
   ],
 );
 
@@ -785,6 +981,11 @@ export const notificationSettings = pgTable(
     appointmentRescheduledChannel: notificationChannelEnum(
       'appointment_rescheduled_channel',
     ).default('email'),
+
+    // Appointment Feedback
+    feedbackRequestSmsEnabled: boolean('feedback_request_sms_enabled').default(
+      false,
+    ),
 
     // Staff Invitation
     staffInvitationEnabled: boolean('staff_invitation_enabled').default(true),
@@ -1041,3 +1242,89 @@ export const customerFilesRelations = relations(customerFiles, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+// Coupon Relations
+export const couponsRelations = relations(coupons, ({ one, many }) => ({
+  store: one(stores, {
+    fields: [coupons.storeId],
+    references: [stores.id],
+  }),
+  createdByUser: one(users, {
+    fields: [coupons.createdBy],
+    references: [users.id],
+  }),
+  customerCoupons: many(customerCoupons),
+  usages: many(couponUsages),
+}));
+
+export const customerCouponsRelations = relations(
+  customerCoupons,
+  ({ one }) => ({
+    coupon: one(coupons, {
+      fields: [customerCoupons.couponId],
+      references: [coupons.id],
+    }),
+    customer: one(users, {
+      fields: [customerCoupons.customerId],
+      references: [users.id],
+    }),
+    store: one(stores, {
+      fields: [customerCoupons.storeId],
+      references: [stores.id],
+    }),
+    assignedByUser: one(users, {
+      fields: [customerCoupons.assignedBy],
+      references: [users.id],
+    }),
+  }),
+);
+
+export const couponUsagesRelations = relations(couponUsages, ({ one }) => ({
+  coupon: one(coupons, {
+    fields: [couponUsages.couponId],
+    references: [coupons.id],
+  }),
+  customer: one(users, {
+    fields: [couponUsages.customerId],
+    references: [users.id],
+  }),
+  appointment: one(appointments, {
+    fields: [couponUsages.appointmentId],
+    references: [appointments.id],
+  }),
+  store: one(stores, {
+    fields: [couponUsages.storeId],
+    references: [stores.id],
+  }),
+}));
+
+// Appointment Feedback Relations
+export const appointmentFeedbackRelations = relations(
+  appointmentFeedback,
+  ({ one }) => ({
+    appointment: one(appointments, {
+      fields: [appointmentFeedback.appointmentId],
+      references: [appointments.id],
+    }),
+    store: one(stores, {
+      fields: [appointmentFeedback.storeId],
+      references: [stores.id],
+    }),
+    customer: one(users, {
+      fields: [appointmentFeedback.customerId],
+      references: [users.id],
+    }),
+    staff: one(staffMembers, {
+      fields: [appointmentFeedback.staffId],
+      references: [staffMembers.id],
+    }),
+    service: one(services, {
+      fields: [appointmentFeedback.serviceId],
+      references: [services.id],
+    }),
+    respondedByUser: one(users, {
+      fields: [appointmentFeedback.respondedBy],
+      references: [users.id],
+    }),
+  }),
+);

@@ -280,6 +280,67 @@ Saygılarımızla,
           'storeEmail',
         ],
       },
+      appointment_feedback: {
+        name: 'Randevu Geri Bildirim Talebi',
+        description: 'Randevu tamamlandıktan sonra geri bildirim linki gönderimi',
+        subject: 'Geri Bildiriminiz Bizim İçin Önemli - {{storeName}}',
+        htmlContent: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #333;">Merhaba {{customerName}},</h2>
+            <p>Randevunuz tamamlandı. Deneyiminizi değerlendirebilir misiniz?</p>
+            
+            <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="margin-top: 0;">Randevu Detayları</h3>
+              <p><strong>Hizmet:</strong> {{serviceName}}</p>
+              <p><strong>Tarih ve Saat:</strong> {{appointmentDateTime}}</p>
+              <p><strong>Personel:</strong> {{staffName}}</p>
+            </div>
+            
+            <p>Aşağıdaki butona tıklayarak kısa bir geri bildirim bırakabilirsiniz:</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="{{feedbackLink}}" style="background-color: #0ea5e9; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                Geri Bildirim Gönder
+              </a>
+            </div>
+            
+            <p style="color: #666; font-size: 14px; margin-top: 30px;">
+              Teşekkürler,<br>
+              {{storeName}}<br>
+              {{storePhone}}<br>
+              {{storeEmail}}
+            </p>
+          </div>
+        `,
+        textContent: `Merhaba {{customerName}},
+
+Randevunuz tamamlandı. Deneyiminizi değerlendirebilir misiniz?
+
+Randevu Detayları:
+Hizmet: {{serviceName}}
+Tarih ve Saat: {{appointmentDateTime}}
+Personel: {{staffName}}
+
+Geri bildirim linki:
+{{feedbackLink}}
+
+Teşekkürler,
+{{storeName}}
+{{storePhone}}
+{{storeEmail}}`,
+        smsContent:
+          '{{storeName}}: Randevunuz tamamlandı. Geri bildirim için: {{feedbackLink}}',
+        availableVariables: [
+          'customerName',
+          'serviceName',
+          'appointmentDateTime',
+          'staffName',
+          'storeName',
+          'storePhone',
+          'storeEmail',
+          'feedbackLink',
+        ],
+      },
       staff_invitation: {
         name: 'Personel Daveti',
         description: 'Yeni personel davet edildiğinde gönderilen bildirim',

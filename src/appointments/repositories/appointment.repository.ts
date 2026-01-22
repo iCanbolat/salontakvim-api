@@ -1,5 +1,17 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { eq, and, gte, lte, lt, gt, ne, sql, SQL, inArray } from 'drizzle-orm';
+import {
+  eq,
+  and,
+  gte,
+  lte,
+  lt,
+  gt,
+  ne,
+  sql,
+  SQL,
+  inArray,
+  or,
+} from 'drizzle-orm';
 import { DRIZZLE_ORM } from '../../db/drizzle.module';
 import * as schema from '../../db/schema';
 import {
@@ -231,6 +243,50 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
         ),
       )
       .orderBy(schema.appointments.startDateTime);
+  }
+
+  async findPendingReminders(
+    storeId: string,
+    windowStart: Date,
+    windowEnd: Date,
+    type: '24h' | '1h',
+  ): Promise<Appointment[]> {
+    const pendingFlag =
+      type === '24h'
+        ? eq(schema.appointments.reminder24hSent, false)
+        : eq(schema.appointments.reminder1hSent, false);
+
+    return await this.db
+      .select()
+      .from(schema.appointments)
+      .where(
+        and(
+          eq(schema.appointments.storeId, storeId),
+          gte(schema.appointments.startDateTime, windowStart),
+          lt(schema.appointments.startDateTime, windowEnd),
+          or(
+            eq(schema.appointments.status, 'pending'),
+            eq(schema.appointments.status, 'confirmed'),
+          ),
+          pendingFlag,
+        ),
+      )
+      .orderBy(schema.appointments.startDateTime);
+  }
+
+  async markReminderSent(id: string, type: '24h' | '1h') {
+    const field =
+      type === '24h'
+        ? { reminder24hSent: true, updatedAt: new Date() }
+        : { reminder1hSent: true, updatedAt: new Date() };
+
+    const [updated] = await this.db
+      .update(schema.appointments)
+      .set(field)
+      .where(eq(schema.appointments.id, id))
+      .returning();
+
+    return updated;
   }
 
   async findOverlappingAppointments(

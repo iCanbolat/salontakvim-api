@@ -12,6 +12,7 @@ import { LocationModule } from '../locations/location.module';
 import { StoreModule } from '../stores/store.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ActivitiesModule } from '../activities/activities.module';
+import { QueueModule } from '../queue/queue.module';
 import { AppointmentExpirationService } from './services/appointment-expiration.service';
 import { AppointmentCleanupService } from './services/appointment-cleanup.service';
 
@@ -25,6 +26,7 @@ import { AppointmentCleanupService } from './services/appointment-cleanup.servic
     StoreModule,
     NotificationsModule,
     ActivitiesModule,
+    QueueModule,
   ],
   controllers: [AppointmentsController],
   providers: [

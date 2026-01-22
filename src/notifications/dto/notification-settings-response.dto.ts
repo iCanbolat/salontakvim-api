@@ -39,6 +39,9 @@ export class NotificationSettingsResponseDto {
   appointmentRescheduledChannel: NotificationChannel;
 
   @Expose()
+  feedbackRequestSmsEnabled: boolean;
+
+  @Expose()
   staffInvitationEnabled: boolean;
 
   @Expose()

@@ -13,7 +13,7 @@ export class EmailService {
   async sendEmail(options: EmailOptions): Promise<boolean> {
     try {
       const emailProvider = this.configService
-        .get<string>('EMAIL_PROVIDER', 'smtp')
+        .get<string>('EMAIL_PROVIDER', 'resend')
         .toLowerCase();
 
       this.logger.log(`Sending email via ${emailProvider}`);
@@ -28,8 +28,10 @@ export class EmailService {
         case 'aws-ses':
           return await this.sendViaAWSSES(options);
         case 'smtp':
-        default:
           return await this.sendViaSMTP(options);
+        default:
+          this.logger.warn(`Unknown email provider: ${emailProvider}, falling back to resend`);
+          return await this.sendViaResend(options);
       }
     } catch (error) {
       this.logger.error('Failed to send email:', error);

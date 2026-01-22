@@ -55,6 +55,10 @@ export class UpdateNotificationSettingsDto {
 
   @IsOptional()
   @IsBoolean()
+  feedbackRequestSmsEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
   staffInvitationEnabled?: boolean;
 
   @IsOptional()

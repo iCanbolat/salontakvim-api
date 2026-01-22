@@ -30,6 +30,9 @@ export class StoreResponseDto {
   currency: string;
 
   @Expose()
+  sendFeedbackViaSms: boolean;
+
+  @Expose()
   totalAppointments: number;
 
   @Expose()

@@ -163,9 +163,14 @@ export class NotificationService {
   ) {
     const settings = await this.getSettings(storeId);
 
+    if (!settings.appointmentReminderEnabled) {
+      this.logger.log('Appointment reminders are disabled');
+      return { sent: false, reason: 'Notifications disabled' };
+    }
+
     if (!settings.reminder24hEnabled) {
       this.logger.log('24h reminder notifications are disabled');
-      return { sent: false, reason: 'Notifications disabled' };
+      return { sent: false, reason: '24h reminders disabled' };
     }
 
     return this.sendNotification(
@@ -189,9 +194,14 @@ export class NotificationService {
   ) {
     const settings = await this.getSettings(storeId);
 
+    if (!settings.appointmentReminderEnabled) {
+      this.logger.log('Appointment reminders are disabled');
+      return { sent: false, reason: 'Notifications disabled' };
+    }
+
     if (!settings.reminder1hEnabled) {
       this.logger.log('1h reminder notifications are disabled');
-      return { sent: false, reason: 'Notifications disabled' };
+      return { sent: false, reason: '1h reminders disabled' };
     }
 
     return this.sendNotification(
@@ -250,6 +260,26 @@ export class NotificationService {
       storeId,
       'appointment_rescheduled',
       settings.appointmentRescheduledChannel || 'email',
+      recipientEmail,
+      recipientPhone,
+      variables,
+    );
+  }
+
+  /**
+   * Send appointment feedback request
+   */
+  async sendAppointmentFeedback(
+    storeId: string,
+    recipientEmail: string,
+    recipientPhone: string | null,
+    variables: TemplateVariables,
+    channel: 'email' | 'sms' | 'both' = 'email',
+  ) {
+    return this.sendNotification(
+      storeId,
+      'appointment_feedback',
+      channel,
       recipientEmail,
       recipientPhone,
       variables,

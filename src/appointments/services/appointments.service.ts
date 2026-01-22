@@ -3,7 +3,11 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  Inject,
+  Logger,
 } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import {
   AppointmentRepository,
   AppointmentStatusCounts,
@@ -18,6 +22,8 @@ import { UserRepository } from '../../auth/repositories/user.repository';
 import { StoreRepository } from '../../stores/repositories/store.repository';
 import { NotificationService } from '../../notifications/services/notification.service';
 import { ActivitiesService } from '../../activities/services/activities.service';
+import { FEEDBACK_QUEUE } from '../../queue/queue.module';
+import type { FeedbackJobData } from '../../queue/processors/feedback.processor';
 import {
   CreateAppointmentDto,
   CreateGuestAppointmentDto,
@@ -48,6 +54,8 @@ type PaginatedAppointmentsResult = {
 
 @Injectable()
 export class AppointmentsService {
+  private readonly logger = new Logger(AppointmentsService.name);
+
   constructor(
     private readonly appointmentRepository: AppointmentRepository,
     private readonly appointmentExtraRepository: AppointmentExtraRepository,
@@ -60,6 +68,8 @@ export class AppointmentsService {
     private readonly storeRepository: StoreRepository,
     private readonly notificationService: NotificationService,
     private readonly activitiesService: ActivitiesService,
+    @InjectQueue(FEEDBACK_QUEUE)
+    private readonly feedbackQueue: Queue<FeedbackJobData>,
   ) {}
 
   // ============= Customer Appointments =============
@@ -392,6 +402,10 @@ export class AppointmentsService {
           newStatus: updated.status,
         },
       );
+
+      if (updated.status === 'completed') {
+        await this.sendFeedbackRequest(updated);
+      }
     }
     return await this.getAppointmentById(updated.id, storeId);
   }
@@ -449,6 +463,10 @@ export class AppointmentsService {
           newStatus: updated.status,
         },
       );
+
+      if (updated.status === 'completed') {
+        await this.sendFeedbackRequest(updated);
+      }
     }
 
     return await this.getAppointmentById(updated.id, storeId);
@@ -676,6 +694,171 @@ export class AppointmentsService {
         type,
         enrichedMetadata,
       );
+    }
+  }
+
+  private buildFeedbackLink(
+    storeSlug: string | null | undefined,
+    storeId: string,
+    appointmentId: string,
+    feedbackToken: string,
+  ) {
+    const baseUrl = (
+      process.env.FRONTEND_URL || 'http://localhost:3000'
+    ).replace(/\/$/, '');
+    const params = new URLSearchParams({
+      appointmentId,
+      storeId,
+      token: feedbackToken,
+    });
+
+    if (storeSlug) {
+      params.set('storeSlug', storeSlug);
+    }
+
+    return `${baseUrl}/feedback?${params.toString()}`;
+  }
+
+  private generateFeedbackToken(): string {
+    return randomBytes(32).toString('hex');
+  }
+
+  private async sendFeedbackRequest(appointment: Appointment) {
+    if (!appointment.customerId) {
+      return;
+    }
+
+    // Check if feedback was already sent
+    if (appointment.feedbackSentAt) {
+      return;
+    }
+
+    const [store, customer, service, staff] = await Promise.all([
+      this.storeRepository.findById(appointment.storeId),
+      this.userRepository.findById(appointment.customerId),
+      appointment.serviceId
+        ? this.serviceRepository.findById(appointment.serviceId)
+        : Promise.resolve(null),
+      appointment.staffId
+        ? this.staffMemberRepository.findById(appointment.staffId)
+        : Promise.resolve(null),
+    ]);
+
+    if (!store || !customer) {
+      return;
+    }
+
+    // Generate feedback token with 7 day expiration
+    const feedbackToken = this.generateFeedbackToken();
+    const feedbackTokenExpiresAt = new Date();
+    feedbackTokenExpiresAt.setDate(feedbackTokenExpiresAt.getDate() + 7);
+
+    // Update appointment with feedback token
+    await this.appointmentRepository.update(appointment.id, {
+      feedbackToken,
+      feedbackTokenExpiresAt,
+    });
+
+    const staffUser = staff?.userId
+      ? await this.userRepository.findById(staff.userId)
+      : null;
+
+    const customerName =
+      [customer.firstName, customer.lastName]
+        .filter(Boolean)
+        .join(' ')
+        .trim() ||
+      customer.email ||
+      customer.phone ||
+      'Müşteri';
+
+    const staffName = staffUser
+      ? [staffUser.firstName, staffUser.lastName]
+          .filter(Boolean)
+          .join(' ')
+          .trim() || staffUser.email
+      : 'Personel';
+
+    const appointmentDateTime = appointment.startDateTime
+      ? new Date(appointment.startDateTime).toLocaleString('tr-TR')
+      : '';
+
+    const feedbackLink = this.buildFeedbackLink(
+      store.slug,
+      store.id,
+      appointment.id,
+      feedbackToken,
+    );
+
+    const notificationSettings = await this.notificationService.getSettings(
+      store.id,
+    );
+    const channel = notificationSettings?.feedbackRequestSmsEnabled
+      ? 'both'
+      : 'email';
+
+    this.logger.log(
+      `Preparing feedback request for appointment ${appointment.id} (channel=${channel}, email=${customer.email || 'n/a'}, phone=${customer.phone || 'n/a'})`,
+    );
+    this.logger.debug(
+      `Feedback variables for appointment ${appointment.id}: storePhone=${store.phone || 'n/a'}, storeEmail=${store.email || 'n/a'}`,
+    );
+
+    // Add job to feedback queue with 1 minute delay (fallback to direct send if queue fails)
+    try {
+      await this.feedbackQueue.add(
+        'send-feedback-request',
+        {
+          appointmentId: appointment.id,
+          storeId: store.id,
+          customerId: customer.id,
+          customerEmail: customer.email,
+          customerPhone: customer.phone,
+          customerName,
+          serviceName: service?.name || null,
+          staffName,
+          appointmentDateTime,
+          feedbackToken,
+          feedbackLink,
+          channel,
+          storeName: store.name,
+          storePhone: store.phone || null,
+          storeEmail: store.email || null,
+        },
+        {
+          delay: 1 * 60 * 1000,
+          jobId: `feedback-${appointment.id}`,
+        },
+      );
+      this.logger.log(
+        `Queued feedback request for appointment ${appointment.id}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Feedback queue unavailable, sending immediately for appointment ${appointment.id}`,
+        error as Error,
+      );
+
+      await this.notificationService.sendAppointmentFeedback(
+        store.id,
+        customer.email || '',
+        customer.phone || null,
+        {
+          customerName,
+          serviceName: service?.name || 'Hizmet',
+          appointmentDateTime,
+          staffName,
+          storeName: store.name,
+          storePhone: store.phone || '',
+          storeEmail: store.email || '',
+          feedbackLink,
+        },
+        channel,
+      );
+
+      await this.appointmentRepository.update(appointment.id, {
+        feedbackSentAt: new Date(),
+      });
     }
   }
 
