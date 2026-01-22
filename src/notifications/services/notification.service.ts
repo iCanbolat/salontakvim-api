@@ -287,6 +287,26 @@ export class NotificationService {
   }
 
   /**
+   * Send coupon assigned notification
+   */
+  async sendCouponAssigned(
+    storeId: string,
+    recipientEmail: string,
+    recipientPhone: string | null,
+    variables: TemplateVariables,
+    channel: 'email' | 'sms' | 'both' = 'both',
+  ) {
+    return this.sendNotification(
+      storeId,
+      'coupon_assigned',
+      channel,
+      recipientEmail,
+      recipientPhone,
+      variables,
+    );
+  }
+
+  /**
    * Send staff invitation notification
    */
   async sendStaffInvitation(

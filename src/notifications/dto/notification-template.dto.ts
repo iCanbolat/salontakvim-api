@@ -7,6 +7,7 @@ export enum TemplateType {
   APPOINTMENT_CANCELLED = 'appointment_cancelled',
   APPOINTMENT_RESCHEDULED = 'appointment_rescheduled',
   APPOINTMENT_FEEDBACK = 'appointment_feedback',
+  COUPON_ASSIGNED = 'coupon_assigned',
   STAFF_INVITATION = 'staff_invitation',
   PASSWORD_RESET = 'password_reset',
 }

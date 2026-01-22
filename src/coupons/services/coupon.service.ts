@@ -3,10 +3,17 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  Logger,
 } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { CouponRepository } from '../repositories/coupon.repository';
 import { StoreRepository } from '../../stores/repositories/store.repository';
 import { StaffMemberRepository } from '../../staff/repositories/staff-member.repository';
+import { UserRepository } from '../../auth/repositories/user.repository';
+import { NotificationService } from '../../notifications/services/notification.service';
+import { NOTIFICATION_QUEUE } from '../../queue/queue.module';
+import type { CouponNotificationJobData } from '../../queue/processors/coupon-notification.processor';
 import type {
   CreateCouponDto,
   UpdateCouponDto,
@@ -17,10 +24,16 @@ import type {
 
 @Injectable()
 export class CouponService {
+  private readonly logger = new Logger(CouponService.name);
+
   constructor(
     private readonly couponRepository: CouponRepository,
     private readonly storeRepository: StoreRepository,
     private readonly staffMemberRepository: StaffMemberRepository,
+    private readonly userRepository: UserRepository,
+    private readonly notificationService: NotificationService,
+    @InjectQueue(NOTIFICATION_QUEUE)
+    private readonly notificationQueue: Queue<CouponNotificationJobData>,
   ) {}
 
   private async validateStoreAccess(storeId: string, userId: string) {
@@ -157,7 +170,7 @@ export class CouponService {
     userId: string,
     notify: boolean = false,
   ): Promise<CustomerCouponResponseDto[]> {
-    await this.validateStoreAccess(storeId, userId);
+    const store = await this.validateStoreAccess(storeId, userId);
 
     const coupon = await this.couponRepository.findById(couponId, storeId);
     if (!coupon) {
@@ -180,7 +193,79 @@ export class CouponService {
       notify,
     );
 
-    // TODO: If notify is true, send notification to customers
+    if (notify) {
+      const customers = await this.userRepository.findByIds(customerIds);
+      const validUntil = coupon.validUntil
+        ? new Date(coupon.validUntil).toLocaleDateString('tr-TR')
+        : '';
+      const discountText =
+        coupon.type === 'percentage' ? `%${coupon.value}` : `${coupon.value}₺`;
+
+      const jobs = customers.map((customer) => {
+        const customerName =
+          [customer.firstName, customer.lastName]
+            .filter(Boolean)
+            .join(' ')
+            .trim() ||
+          customer.email ||
+          customer.phone ||
+          'Müşteri';
+
+        return {
+          name: 'send-coupon-notification',
+          data: {
+            storeId,
+            customerId: customer.id,
+            customerEmail: customer.email || null,
+            customerPhone: customer.phone || null,
+            customerName,
+            couponCode: coupon.code,
+            couponName: coupon.name,
+            discountText,
+            validUntil,
+            storeName: store.name,
+            storePhone: store.phone || null,
+            storeEmail: store.email || null,
+          } as CouponNotificationJobData,
+          opts: {
+            jobId: `coupon-${couponId}-${customer.id}`,
+          },
+        };
+      });
+
+      try {
+        await this.notificationQueue.addBulk(jobs);
+        this.logger.log(
+          `Queued ${jobs.length} coupon notifications for coupon ${coupon.code}`,
+        );
+      } catch (error) {
+        this.logger.error(
+          `Notification queue unavailable, sending coupon notifications immediately for coupon ${coupon.code}`,
+          error as Error,
+        );
+
+        await Promise.all(
+          jobs.map((job) =>
+            this.notificationService.sendCouponAssigned(
+              job.data.storeId,
+              job.data.customerEmail || '',
+              job.data.customerPhone || null,
+              {
+                customerName: job.data.customerName,
+                couponCode: job.data.couponCode,
+                couponName: job.data.couponName,
+                discountText: job.data.discountText,
+                validUntil: job.data.validUntil,
+                storeName: job.data.storeName,
+                storePhone: job.data.storePhone || '',
+                storeEmail: job.data.storeEmail || '',
+              },
+              'both',
+            ),
+          ),
+        );
+      }
+    }
 
     return assignments as CustomerCouponResponseDto[];
   }

@@ -20,6 +20,7 @@ import { CouponModule } from './coupons/coupon.module';
 import { FeedbackModule } from './feedback/feedback.module';
 import { QueueModule } from './queue/queue.module';
 import { FeedbackProcessor } from './queue/processors/feedback.processor';
+import { CouponNotificationProcessor } from './queue/processors/coupon-notification.processor';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 
 @Module({
@@ -49,6 +50,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
   providers: [
     AppService,
     FeedbackProcessor,
+    CouponNotificationProcessor,
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,

@@ -282,7 +282,8 @@ Saygılarımızla,
       },
       appointment_feedback: {
         name: 'Randevu Geri Bildirim Talebi',
-        description: 'Randevu tamamlandıktan sonra geri bildirim linki gönderimi',
+        description:
+          'Randevu tamamlandıktan sonra geri bildirim linki gönderimi',
         subject: 'Geri Bildiriminiz Bizim İçin Önemli - {{storeName}}',
         htmlContent: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -339,6 +340,63 @@ Teşekkürler,
           'storePhone',
           'storeEmail',
           'feedbackLink',
+        ],
+      },
+      coupon_assigned: {
+        name: 'Kupon Bildirimi',
+        description:
+          'Müşterilere indirim kuponu atandığında gönderilen bildirim',
+        subject: '{{storeName}} - Size Özel İndirim Kuponu',
+        htmlContent: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #333;">Merhaba {{customerName}},</h2>
+            <p>Size özel bir indirim kuponu tanımladık 🎉</p>
+            
+            <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="margin-top: 0;">Kupon Detayları</h3>
+              <p><strong>Kod:</strong> {{couponCode}}</p>
+              <p><strong>Kupon:</strong> {{couponName}}</p>
+              <p><strong>İndirim:</strong> {{discountText}}</p>
+              <p><strong>Geçerlilik:</strong> {{validUntil}}</p>
+            </div>
+            
+            <p>Bir sonraki randevunuzda bu kuponu kullanmayı unutmayın.</p>
+            
+            <p style="color: #666; font-size: 14px; margin-top: 30px;">
+              Saygılarımızla,<br>
+              {{storeName}}<br>
+              {{storePhone}}<br>
+              {{storeEmail}}
+            </p>
+          </div>
+        `,
+        textContent: `Merhaba {{customerName}},
+
+Size özel bir indirim kuponu tanımladık.
+
+Kupon Detayları:
+Kod: {{couponCode}}
+Kupon: {{couponName}}
+İndirim: {{discountText}}
+Geçerlilik: {{validUntil}}
+
+Bir sonraki randevunuzda bu kuponu kullanmayı unutmayın.
+
+Saygılarımızla,
+{{storeName}}
+{{storePhone}}
+{{storeEmail}}`,
+        smsContent:
+          '{{storeName}}: Size özel kupon tanımlandı. Kod: {{couponCode}} ({{discountText}}) Son: {{validUntil}}',
+        availableVariables: [
+          'customerName',
+          'couponCode',
+          'couponName',
+          'discountText',
+          'validUntil',
+          'storeName',
+          'storePhone',
+          'storeEmail',
         ],
       },
       staff_invitation: {

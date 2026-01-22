@@ -77,6 +77,7 @@ export const templateTypeEnum = pgEnum('template_type', [
   'appointment_cancelled',
   'appointment_rescheduled',
   'appointment_feedback',
+  'coupon_assigned',
   'staff_invitation',
   'password_reset',
 ]);
