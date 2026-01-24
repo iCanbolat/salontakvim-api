@@ -30,6 +30,7 @@ export interface AppointmentQueryFilters {
   status?: AppointmentStatusType;
   serviceId?: string;
   staffId?: string;
+  staffIds?: string[];
   locationId?: string;
   customerId?: string;
   startDate?: string;
@@ -453,7 +454,9 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
       conditions.push(eq(schema.appointments.serviceId, filters.serviceId));
     }
 
-    if (filters.staffId) {
+    if (filters.staffIds && filters.staffIds.length > 0) {
+      conditions.push(inArray(schema.appointments.staffId, filters.staffIds));
+    } else if (filters.staffId) {
       conditions.push(eq(schema.appointments.staffId, filters.staffId));
     }
 

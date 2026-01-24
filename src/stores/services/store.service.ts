@@ -174,18 +174,7 @@ export class StoreService {
     totalAppointments: number;
     totalCustomers: number;
   }> {
-    const store = await this.storeRepository.findById(id);
-    if (!store) {
-      throw new StoreNotFoundException(id.toString());
-    }
-
-    // Check if user is the owner or staff
-    if (store.ownerId !== userId) {
-      throw new UnauthorizedStoreAccessException(
-        id.toString(),
-        userId.toString(),
-      );
-    }
+    const store = await this.verifyStoreOwnership(id, userId);
 
     return {
       totalAppointments: store.totalAppointments || 0,
@@ -193,21 +182,27 @@ export class StoreService {
     };
   }
 
-  // Helper method to verify store ownership (for other modules)
+  // Helper method to verify store access for owner OR staff membership
   async verifyStoreOwnership(storeId: string, userId: string): Promise<Store> {
     const store = await this.storeRepository.findById(storeId);
     if (!store) {
       throw new StoreNotFoundException(storeId.toString());
     }
 
-    if (store.ownerId !== userId) {
-      throw new UnauthorizedStoreAccessException(
-        storeId.toString(),
-        userId.toString(),
-      );
+    // Owners always allowed
+    if (store.ownerId === userId) {
+      return store;
     }
 
-    return store;
+    // Staff: allow if user is a staff member of this store
+    const staffMembership =
+      await this.staffMemberRepository.findByUserId(userId);
+
+    if (staffMembership && staffMembership.storeId === storeId) {
+      return store;
+    }
+
+    throw new UnauthorizedStoreAccessException(storeId.toString(), userId);
   }
 
   // Helper method to check if store exists (for other modules)

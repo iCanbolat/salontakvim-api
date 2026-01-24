@@ -364,6 +364,19 @@ async function seed() {
     // 7. Create Staff Members
     console.log('Creating staff members...');
 
+    // Owner as staff (so they can take appointments too)
+    const [ownerStaff] = await db
+      .insert(schema.staffMembers)
+      .values({
+        userId: adminUser.id,
+        storeId: store.id,
+        locationId: location1.id,
+        bio: 'İşletme sahibi ve baş stilist.',
+        title: 'Salon Sahibi / Lead',
+        isVisible: true,
+      })
+      .returning();
+
     const [staff1User] = await db
       .insert(schema.users)
       .values({

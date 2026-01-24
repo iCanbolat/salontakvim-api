@@ -18,6 +18,9 @@ import {
   InactiveAccountException,
   InvalidSocialAuthException,
 } from '../exceptions';
+import { StoreService } from '../../stores/services/store.service';
+import { StoreSlugAlreadyExistsException } from '../../stores/exceptions';
+import { StaffMemberRepository } from '../../staff/repositories/staff-member.repository';
 
 @Injectable()
 export class AuthService {
@@ -26,6 +29,8 @@ export class AuthService {
     private refreshTokenRepository: RefreshTokenRepository,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private storeService: StoreService,
+    private staffMemberRepository: StaffMemberRepository,
   ) {}
 
   async register(registerDto: RegisterDto): Promise<AuthResponse> {
@@ -54,6 +59,26 @@ export class AuthService {
       avatar: registerDto.avatar,
       emailVerified: false,
     });
+
+    // Create store for the new admin user
+    const store = await this.createStoreForUser(user.id, {
+      name: registerDto.storeName,
+      slug: registerDto.storeSlug,
+    });
+
+    // Optionally create staff profile for the owner
+    if (registerDto.createStaffProfile) {
+      await this.staffMemberRepository.create({
+        userId: user.id,
+        storeId: store.id,
+        title: registerDto.staffTitle || null,
+        bio: registerDto.staffBio || null,
+        isVisible:
+          typeof registerDto.staffIsVisible === 'boolean'
+            ? registerDto.staffIsVisible
+            : true,
+      });
+    }
 
     // Generate tokens
     const tokens = await this.generateTokens(user);
@@ -269,5 +294,47 @@ export class AuthService {
       paymentStatus: user.paymentStatus,
       avatar: user.avatar,
     };
+  }
+
+  private slugify(input: string): string {
+    const slug = input
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .replace(/-{2,}/g, '-');
+
+    if (slug.length >= 3) return slug;
+
+    return `store-${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  private async createStoreForUser(
+    userId: string,
+    store: { name: string; slug?: string },
+  ) {
+    const baseSlug = store.slug?.trim() || this.slugify(store.name);
+    const attempts = [
+      baseSlug,
+      `${baseSlug}-${Math.random().toString(36).slice(2, 6)}`,
+      `${baseSlug}-${Math.random().toString(36).slice(2, 6)}`,
+    ];
+
+    for (const slug of attempts) {
+      try {
+        return await this.storeService.create(userId, {
+          name: store.name,
+          slug,
+        });
+      } catch (error) {
+        if (error instanceof StoreSlugAlreadyExistsException) {
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    // If all attempts failed due to slug conflict, rethrow a conflict error
+    throw new StoreSlugAlreadyExistsException(baseSlug);
   }
 }

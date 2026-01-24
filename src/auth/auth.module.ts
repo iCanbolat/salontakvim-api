@@ -9,10 +9,12 @@ import { RefreshTokenRepository } from './repositories/refresh-token.repository'
 import { LocalStrategy } from './strategies/local.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { DrizzleModule } from '../db/drizzle.module';
+import { StoreModule } from '../stores/store.module';
 
 @Module({
   imports: [
     DrizzleModule,
+    StoreModule,
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],

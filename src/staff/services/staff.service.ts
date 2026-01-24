@@ -177,6 +177,32 @@ export class StaffService {
     return await this.hydrateSingleStaff(storeId, updated);
   }
 
+  async createSelfStaffProfile(
+    storeId: string,
+    userId: string,
+    dto: UpdateStaffProfileDto,
+  ) {
+    const existing = await this.staffMemberRepository.findByUserIdAndStoreId(
+      userId,
+      storeId,
+    );
+
+    if (existing) {
+      return await this.hydrateSingleStaff(storeId, existing);
+    }
+
+    const created = await this.staffMemberRepository.create({
+      storeId,
+      userId,
+      title: dto.title ?? null,
+      bio: dto.bio ?? null,
+      locationId: dto.locationId ?? null,
+      isVisible: typeof dto.isVisible === 'boolean' ? dto.isVisible : true,
+    });
+
+    return await this.hydrateSingleStaff(storeId, created);
+  }
+
   async deleteStaffMember(storeId: string, staffId: string) {
     const staff = await this.getStaffMember(storeId, staffId);
 

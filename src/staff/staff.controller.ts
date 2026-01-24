@@ -128,6 +128,20 @@ export class StaffController {
     return await this.staffService.updateStaffProfile(storeId, staffId, dto);
   }
 
+  @Post('stores/:storeId/staff/self')
+  @Roles('admin')
+  async createSelfStaffProfile(
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Body() dto: UpdateStaffProfileDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return await this.staffService.createSelfStaffProfile(
+      storeId,
+      user.sub,
+      dto,
+    );
+  }
+
   @Delete('stores/:storeId/staff/:staffId')
   @Roles('admin')
   async deleteStaffMember(

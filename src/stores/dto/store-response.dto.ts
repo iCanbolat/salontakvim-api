@@ -3,10 +3,10 @@ import { Exclude, Expose } from 'class-transformer';
 @Exclude()
 export class StoreResponseDto {
   @Expose()
-  id: number;
+  id: string;
 
   @Expose()
-  ownerId: number;
+  ownerId: string;
 
   @Expose()
   name: string;

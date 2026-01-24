@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsDateString,
   IsEnum,
@@ -7,6 +7,7 @@ import {
   IsString,
   Min,
   IsUUID,
+  IsArray,
 } from 'class-validator';
 import { appointmentStatusEnum } from '../../db/schema';
 
@@ -36,6 +37,38 @@ export class GetStoreAppointmentsDto {
   @IsOptional()
   @IsUUID()
   staffId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  @Transform(({ value, obj }) => {
+    const rawArray = value ?? obj['staffIds[]'];
+
+    // Clean up auxiliary key to satisfy forbidNonWhitelisted
+    if (obj && 'staffIds[]' in obj) {
+      delete obj['staffIds[]'];
+    }
+
+    if (Array.isArray(rawArray)) {
+      return rawArray.filter(Boolean);
+    }
+
+    if (typeof rawArray === 'string') {
+      // Support both comma-separated and repeated param formats
+      return rawArray
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+
+    return [];
+  })
+  staffIds?: string[];
+
+  // Absorb axios-style staffIds[] key to avoid whitelist errors
+  @IsOptional()
+  @Transform(() => undefined)
+  ['staffIds[]']?: unknown;
 
   @IsOptional()
   @IsUUID()

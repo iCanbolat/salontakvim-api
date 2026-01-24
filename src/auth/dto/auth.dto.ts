@@ -5,6 +5,9 @@ import {
   MinLength,
   IsOptional,
   IsEnum,
+  MaxLength,
+  Matches,
+  IsBoolean,
 } from 'class-validator';
 
 export class RegisterDto {
@@ -19,6 +22,21 @@ export class RegisterDto {
   @IsString()
   @IsNotEmpty()
   lastName: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(255)
+  storeName: string;
+
+  @IsString()
+  @IsOptional()
+  @MinLength(3)
+  @MaxLength(255)
+  @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
+    message:
+      'Slug must be lowercase alphanumeric with hyphens (e.g., my-store-name)',
+  })
+  storeSlug?: string;
 
   @IsString()
   @IsOptional()
@@ -40,6 +58,25 @@ export class RegisterDto {
   @IsString()
   @IsOptional()
   avatar?: string;
+
+  // Optional staff profile creation for the owner
+  @IsBoolean()
+  @IsOptional()
+  createStaffProfile?: boolean;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(255)
+  staffTitle?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(1000)
+  staffBio?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  staffIsVisible?: boolean;
 }
 
 export class LoginDto {
