@@ -11,7 +11,16 @@ import {
   UseGuards,
   Query,
   ForbiddenException,
+  UseInterceptors,
+  UploadedFile,
+  HttpCode,
+  HttpStatus,
+  Res,
+  StreamableFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
+import { createReadStream } from 'fs';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -126,6 +135,51 @@ export class StaffController {
     @Body() dto: UpdateStaffProfileDto,
   ) {
     return await this.staffService.updateStaffProfile(storeId, staffId, dto);
+  }
+
+  @Post('stores/:storeId/staff/:staffId/avatar')
+  @Roles('admin', 'staff')
+  @HttpCode(HttpStatus.CREATED)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: 5 * 1024 * 1024,
+      },
+    }),
+  )
+  async uploadStaffAvatar(
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('staffId', ParseUUIDPipe) staffId: string,
+    @CurrentUser() user: JwtPayload,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (user.role === 'staff') {
+      const staff = await this.staffService.getStaffMember(storeId, staffId);
+      if (!staff || staff.userId !== user.sub) {
+        throw new ForbiddenException(
+          'You can only update your own profile avatar',
+        );
+      }
+    }
+
+    return await this.staffService.uploadStaffAvatar(storeId, staffId, file);
+  }
+
+  @Get('stores/:storeId/avatars/:fileName')
+  @Public()
+  async getStaffAvatar(
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('fileName') fileName: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const fileInfo = await this.staffService.getAvatarFile(storeId, fileName);
+
+    res.set({
+      'Content-Type': fileInfo.mimeType,
+      'Cache-Control': 'public, max-age=31536000, immutable',
+    });
+
+    return new StreamableFile(createReadStream(fileInfo.path));
   }
 
   @Post('stores/:storeId/staff/self')

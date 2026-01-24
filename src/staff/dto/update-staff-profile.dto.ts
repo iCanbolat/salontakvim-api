@@ -4,7 +4,13 @@ import {
   MaxLength,
   IsBoolean,
   IsUUID,
+  IsEnum,
 } from 'class-validator';
+
+export enum StaffRole {
+  ADMIN = 'admin',
+  STAFF = 'staff',
+}
 
 export class UpdateStaffProfileDto {
   @IsString()
@@ -23,4 +29,8 @@ export class UpdateStaffProfileDto {
   @IsBoolean()
   @IsOptional()
   isVisible?: boolean;
+
+  @IsEnum(StaffRole)
+  @IsOptional()
+  role?: StaffRole;
 }

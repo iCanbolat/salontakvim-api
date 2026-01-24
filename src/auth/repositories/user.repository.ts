@@ -74,6 +74,7 @@ export class UserRepository implements IUserRepository {
       avatar?: string;
       emailVerified?: boolean;
       isActive?: boolean;
+      role?: 'admin' | 'staff' | 'customer';
     },
   ) {
     const result = await this.db

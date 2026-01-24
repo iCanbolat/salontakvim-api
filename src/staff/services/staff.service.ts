@@ -1,5 +1,12 @@
 import type { StaffMember } from '../interfaces/repository.interface';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { randomUUID } from 'crypto';
+import * as fs from 'fs';
+import * as path from 'path';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { ServiceRepository } from '../../services/repositories/service.repository';
 import { StaffMemberRepository } from '../repositories/staff-member.repository';
@@ -9,6 +16,8 @@ import { UpdateStaffProfileDto } from '../dto/update-staff-profile.dto';
 import { AssignServicesDto } from '../dto/assign-services.dto';
 import { LocationRepository } from '../../locations/repositories/location.repository';
 import { ServiceResponseDto } from '../../services/dto';
+import { ConfigService } from '@nestjs/config';
+import type { Express } from 'express';
 
 @Injectable()
 export class StaffService {
@@ -18,7 +27,55 @@ export class StaffService {
     private readonly userRepository: UserRepository,
     private readonly locationRepository: LocationRepository,
     private readonly serviceRepository: ServiceRepository,
+    private readonly configService: ConfigService,
   ) {}
+
+  private readonly maxAvatarSize = 5 * 1024 * 1024;
+
+  private get uploadDir() {
+    return this.configService.get<string>('UPLOAD_DIR') || './uploads';
+  }
+
+  private get baseUrl() {
+    return this.configService.get<string>('APP_URL') || 'http://localhost:8080';
+  }
+
+  private get apiPrefix() {
+    return this.configService.get<string>('API_PREFIX') || 'api';
+  }
+
+  private ensureAvatarDir(storeId: string) {
+    const dir = path.join(this.uploadDir, storeId, 'avatars');
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    return dir;
+  }
+
+  private buildAvatarUrl(storeId: string, fileName: string) {
+    const normalizedBase = this.baseUrl.replace(/\/+$/, '');
+    const prefixSegment = this.apiPrefix.replace(/^\/+|\/+$/g, '');
+    const hasPrefixAlready =
+      prefixSegment.length > 0 && normalizedBase.endsWith(`/${prefixSegment}`);
+    const prefix =
+      prefixSegment.length > 0 && !hasPrefixAlready ? `/${prefixSegment}` : '';
+
+    return `${normalizedBase}${prefix}/stores/${storeId}/avatars/${encodeURIComponent(fileName)}`;
+  }
+
+  private validateAvatarFile(file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('No file provided');
+    }
+
+    if (!file.mimetype.startsWith('image/')) {
+      throw new BadRequestException('Only image files are allowed');
+    }
+
+    if (file.size > this.maxAvatarSize) {
+      throw new BadRequestException('Avatar file size exceeds 5MB');
+    }
+  }
 
   private filterByLocationId(staffList: StaffMember[], locationId?: string) {
     if (!locationId) {
@@ -66,6 +123,7 @@ export class StaffService {
       firstName: user?.firstName ?? null,
       lastName: user?.lastName ?? null,
       avatar: user?.avatar ?? null,
+      role: user?.role ?? null,
       fullName: fullName || null,
       locationName,
     };
@@ -173,8 +231,90 @@ export class StaffService {
     dto: UpdateStaffProfileDto,
   ) {
     const staff = await this.getStaffMember(storeId, staffId);
-    const updated = await this.staffMemberRepository.update(staff.id, dto);
+    const { role, ...profileData } = dto;
+
+    const updated = await this.staffMemberRepository.update(
+      staff.id,
+      profileData,
+    );
+
+    if (role) {
+      const user = await this.userRepository.findById(staff.userId);
+      if (!user) {
+        throw new NotFoundException('User not found for staff member');
+      }
+
+      if (user.role !== role) {
+        await this.userRepository.update(staff.userId, { role });
+      }
+    }
+
     return await this.hydrateSingleStaff(storeId, updated);
+  }
+
+  async uploadStaffAvatar(
+    storeId: string,
+    staffId: string,
+    file: Express.Multer.File,
+  ) {
+    const staff = await this.staffMemberRepository.findByIdAndStoreId(
+      staffId,
+      storeId,
+    );
+
+    if (!staff) {
+      throw new NotFoundException('Staff member not found');
+    }
+
+    this.validateAvatarFile(file);
+
+    const user = await this.userRepository.findById(staff.userId);
+    if (!user) {
+      throw new NotFoundException('User not found for staff member');
+    }
+
+    const avatarDir = this.ensureAvatarDir(storeId);
+    const fileExt = path.extname(file.originalname) || '.png';
+    const fileName = `${staff.userId}-${randomUUID()}${fileExt}`;
+    const storagePath = path.join(avatarDir, fileName);
+
+    if (user.avatar?.includes(`/stores/${storeId}/avatars/`)) {
+      const existingName = path.basename(user.avatar);
+      const existingPath = path.join(avatarDir, existingName);
+      if (fs.existsSync(existingPath)) {
+        fs.unlinkSync(existingPath);
+      }
+    }
+
+    fs.writeFileSync(storagePath, file.buffer);
+
+    const avatarUrl = this.buildAvatarUrl(storeId, fileName);
+    await this.userRepository.update(staff.userId, { avatar: avatarUrl });
+
+    return { avatarUrl };
+  }
+
+  async getAvatarFile(storeId: string, fileName: string) {
+    const safeName = path.basename(fileName);
+    const filePath = path.join(this.uploadDir, storeId, 'avatars', safeName);
+
+    if (!fs.existsSync(filePath)) {
+      throw new NotFoundException('Avatar file not found');
+    }
+
+    const ext = path.extname(safeName).toLowerCase();
+    const mimeType =
+      ext === '.png'
+        ? 'image/png'
+        : ext === '.jpg' || ext === '.jpeg'
+          ? 'image/jpeg'
+          : ext === '.gif'
+            ? 'image/gif'
+            : ext === '.webp'
+              ? 'image/webp'
+              : 'application/octet-stream';
+
+    return { path: filePath, mimeType, fileName: safeName };
   }
 
   async createSelfStaffProfile(
