@@ -50,14 +50,6 @@ export class CreateServiceDto {
 
   @IsString()
   @IsOptional()
-  @MaxLength(7)
-  @Matches(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/, {
-    message: 'Color must be a valid hex color (e.g., #FF5733)',
-  })
-  color?: string;
-
-  @IsString()
-  @IsOptional()
   image?: string;
 
   @IsBoolean()

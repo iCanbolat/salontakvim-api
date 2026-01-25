@@ -32,21 +32,64 @@ export class ServiceRepository implements IServiceRepository {
     return service || null;
   }
 
-  async findByStoreId(storeId: string): Promise<Service[]> {
+  async findByStoreId(storeId: string): Promise<any[]> {
     return await this.db
-      .select()
+      .select({
+        id: schema.services.id,
+        storeId: schema.services.storeId,
+        categoryId: schema.services.categoryId,
+        name: schema.services.name,
+        description: schema.services.description,
+        duration: schema.services.duration,
+        price: schema.services.price,
+        capacity: schema.services.capacity,
+        bufferTimeBefore: schema.services.bufferTimeBefore,
+        bufferTimeAfter: schema.services.bufferTimeAfter,
+        image: schema.services.image,
+        isVisible: schema.services.isVisible,
+        showBringingAnyoneOption: schema.services.showBringingAnyoneOption,
+        allowRecurring: schema.services.allowRecurring,
+        position: schema.services.position,
+        createdAt: schema.services.createdAt,
+        updatedAt: schema.services.updatedAt,
+        categoryColor: schema.categories.color,
+      })
       .from(schema.services)
+      .leftJoin(
+        schema.categories,
+        eq(schema.services.categoryId, schema.categories.id),
+      )
       .where(eq(schema.services.storeId, storeId))
       .orderBy(schema.services.position);
   }
 
-  async findByIdAndStoreId(
-    id: string,
-    storeId: string,
-  ): Promise<Service | null> {
+  async findByIdAndStoreId(id: string, storeId: string): Promise<any | null> {
     const [service] = await this.db
-      .select()
+      .select({
+        id: schema.services.id,
+        storeId: schema.services.storeId,
+        categoryId: schema.services.categoryId,
+        name: schema.services.name,
+        description: schema.services.description,
+        duration: schema.services.duration,
+        price: schema.services.price,
+        capacity: schema.services.capacity,
+        bufferTimeBefore: schema.services.bufferTimeBefore,
+        bufferTimeAfter: schema.services.bufferTimeAfter,
+        image: schema.services.image,
+        isVisible: schema.services.isVisible,
+        showBringingAnyoneOption: schema.services.showBringingAnyoneOption,
+        allowRecurring: schema.services.allowRecurring,
+        position: schema.services.position,
+        createdAt: schema.services.createdAt,
+        updatedAt: schema.services.updatedAt,
+        categoryColor: schema.categories.color,
+      })
       .from(schema.services)
+      .leftJoin(
+        schema.categories,
+        eq(schema.services.categoryId, schema.categories.id),
+      )
       .where(
         and(eq(schema.services.id, id), eq(schema.services.storeId, storeId)),
       )
@@ -62,10 +105,33 @@ export class ServiceRepository implements IServiceRepository {
       .orderBy(schema.services.position);
   }
 
-  async findVisibleByStoreId(storeId: string): Promise<Service[]> {
+  async findVisibleByStoreId(storeId: string): Promise<any[]> {
     return await this.db
-      .select()
+      .select({
+        id: schema.services.id,
+        storeId: schema.services.storeId,
+        categoryId: schema.services.categoryId,
+        name: schema.services.name,
+        description: schema.services.description,
+        duration: schema.services.duration,
+        price: schema.services.price,
+        capacity: schema.services.capacity,
+        bufferTimeBefore: schema.services.bufferTimeBefore,
+        bufferTimeAfter: schema.services.bufferTimeAfter,
+        image: schema.services.image,
+        isVisible: schema.services.isVisible,
+        showBringingAnyoneOption: schema.services.showBringingAnyoneOption,
+        allowRecurring: schema.services.allowRecurring,
+        position: schema.services.position,
+        createdAt: schema.services.createdAt,
+        updatedAt: schema.services.updatedAt,
+        categoryColor: schema.categories.color,
+      })
       .from(schema.services)
+      .leftJoin(
+        schema.categories,
+        eq(schema.services.categoryId, schema.categories.id),
+      )
       .where(
         and(
           eq(schema.services.storeId, storeId),

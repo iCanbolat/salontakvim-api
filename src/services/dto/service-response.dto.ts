@@ -56,7 +56,7 @@ export class ServiceResponseDto {
   bufferTimeAfter: number;
 
   @Expose()
-  color?: string;
+  categoryColor?: string;
 
   @Expose()
   image?: string;

@@ -348,7 +348,6 @@ export const services = pgTable(
     capacity: integer('capacity').default(1).notNull(), // max people per appointment
     bufferTimeBefore: integer('buffer_time_before').default(0), // minutes
     bufferTimeAfter: integer('buffer_time_after').default(0), // minutes
-    color: varchar('color', { length: 7 }), // Hex color
     image: text('image'),
     isVisible: boolean('is_visible').default(true).notNull(),
     showBringingAnyoneOption: boolean('show_bringing_anyone_option').default(
