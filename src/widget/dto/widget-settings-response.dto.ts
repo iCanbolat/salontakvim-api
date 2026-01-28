@@ -44,21 +44,6 @@ export class WidgetSettingsResponseDto {
   sidebarMenuItems: SidebarMenuItemsResponse;
 
   @Expose()
-  employeeRequired: boolean;
-
-  @Expose()
-  locationRequired: boolean;
-
-  @Expose()
-  lastNameRequired: boolean;
-
-  @Expose()
-  emailRequired: boolean;
-
-  @Expose()
-  phoneRequired: boolean;
-
-  @Expose()
   primaryColor: string;
 
   @Expose()
@@ -96,9 +81,6 @@ export class WidgetSettingsResponseDto {
 
   @Expose()
   widgetKey: string;
-
-  @Expose()
-  publicToken: string;
 
   @Expose()
   allowedDomains: string[];

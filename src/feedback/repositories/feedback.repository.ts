@@ -37,7 +37,6 @@ export class FeedbackRepository {
         cleanlinessRating: dto.cleanlinessRating,
         valueRating: dto.valueRating,
         comment: dto.comment,
-        isPublic: dto.isPublic ?? true,
         isVerified: true,
       })
       .returning();
@@ -76,7 +75,6 @@ export class FeedbackRepository {
       serviceId?: string;
       minRating?: number;
       maxRating?: number;
-      isPublic?: boolean;
       limit?: number;
       offset?: number;
     },
@@ -91,9 +89,6 @@ export class FeedbackRepository {
     }
     if (options?.serviceId) {
       conditions.push(eq(appointmentFeedback.serviceId, options.serviceId));
-    }
-    if (options?.isPublic !== undefined) {
-      conditions.push(eq(appointmentFeedback.isPublic, options.isPublic));
     }
 
     let query = this.db
@@ -145,7 +140,11 @@ export class FeedbackRepository {
     return result;
   }
 
-  async update(id: string, storeId: string, data: Partial<typeof appointmentFeedback.$inferInsert>) {
+  async update(
+    id: string,
+    storeId: string,
+    data: Partial<typeof appointmentFeedback.$inferInsert>,
+  ) {
     const [feedback] = await this.db
       .update(appointmentFeedback)
       .set({
@@ -240,13 +239,21 @@ export class FeedbackRepository {
 
     return {
       totalFeedback: Number(stats?.totalFeedback) || 0,
-      averageOverallRating: stats?.avgOverall ? parseFloat(String(stats.avgOverall)) : 0,
-      averageServiceRating: stats?.avgService ? parseFloat(String(stats.avgService)) : undefined,
-      averageStaffRating: stats?.avgStaff ? parseFloat(String(stats.avgStaff)) : undefined,
+      averageOverallRating: stats?.avgOverall
+        ? parseFloat(String(stats.avgOverall))
+        : 0,
+      averageServiceRating: stats?.avgService
+        ? parseFloat(String(stats.avgService))
+        : undefined,
+      averageStaffRating: stats?.avgStaff
+        ? parseFloat(String(stats.avgStaff))
+        : undefined,
       averageCleanlinessRating: stats?.avgCleanliness
         ? parseFloat(String(stats.avgCleanliness))
         : undefined,
-      averageValueRating: stats?.avgValue ? parseFloat(String(stats.avgValue)) : undefined,
+      averageValueRating: stats?.avgValue
+        ? parseFloat(String(stats.avgValue))
+        : undefined,
       ratingDistribution,
     };
   }
@@ -261,7 +268,9 @@ export class FeedbackRepository {
       .where(eq(appointmentFeedback.staffId, staffId));
 
     return {
-      averageRating: result?.avgRating ? parseFloat(String(result.avgRating)) : null,
+      averageRating: result?.avgRating
+        ? parseFloat(String(result.avgRating))
+        : null,
       totalReviews: Number(result?.count) || 0,
     };
   }
@@ -276,7 +285,9 @@ export class FeedbackRepository {
       .where(eq(appointmentFeedback.serviceId, serviceId));
 
     return {
-      averageRating: result?.avgRating ? parseFloat(String(result.avgRating)) : null,
+      averageRating: result?.avgRating
+        ? parseFloat(String(result.avgRating))
+        : null,
       totalReviews: Number(result?.count) || 0,
     };
   }

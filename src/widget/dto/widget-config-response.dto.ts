@@ -57,15 +57,6 @@ export class WidgetConfigResponseDto {
   };
 
   @Expose()
-  fieldRequirements: {
-    employeeRequired: boolean;
-    locationRequired: boolean;
-    lastNameRequired: boolean;
-    emailRequired: boolean;
-    phoneRequired: boolean;
-  };
-
-  @Expose()
   styling: {
     primaryColor: string;
     secondaryColor: string;

@@ -2,7 +2,6 @@ import {
   IsString,
   IsOptional,
   IsInt,
-  IsBoolean,
   IsUUID,
   Min,
   Max,
@@ -46,8 +45,4 @@ export class CreateFeedbackDto {
   @IsOptional()
   @MaxLength(2000)
   comment?: string;
-
-  @IsBoolean()
-  @IsOptional()
-  isPublic?: boolean;
 }

@@ -548,7 +548,6 @@ async function seed() {
     // 11. Create Widget Settings
     console.log('Creating widget settings...');
 
-    const publicToken = 'demo-public-token';
     const allowedDomains = ['localhost'];
 
     const [widgetSettings] = await db
@@ -567,11 +566,6 @@ async function seed() {
           customerInfo: true,
           payment: false,
         },
-        employeeRequired: false,
-        locationRequired: false,
-        lastNameRequired: true,
-        emailRequired: true,
-        phoneRequired: true,
         primaryColor: '#FF6B6B',
         secondaryColor: '#ffffff',
         sidebarBackgroundColor: '#F5F7FA',
@@ -585,14 +579,12 @@ async function seed() {
         allowGuestBooking: true,
         redirectUrlAfterBooking: null,
         widgetKey: 'demo-widget-key',
-        publicToken,
         allowedDomains,
       })
       .returning();
 
     console.log('✓ Widget settings created');
     console.log('🔑 Widget Key:', widgetSettings.widgetKey);
-    console.log('🔒 Public Token:', widgetSettings.publicToken);
     console.log('🌐 Allowed Domains:', allowedDomains.join(', '));
 
     // 12. Create Notification Settings

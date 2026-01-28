@@ -11,9 +11,11 @@ import { LocationModule } from '../locations/location.module';
 import { StaffModule } from '../staff/staff.module';
 import { AppointmentsModule } from '../appointments/appointments.module';
 import { CouponModule } from '../coupons/coupon.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PublicRateLimitGuard } from '../common/guards/public-rate-limit.guard';
 import { EmbedTokenService } from './utils/embed-token';
+import { RedisModule } from '../redis/redis.module';
 
 @Module({
   imports: [
@@ -26,7 +28,9 @@ import { EmbedTokenService } from './utils/embed-token';
     StaffModule,
     AppointmentsModule,
     CouponModule,
+    NotificationsModule,
     ConfigModule,
+    RedisModule,
   ],
   controllers: [WidgetController],
   providers: [
@@ -37,14 +41,22 @@ import { EmbedTokenService } from './utils/embed-token';
       provide: EmbedTokenService,
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
-        const secret =
+        const secretListRaw = config.get<string>('EMBED_TOKEN_SECRETS');
+        const secretList = secretListRaw
+          ? secretListRaw
+              .split(',')
+              .map((item) => item.trim())
+              .filter(Boolean)
+          : [];
+        const primarySecret =
           config.get<string>('EMBED_TOKEN_SECRET') ||
           config.get<string>('JWT_SECRET') ||
           'change-me';
+        const secrets = secretList.length ? secretList : [primarySecret];
         const ttlSeconds = Number(
           config.get<string>('EMBED_TOKEN_TTL_SECONDS') || '900',
         );
-        return new EmbedTokenService(secret, ttlSeconds);
+        return new EmbedTokenService(secrets, ttlSeconds);
       },
     },
   ],

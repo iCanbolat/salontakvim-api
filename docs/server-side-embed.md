@@ -1,14 +1,14 @@
 # Server-Side Embed / Proxy (Implemented Phase 1)
 
-Goal: Eliminate client-side public token exposure by issuing short-lived, server-signed embed tokens and letting the loader/runtime call the widget API with that token. Public token remains only as a backward-compatible fallback.
+Goal: Eliminate client-side exposure of long-lived tokens by issuing short-lived, server-signed embed tokens and letting the loader/runtime call the widget API with that token.
 
 ## What is live now
 
-- Backend now issues and verifies short-lived embed tokens (HMAC, not JWT) with `storeId`, `slug`, `exp`.
+- Backend issues and verifies short-lived embed tokens (HMAC, not JWT) with `storeId`, `slug`, `exp`.
 - New endpoint: `GET /public/embed/:slug/script.js`
   - Public + rate limited; enforces the store allowed-domains list via `Origin` / `Referer`.
   - Issues a signed token and returns a JS bootstrap that injects the loader with data attributes.
-- Widget public endpoints accept either the legacy `publicToken` or a valid signed embed token; allowed-domain checks still apply.
+- Widget public endpoints require a valid signed embed token; allowed-domain checks still apply.
 - Loader (widget/public/widget-loader.js) now reads `data-token`, `data-api-base`, and `data-slug`, and passes them to the runtime; iframe mode forwards the same query params.
 - Widget runtime reads `token`, `apiBase`, and `slug` from the URL (provided by the loader) and uses them for all API calls.
 
@@ -44,7 +44,7 @@ What the bootstrap does:
 
 - Dashboard embed code generator should switch to the new endpoint:
   - `<script src="${APP_URL}/public/embed/${store.slug}/script.js" data-cdn="${CDN_HOST}"></script>`
-- Remove display of long-lived publicToken in the snippet; keep rotate/manage for backward compatibility only.
+- All legacy publicToken management has been removed. Security is now managed via short-lived tokens and domain allowlists.
 
 ## Still to do (Phase 2)
 

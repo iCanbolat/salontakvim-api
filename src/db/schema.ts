@@ -193,6 +193,7 @@ export const storeCustomers = pgTable(
     storeId: uuid('store_id')
       .references(() => stores.id, { onDelete: 'cascade' })
       .notNull(),
+
     customerId: uuid('customer_id')
       .references(() => users.id, { onDelete: 'cascade' })
       .notNull(),
@@ -557,6 +558,11 @@ export const appointments = pgTable(
     feedbackTokenExpiresAt: timestamp('feedback_token_expires_at'),
     feedbackSentAt: timestamp('feedback_sent_at'),
 
+    // Cancellation token (for one-time cancel link)
+    cancelToken: varchar('cancel_token', { length: 64 }),
+    cancelTokenExpiresAt: timestamp('cancel_token_expires_at'),
+    cancelTokenUsedAt: timestamp('cancel_token_used_at'),
+
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
@@ -570,11 +576,13 @@ export const appointments = pgTable(
       table.publicNumberCounter,
     ),
     unique('appointments_feedback_token').on(table.feedbackToken),
+    unique('appointments_cancel_token').on(table.cancelToken),
     index('appointments_store_id_idx').on(table.storeId),
     index('appointments_customer_id_idx').on(table.customerId),
     index('appointments_staff_id_idx').on(table.staffId),
     index('appointments_start_date_time_idx').on(table.startDateTime),
     index('appointments_status_idx').on(table.status),
+    index('appointments_cancel_token_idx').on(table.cancelToken),
   ],
 );
 
@@ -760,8 +768,6 @@ export const appointmentFeedback = pgTable(
     respondedBy: uuid('responded_by').references(() => users.id, {
       onDelete: 'set null',
     }),
-    // Visibility
-    isPublic: boolean('is_public').default(true).notNull(),
     isVerified: boolean('is_verified').default(true).notNull(), // Verified purchase
     // Timestamps
     createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -839,13 +845,6 @@ export const widgetSettings = pgTable(
         payment: true,
       }),
 
-    // Field Requirements
-    employeeRequired: boolean('employee_required').default(false),
-    locationRequired: boolean('location_required').default(false),
-    lastNameRequired: boolean('last_name_required').default(true),
-    emailRequired: boolean('email_required').default(true),
-    phoneRequired: boolean('phone_required').default(true),
-
     // Colors & Styling
     primaryColor: varchar('primary_color', { length: 7 }).default('#1A84EE'),
     secondaryColor: varchar('secondary_color', { length: 7 }).default(
@@ -877,8 +876,7 @@ export const widgetSettings = pgTable(
     // Widget embed code/key
     widgetKey: varchar('widget_key', { length: 255 }).notNull().unique(),
 
-    // Public access token & domain allowlist
-    publicToken: varchar('public_token', { length: 255 }).notNull().unique(),
+    // Domain allowlist
     allowedDomains: json('allowed_domains').$type<string[]>().default([]),
 
     createdAt: timestamp('created_at').defaultNow().notNull(),

@@ -25,10 +25,10 @@ function fromBase64url(input: string): Buffer {
 
 export class EmbedTokenService {
   constructor(
-    private readonly secret: string,
+    private readonly secrets: string[],
     private readonly ttlSeconds: number,
   ) {
-    if (!secret || !secret.length) {
+    if (!secrets || !secrets.length || !secrets[0]?.length) {
       throw new Error('EMBED_TOKEN_SECRET is not configured');
     }
     if (!Number.isFinite(ttlSeconds) || ttlSeconds <= 0) {
@@ -41,7 +41,7 @@ export class EmbedTokenService {
     const fullPayload: EmbedTokenPayload = { ...payload, exp };
     const payloadJson = JSON.stringify(fullPayload);
     const payloadB64 = base64url(payloadJson);
-    const signature = this.signData(payloadB64);
+    const signature = this.signData(payloadB64, this.secrets[0]);
     return `${payloadB64}.${signature}`;
   }
 
@@ -56,8 +56,10 @@ export class EmbedTokenService {
     }
 
     const [payloadB64, signature] = parts;
-    const expectedSig = this.signData(payloadB64);
-    if (!this.timingSafeEqual(signature, expectedSig)) {
+    const valid = this.secrets.some((secret) =>
+      this.timingSafeEqual(signature, this.signData(payloadB64, secret)),
+    );
+    if (!valid) {
       throw new UnauthorizedException('Invalid embed token signature');
     }
 
@@ -80,8 +82,8 @@ export class EmbedTokenService {
     return payload;
   }
 
-  private signData(payloadB64: string): string {
-    const hmac = createHmac('sha256', this.secret);
+  private signData(payloadB64: string, secret: string): string {
+    const hmac = createHmac('sha256', secret);
     hmac.update(payloadB64);
     return base64url(hmac.digest());
   }

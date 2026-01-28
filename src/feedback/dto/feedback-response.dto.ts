@@ -14,7 +14,6 @@ export class FeedbackResponseDto {
   storeResponse?: string | null;
   respondedAt?: Date | null;
   respondedBy?: string | null;
-  isPublic: boolean;
   isVerified: boolean;
   createdAt: Date;
   updatedAt: Date;

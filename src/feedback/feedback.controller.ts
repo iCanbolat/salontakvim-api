@@ -50,7 +50,11 @@ export class FeedbackController {
     @Param('appointmentId', ParseUUIDPipe) appointmentId: string,
     @Query('token') token?: string,
   ) {
-    return this.feedbackService.checkFeedbackStatus(storeId, appointmentId, token);
+    return this.feedbackService.checkFeedbackStatus(
+      storeId,
+      appointmentId,
+      token,
+    );
   }
 
   @Post()
@@ -72,7 +76,6 @@ export class FeedbackController {
     @Query('customerId') customerId?: string,
     @Query('staffId') staffId?: string,
     @Query('serviceId') serviceId?: string,
-    @Query('isPublic') isPublic?: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
   ) {
@@ -80,7 +83,6 @@ export class FeedbackController {
       customerId,
       staffId,
       serviceId,
-      isPublic: isPublic !== undefined ? isPublic === 'true' : undefined,
       limit: limit ? parseInt(limit) : undefined,
       offset: offset ? parseInt(offset) : undefined,
     });

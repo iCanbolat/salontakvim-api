@@ -42,6 +42,7 @@ type AppointmentResponseCacheBundle = {
   serviceNames: Map<string, string | null>;
   staffNames: Map<string, string | null>;
   locationNames: Map<string, string | null>;
+  storeNames: Map<string, string | null>;
 };
 
 type PaginatedAppointmentsResult = {
@@ -437,6 +438,10 @@ export class AppointmentsService {
       if (updated.status === 'completed') {
         await this.sendFeedbackRequest(updated);
       }
+
+      if (updated.status === 'confirmed') {
+        await this.sendAppointmentConfirmationNotification(updated);
+      }
     }
     return await this.getAppointmentById(updated.id, storeId);
   }
@@ -497,6 +502,10 @@ export class AppointmentsService {
 
       if (updated.status === 'completed') {
         await this.sendFeedbackRequest(updated);
+      }
+
+      if (updated.status === 'confirmed') {
+        await this.sendAppointmentConfirmationNotification(updated);
       }
     }
 
@@ -559,6 +568,97 @@ export class AppointmentsService {
         appointmentId: id,
         cancelledBy: customerId,
         reason,
+      },
+    );
+
+    return await this.getAppointmentById(updated.id, appointment.storeId);
+  }
+
+  async getAppointmentByToken(token: string): Promise<AppointmentResponseDto> {
+    if (!token) {
+      throw new BadRequestException('Cancellation token is required');
+    }
+
+    const appointment =
+      await this.appointmentRepository.findByCancelToken(token);
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found');
+    }
+
+    if (appointment.cancelTokenUsedAt) {
+      throw new BadRequestException('Cancellation link already used');
+    }
+
+    if (
+      appointment.cancelTokenExpiresAt &&
+      appointment.cancelTokenExpiresAt < new Date()
+    ) {
+      throw new BadRequestException('Cancellation link expired');
+    }
+
+    return await this.getAppointmentById(appointment.id, appointment.storeId);
+  }
+
+  async cancelAppointmentByToken(
+    token: string,
+    reason?: string,
+  ): Promise<AppointmentResponseDto> {
+    if (!token) {
+      throw new BadRequestException('Cancellation token is required');
+    }
+
+    const appointment =
+      await this.appointmentRepository.findByCancelToken(token);
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found');
+    }
+
+    if (appointment.cancelTokenUsedAt) {
+      throw new BadRequestException('Cancellation link already used');
+    }
+
+    if (
+      appointment.cancelTokenExpiresAt &&
+      appointment.cancelTokenExpiresAt < new Date()
+    ) {
+      throw new BadRequestException('Cancellation link expired');
+    }
+
+    if (['cancelled', 'completed', 'expired'].includes(appointment.status)) {
+      throw new BadRequestException(
+        `Cannot cancel appointment with status: ${appointment.status}`,
+      );
+    }
+
+    const updated = await this.appointmentRepository.update(appointment.id, {
+      status: 'cancelled',
+      cancelledAt: new Date(),
+      cancellationReason: reason || 'İptal linki ile iptal edildi',
+      cancelTokenUsedAt: new Date(),
+    });
+
+    await this.notifyStaffAndAdmin(
+      appointment.storeId,
+      appointment.staffId,
+      'Randevu İptal Edildi',
+      `Müşteri randevusunu iptal linki üzerinden iptal etti.${reason ? ` Sebep: ${reason}` : ''}`,
+      'appointment_cancelled',
+      {
+        appointmentId: appointment.id,
+        publicNumber: appointment.publicNumber,
+        reason: reason || 'cancel_link',
+      },
+    );
+
+    await this.activitiesService.recordActivity(
+      appointment.storeId,
+      'appointment',
+      'Randevu iptal linki üzerinden iptal edildi',
+      {
+        appointmentId: appointment.id,
+        reason: 'cancel_link',
       },
     );
 
@@ -750,7 +850,33 @@ export class AppointmentsService {
     return `${baseUrl}/feedback?${params.toString()}`;
   }
 
+  private buildCancelLink(
+    storeSlug: string | null | undefined,
+    storeId: string,
+    appointmentId: string,
+    cancelToken: string,
+  ) {
+    const baseUrl = (
+      process.env.FRONTEND_URL || 'http://localhost:3000'
+    ).replace(/\/$/, '');
+    const params = new URLSearchParams({
+      appointmentId,
+      storeId,
+      token: cancelToken,
+    });
+
+    if (storeSlug) {
+      params.set('storeSlug', storeSlug);
+    }
+
+    return `${baseUrl}/appointments/cancel?${params.toString()}`;
+  }
+
   private generateFeedbackToken(): string {
+    return randomBytes(32).toString('hex');
+  }
+
+  private generateCancelToken(): string {
     return randomBytes(32).toString('hex');
   }
 
@@ -914,12 +1040,139 @@ export class AppointmentsService {
     }
   }
 
+  private async sendAppointmentConfirmationNotification(
+    appointment: Appointment,
+  ): Promise<void> {
+    try {
+      const store = await this.storeRepository.findById(appointment.storeId);
+      if (!store) {
+        this.logger.warn(
+          `Store not found for appointment ${appointment.id}; skipping confirmation notification`,
+        );
+        return;
+      }
+
+      const service = appointment.serviceId
+        ? await this.serviceRepository.findById(appointment.serviceId)
+        : null;
+
+      const staff = appointment.staffId
+        ? await this.staffMemberRepository.findById(appointment.staffId)
+        : null;
+      const staffUser = staff?.userId
+        ? await this.userRepository.findById(staff.userId)
+        : null;
+
+      const customer = appointment.customerId
+        ? await this.userRepository.findById(appointment.customerId)
+        : null;
+
+      const location = appointment.locationId
+        ? await this.locationRepository.findById(appointment.locationId)
+        : null;
+
+      const customerName =
+        appointment.guestFirstName || appointment.guestLastName
+          ? [appointment.guestFirstName, appointment.guestLastName]
+              .filter(Boolean)
+              .join(' ')
+              .trim()
+          : [customer?.firstName, customer?.lastName]
+              .filter(Boolean)
+              .join(' ')
+              .trim() ||
+            customer?.email ||
+            customer?.phone ||
+            'Müşteri';
+
+      const staffName = staffUser
+        ? [staffUser.firstName, staffUser.lastName]
+            .filter(Boolean)
+            .join(' ')
+            .trim() || staffUser.email
+        : 'Personel';
+
+      const appointmentDateTime = appointment.startDateTime
+        ? new Date(appointment.startDateTime).toLocaleString('tr-TR')
+        : '';
+
+      const durationMinutes = service?.duration
+        ? service.duration
+        : appointment.startDateTime && appointment.endDateTime
+          ? Math.round(
+              (new Date(appointment.endDateTime).getTime() -
+                new Date(appointment.startDateTime).getTime()) /
+                60000,
+            )
+          : '';
+
+      const recipientEmail = appointment.guestEmail || customer?.email || '';
+      const recipientPhone = appointment.guestPhone || customer?.phone || null;
+
+      const now = new Date();
+      const tokenValid =
+        appointment.cancelToken &&
+        appointment.cancelTokenExpiresAt &&
+        appointment.cancelTokenExpiresAt > now &&
+        !appointment.cancelTokenUsedAt;
+
+      let cancelToken = appointment.cancelToken || null;
+      let cancelTokenExpiresAt = appointment.cancelTokenExpiresAt || null;
+
+      if (!tokenValid) {
+        cancelToken = this.generateCancelToken();
+        cancelTokenExpiresAt = new Date();
+        cancelTokenExpiresAt.setDate(cancelTokenExpiresAt.getDate() + 2);
+
+        await this.appointmentRepository.update(appointment.id, {
+          cancelToken,
+          cancelTokenExpiresAt,
+          cancelTokenUsedAt: null,
+        });
+      }
+
+      const cancelLink = cancelToken
+        ? this.buildCancelLink(
+            store.slug,
+            store.id,
+            appointment.id,
+            cancelToken,
+          )
+        : '';
+
+      await this.notificationService.sendAppointmentConfirmation(
+        store.id,
+        recipientEmail,
+        recipientPhone,
+        {
+          customerName,
+          serviceName: service?.name || 'Hizmet',
+          appointmentDateTime,
+          staffName,
+          duration: durationMinutes,
+          price: appointment.totalPrice || service?.price || '',
+          storeName: store.name,
+          storePhone: store.phone || '',
+          storeEmail: store.email || '',
+          storeAddress: location?.address || '',
+          cancelLink,
+        },
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to send appointment confirmation for ${appointment.id}: ${error.message}`,
+        error,
+      );
+    }
+  }
+
   private createAppointmentCacheBundle(): AppointmentResponseCacheBundle {
     return {
       userNames: new Map<string, string | null>(),
       serviceNames: new Map<string, string | null>(),
       staffNames: new Map<string, string | null>(),
       locationNames: new Map<string, string | null>(),
+      storeNames: new Map<string, string | null>(),
     };
   }
 
@@ -948,6 +1201,10 @@ export class AppointmentsService {
       appointment.locationId,
       bundle.locationNames,
     );
+    const storeName = await this.resolveStoreName(
+      appointment.storeId,
+      bundle.storeNames,
+    );
 
     return new AppointmentResponseDto({
       ...appointment,
@@ -956,6 +1213,7 @@ export class AppointmentsService {
       serviceName,
       staffName,
       locationName,
+      storeName,
     } as any);
   }
 
@@ -1032,6 +1290,25 @@ export class AppointmentsService {
     const location = await this.locationRepository.findById(locationId);
     const name = location?.name;
     cache?.set(locationId, name ?? null);
+    return name;
+  }
+
+  private async resolveStoreName(
+    storeId?: string | null,
+    cache?: Map<string, string | null>,
+  ): Promise<string | undefined> {
+    if (!storeId) {
+      return undefined;
+    }
+
+    if (cache?.has(storeId)) {
+      const cached = cache.get(storeId);
+      return cached ?? undefined;
+    }
+
+    const store = await this.storeRepository.findById(storeId);
+    const name = store?.name;
+    cache?.set(storeId, name ?? null);
     return name;
   }
 

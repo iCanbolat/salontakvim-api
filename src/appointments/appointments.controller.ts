@@ -205,6 +205,23 @@ export class AppointmentsController {
     );
   }
 
+  @Get('public/appointments/cancel-details')
+  @Public()
+  async getAppointmentByToken(@Query('token') token: string) {
+    return await this.appointmentsService.getAppointmentByToken(token);
+  }
+
+  @Post('public/appointments/cancel')
+  @Public()
+  async cancelAppointmentByToken(
+    @Body() body: { token: string; reason?: string },
+  ) {
+    return await this.appointmentsService.cancelAppointmentByToken(
+      body.token,
+      body.reason,
+    );
+  }
+
   // ============= Guest Booking (Public) =============
 
   @Post('public/stores/:slug/appointments')

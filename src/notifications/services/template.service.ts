@@ -36,6 +36,11 @@ export class TemplateService {
             </div>
             
             <p>Herhangi bir değişiklik yapmak isterseniz lütfen bizimle iletişime geçin.</p>
+
+            <p>
+              Randevunuzu iptal etmek isterseniz şu bağlantıyı kullanabilirsiniz:<br />
+              <a href="{{cancelLink}}">Randevuyu İptal Et</a>
+            </p>
             
             <p style="color: #666; font-size: 14px; margin-top: 30px;">
               Saygılarımızla,<br>
@@ -58,12 +63,15 @@ Süre: {{duration}} dakika
 
 Herhangi bir değişiklik yapmak isterseniz lütfen bizimle iletişime geçin.
 
+Randevunuzu iptal etmek isterseniz:
+{{cancelLink}}
+
 Saygılarımızla,
 {{storeName}}
 {{storePhone}}
 {{storeEmail}}`,
         smsContent:
-          '{{storeName}}: Randevunuz onaylandı. {{appointmentDateTime}} - {{serviceName}} - {{staffName}}',
+          '{{storeName}}: Randevunuz onaylandı. {{appointmentDateTime}} - {{serviceName}} - {{staffName}}. İptal: {{cancelLink}}',
         availableVariables: [
           'customerName',
           'serviceName',
@@ -75,6 +83,7 @@ Saygılarımızla,
           'storePhone',
           'storeEmail',
           'storeAddress',
+          'cancelLink',
         ],
       },
       appointment_reminder_24h: {

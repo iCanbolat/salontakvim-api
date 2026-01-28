@@ -107,6 +107,15 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
     return appointment || null;
   }
 
+  async findByCancelToken(token: string): Promise<Appointment | null> {
+    const [appointment] = await this.db
+      .select()
+      .from(schema.appointments)
+      .where(eq(schema.appointments.cancelToken, token))
+      .limit(1);
+    return appointment || null;
+  }
+
   async findByCustomerId(customerId: string): Promise<Appointment[]> {
     return await this.db
       .select()
@@ -487,9 +496,18 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
   }
 
   private buildSearchCondition(search?: string): SQL | undefined {
-    const pattern = this.formatSearchPattern(search);
+    const trimmed = search?.trim();
+    const pattern = this.formatSearchPattern(trimmed);
     if (!pattern) {
       return undefined;
+    }
+
+    const isNumericSearch = /^[0-9]+$/.test(trimmed ?? '');
+
+    // For purely numeric inputs, treat as an exact publicNumber lookup to avoid
+    // partial matches via the broader OR conditions (e.g., "%01%" matching "04").
+    if (isNumericSearch) {
+      return eq(schema.appointments.publicNumber, trimmed!);
     }
 
     return sql`

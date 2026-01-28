@@ -9,6 +9,8 @@ import { FeedbackRepository } from '../repositories/feedback.repository';
 import { StoreRepository } from '../../stores/repositories/store.repository';
 import { AppointmentRepository } from '../../appointments/repositories/appointment.repository';
 import { StaffMemberRepository } from '../../staff/repositories/staff-member.repository';
+import { ActivitiesService } from '../../activities/services/activities.service';
+import { UserRepository } from '../../auth/repositories/user.repository';
 import type {
   CreateFeedbackDto,
   UpdateFeedbackDto,
@@ -25,7 +27,24 @@ export class FeedbackService {
     private readonly storeRepository: StoreRepository,
     private readonly appointmentRepository: AppointmentRepository,
     private readonly staffMemberRepository: StaffMemberRepository,
+    private readonly activitiesService: ActivitiesService,
+    private readonly userRepository: UserRepository,
   ) {}
+
+  private async getCustomerName(appointment: any): Promise<string> {
+    if (appointment.customerId) {
+      const user = await this.userRepository.findById(appointment.customerId);
+      if (user) {
+        return (
+          `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Müşteri'
+        );
+      }
+    }
+
+    const guestName =
+      `${appointment.guestFirstName || ''} ${appointment.guestLastName || ''}`.trim();
+    return guestName || 'Misafir Müşteri';
+  }
 
   private async validateStoreAccess(storeId: string, userId: string) {
     const store = await this.storeRepository.findById(storeId);
@@ -93,6 +112,20 @@ export class FeedbackService {
       serviceId: appointment.serviceId,
     });
 
+    const customerName = await this.getCustomerName(appointment);
+
+    // Record activity
+    await this.activitiesService.recordActivity(
+      storeId,
+      'appointment',
+      `${customerName} değerlendirmesi alındı: ${dto.overallRating} yıldız`,
+      {
+        feedbackId: feedback.id,
+        appointmentId: appointment.id,
+        rating: dto.overallRating,
+      },
+    );
+
     return feedback as FeedbackResponseDto;
   }
 
@@ -125,7 +158,6 @@ export class FeedbackService {
       customerId?: string;
       staffId?: string;
       serviceId?: string;
-      isPublic?: boolean;
       limit?: number;
       offset?: number;
     },
@@ -151,7 +183,6 @@ export class FeedbackService {
   ): Promise<FeedbackWithDetailsDto[]> {
     const results = await this.feedbackRepository.findAll(storeId, {
       ...options,
-      isPublic: true,
     });
 
     return results.map(({ feedback, customer }) => ({
@@ -173,7 +204,10 @@ export class FeedbackService {
     userId: string,
     dto: UpdateFeedbackDto,
   ): Promise<FeedbackResponseDto> {
-    const feedback = await this.feedbackRepository.findById(feedbackId, storeId);
+    const feedback = await this.feedbackRepository.findById(
+      feedbackId,
+      storeId,
+    );
 
     if (!feedback) {
       throw new NotFoundException('Feedback not found');
@@ -186,7 +220,6 @@ export class FeedbackService {
 
     const updated = await this.feedbackRepository.update(feedbackId, storeId, {
       comment: dto.comment,
-      isPublic: dto.isPublic,
     });
 
     return updated as FeedbackResponseDto;
@@ -200,7 +233,10 @@ export class FeedbackService {
   ): Promise<FeedbackResponseDto> {
     await this.validateStoreAccess(storeId, userId);
 
-    const feedback = await this.feedbackRepository.findById(feedbackId, storeId);
+    const feedback = await this.feedbackRepository.findById(
+      feedbackId,
+      storeId,
+    );
 
     if (!feedback) {
       throw new NotFoundException('Feedback not found');
@@ -223,7 +259,10 @@ export class FeedbackService {
   ): Promise<void> {
     const { isOwner } = await this.validateStoreAccess(storeId, userId);
 
-    const feedback = await this.feedbackRepository.findById(feedbackId, storeId);
+    const feedback = await this.feedbackRepository.findById(
+      feedbackId,
+      storeId,
+    );
 
     if (!feedback) {
       throw new NotFoundException('Feedback not found');
@@ -231,7 +270,9 @@ export class FeedbackService {
 
     // Only store owner or the customer who wrote it can delete
     if (!isOwner && feedback.customerId !== userId) {
-      throw new ForbiddenException('You do not have permission to delete this feedback');
+      throw new ForbiddenException(
+        'You do not have permission to delete this feedback',
+      );
     }
 
     await this.feedbackRepository.delete(feedbackId, storeId);
@@ -324,6 +365,20 @@ export class FeedbackService {
       feedbackTokenExpiresAt: null,
     });
 
+    const customerName = await this.getCustomerName(appointment);
+
+    // Record activity
+    await this.activitiesService.recordActivity(
+      storeId,
+      'appointment',
+      `${customerName} değerlendirmesi alındı: ${dto.overallRating} yıldız`,
+      {
+        feedbackId: feedback.id,
+        appointmentId: appointment.id,
+        rating: dto.overallRating,
+      },
+    );
+
     return feedback as FeedbackResponseDto;
   }
 
@@ -344,14 +399,18 @@ export class FeedbackService {
       storeName?: string;
     };
   }> {
-    const appointment = await this.appointmentRepository.findById(appointmentId);
+    const appointment =
+      await this.appointmentRepository.findById(appointmentId);
 
     if (!appointment) {
       return { canSubmit: false, reason: 'Appointment not found' };
     }
 
     if (appointment.storeId !== storeId) {
-      return { canSubmit: false, reason: 'Appointment does not belong to this store' };
+      return {
+        canSubmit: false,
+        reason: 'Appointment does not belong to this store',
+      };
     }
 
     if (appointment.status !== 'completed') {
@@ -371,9 +430,8 @@ export class FeedbackService {
       return { canSubmit: false, reason: 'Feedback link has expired' };
     }
 
-    const existingFeedback = await this.feedbackRepository.findByAppointmentId(
-      appointmentId,
-    );
+    const existingFeedback =
+      await this.feedbackRepository.findByAppointmentId(appointmentId);
     if (existingFeedback) {
       return { canSubmit: false, reason: 'Feedback already submitted' };
     }

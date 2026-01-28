@@ -1,4 +1,5 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
+import Redis from 'ioredis';
 import { WidgetSettingsRepository } from '../repositories/widget-settings.repository';
 import { StoreRepository } from '../../stores/repositories/store.repository';
 import { ServiceRepository } from '../../services/repositories/service.repository';
@@ -20,11 +21,14 @@ import { UserRepository } from '../../auth/repositories/user.repository';
 import { AppointmentsService } from '../../appointments/services/appointments.service';
 import { CouponService } from '../../coupons/services/coupon.service';
 import { CreateGuestAppointmentDto } from '../../appointments/dto';
-import { randomBytes } from 'crypto';
 import { EmbedTokenService, EmbedTokenPayload } from '../utils/embed-token';
+import { NotificationService } from '../../notifications/services/notification.service';
+import { REDIS_CLIENT } from '../../redis/redis.constants';
 
 @Injectable()
 export class WidgetService {
+  private readonly logger = new Logger(WidgetService.name);
+
   constructor(
     private readonly widgetSettingsRepository: WidgetSettingsRepository,
     private readonly storeRepository: StoreRepository,
@@ -39,6 +43,8 @@ export class WidgetService {
     private readonly appointmentsService: AppointmentsService,
     private readonly couponService: CouponService,
     private readonly embedTokenService: EmbedTokenService,
+    private readonly notificationService: NotificationService,
+    @Inject(REDIS_CLIENT) private readonly redis?: Redis,
   ) {}
 
   // ============= Admin Widget Settings Management =============
@@ -52,32 +58,20 @@ export class WidgetService {
       widgetSettings = await this.createDefaultWidgetSettings(storeId);
     }
 
-    if (!widgetSettings.publicToken) {
-      widgetSettings = await this.widgetSettingsRepository.update(storeId, {
-        publicToken: this.generatePublicToken(),
-      });
-    }
-
     if (!widgetSettings.allowedDomains) {
       widgetSettings = await this.widgetSettingsRepository.update(storeId, {
         allowedDomains: [],
       });
     }
 
-    return new WidgetSettingsResponseDto(widgetSettings as any);
-  }
+    const normalizedSidebar = this.normalizeSidebarMenuItems(
+      widgetSettings.sidebarMenuItems,
+    );
 
-  private generatePublicToken() {
-    return randomBytes(24).toString('hex');
-  }
-
-  async rotatePublicToken(storeId: string) {
-    await this.ensureWidgetSettingsExists(storeId);
-    const newToken = this.generatePublicToken();
-    await this.widgetSettingsRepository.update(storeId, {
-      publicToken: newToken,
-    });
-    return newToken;
+    return new WidgetSettingsResponseDto({
+      ...widgetSettings,
+      sidebarMenuItems: normalizedSidebar,
+    } as any);
   }
 
   async updateAllowedDomains(storeId: string, domains: string[]) {
@@ -100,21 +94,27 @@ export class WidgetService {
     return settings;
   };
 
-  private validatePublicAccess(
+  private async validatePublicAccess(
     widgetSettings: any,
     token?: string,
     origin?: string,
     storeSlug?: string,
   ) {
-    let verified = false;
-
-    // 1) Check long-lived public token (backward compatibility)
-    if (token && token === widgetSettings.publicToken) {
-      verified = true;
+    const blocked = await this.getWidgetBlockStatus(
+      widgetSettings?.widgetKey,
+      storeSlug,
+    );
+    if (blocked?.blocked) {
+      throw new ForbiddenException(
+        'Widget temporarily disabled due to suspicious activity.',
+      );
     }
 
-    // 2) Check short-lived signed embed token
-    if (!verified && token) {
+    let verified = false;
+    let tokenError: string | undefined;
+
+    // Check signed embed token (domain-bound JWT)
+    if (token) {
       try {
         const payload = this.embedTokenService.verify(token);
         if (payload.storeId !== widgetSettings.storeId) {
@@ -148,17 +148,43 @@ export class WidgetService {
 
         verified = true;
       } catch (error) {
+        tokenError =
+          error instanceof Error ? error.message : 'Invalid embed token';
         if (error instanceof ForbiddenException) {
+          await this.recordSecurityEvent(widgetSettings.storeId, {
+            event: 'invalid_token',
+            message: tokenError,
+            origin,
+            slug: storeSlug,
+          });
           throw error;
         }
       }
     }
 
     if (!verified) {
+      await this.recordSecurityEvent(widgetSettings.storeId, {
+        event: 'invalid_token',
+        message: tokenError || 'Invalid public token',
+        origin,
+        slug: storeSlug,
+      });
       throw new ForbiddenException('Invalid public token');
     }
 
-    this.validateDomainAccess(widgetSettings, origin);
+    try {
+      this.validateDomainAccess(widgetSettings, origin);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Domain not allowed';
+      await this.recordSecurityEvent(widgetSettings.storeId, {
+        event: 'domain_not_allowed',
+        message,
+        origin,
+        slug: storeSlug,
+      });
+      throw error;
+    }
   }
 
   /**
@@ -267,8 +293,27 @@ export class WidgetService {
       widgetSettings = await this.createDefaultWidgetSettings(storeId);
     }
 
-    const updated = await this.widgetSettingsRepository.update(storeId, dto);
-    return new WidgetSettingsResponseDto(updated as any);
+    const normalizedDto = {
+      ...dto,
+      ...(dto.sidebarMenuItems
+        ? {
+            sidebarMenuItems: this.normalizeSidebarMenuItems(
+              dto.sidebarMenuItems,
+            ),
+          }
+        : {}),
+    };
+
+    const updated = await this.widgetSettingsRepository.update(
+      storeId,
+      normalizedDto,
+    );
+    return new WidgetSettingsResponseDto({
+      ...updated,
+      sidebarMenuItems: this.normalizeSidebarMenuItems(
+        updated.sidebarMenuItems,
+      ),
+    } as any);
   }
 
   async regenerateWidgetKey(
@@ -667,13 +712,6 @@ export class WidgetService {
       throw new WidgetKeyNotFoundException(widgetKey);
     }
 
-    if (!widgetSettings.publicToken) {
-      widgetSettings = await this.widgetSettingsRepository.update(
-        widgetSettings.storeId,
-        { publicToken: this.generatePublicToken() },
-      );
-    }
-
     if (!widgetSettings.allowedDomains) {
       widgetSettings = await this.widgetSettingsRepository.update(
         widgetSettings.storeId,
@@ -686,7 +724,7 @@ export class WidgetService {
       throw new StoreNotFoundException(widgetSettings.storeId.toString());
     }
 
-    this.validatePublicAccess(widgetSettings, token, origin, store.slug);
+    await this.validatePublicAccess(widgetSettings, token, origin, store.slug);
 
     return { store, widgetSettings };
   }
@@ -709,19 +747,13 @@ export class WidgetService {
       widgetSettings = await this.createDefaultWidgetSettings(store.id);
     }
 
-    if (!widgetSettings.publicToken) {
-      widgetSettings = await this.widgetSettingsRepository.update(store.id, {
-        publicToken: this.generatePublicToken(),
-      });
-    }
-
     if (!widgetSettings.allowedDomains) {
       widgetSettings = await this.widgetSettingsRepository.update(store.id, {
         allowedDomains: [],
       });
     }
 
-    this.validatePublicAccess(widgetSettings, token, origin, store.slug);
+    await this.validatePublicAccess(widgetSettings, token, origin, store.slug);
 
     return { store, widgetSettings };
   }
@@ -738,12 +770,6 @@ export class WidgetService {
 
     if (!widgetSettings) {
       widgetSettings = await this.createDefaultWidgetSettings(store.id);
-    }
-
-    if (!widgetSettings.publicToken) {
-      widgetSettings = await this.widgetSettingsRepository.update(store.id, {
-        publicToken: this.generatePublicToken(),
-      });
     }
 
     if (!widgetSettings.allowedDomains) {
@@ -775,6 +801,50 @@ export class WidgetService {
     }
 
     return { store, widgetSettings };
+  }
+
+  async getWidgetSecurityStatus(storeId: string) {
+    const store = await this.storeRepository.findById(storeId);
+    if (!store) {
+      throw new StoreNotFoundException(storeId.toString());
+    }
+
+    let widgetSettings = await this.widgetSettingsRepository.findByStoreId(
+      store.id,
+    );
+    if (!widgetSettings) {
+      widgetSettings = await this.createDefaultWidgetSettings(store.id);
+    }
+
+    const status = await this.getWidgetBlockStatus(
+      widgetSettings?.widgetKey,
+      store.slug,
+    );
+
+    return {
+      blocked: Boolean(status?.blocked),
+      blockedAt: status?.blockedAt || null,
+      reason: status?.reason || null,
+      ttlSeconds: status?.ttlSeconds ?? null,
+    };
+  }
+
+  async unblockWidgetAccess(storeId: string) {
+    const store = await this.storeRepository.findById(storeId);
+    if (!store) {
+      throw new StoreNotFoundException(storeId.toString());
+    }
+
+    let widgetSettings = await this.widgetSettingsRepository.findByStoreId(
+      store.id,
+    );
+    if (!widgetSettings) {
+      widgetSettings = await this.createDefaultWidgetSettings(store.id);
+    }
+
+    await this.clearWidgetBlock(widgetSettings?.widgetKey, store.slug);
+
+    return { unblocked: true };
   }
 
   private async getWidgetServicesInternal(
@@ -935,14 +1005,9 @@ export class WidgetService {
       layout: widgetSettings.layout,
       showCompanyEmail: widgetSettings.showCompanyEmail ?? true,
       companyEmail: widgetSettings.companyEmail || undefined,
-      sidebarMenuItems: widgetSettings.sidebarMenuItems as any,
-      fieldRequirements: {
-        employeeRequired: widgetSettings.employeeRequired ?? false,
-        locationRequired: widgetSettings.locationRequired ?? false,
-        lastNameRequired: widgetSettings.lastNameRequired ?? true,
-        emailRequired: widgetSettings.emailRequired ?? true,
-        phoneRequired: widgetSettings.phoneRequired ?? true,
-      },
+      sidebarMenuItems: this.normalizeSidebarMenuItems(
+        widgetSettings.sidebarMenuItems,
+      ),
       styling: {
         primaryColor: widgetSettings.primaryColor ?? '#1A84EE',
         secondaryColor: widgetSettings.secondaryColor ?? '#ffffff',
@@ -963,6 +1028,166 @@ export class WidgetService {
           widgetSettings.redirectUrlAfterBooking || undefined,
       },
     });
+  }
+
+  private normalizeSidebarMenuItems(
+    items?: Partial<{
+      service: boolean;
+      employee: boolean;
+      location: boolean;
+      extras: boolean;
+      dateTime: boolean;
+      customerInfo: boolean;
+      payment: boolean;
+    }> | null,
+  ) {
+    const normalized = {
+      service: true,
+      employee: true,
+      location: true,
+      extras: true,
+      dateTime: true,
+      customerInfo: true,
+      payment: true,
+      ...(items || {}),
+    };
+
+    normalized.service = true;
+    normalized.employee = true;
+    normalized.location = true;
+    normalized.dateTime = true;
+    normalized.customerInfo = true;
+
+    return normalized;
+  }
+
+  private async recordSecurityEvent(
+    storeId: string,
+    data: {
+      event: string;
+      message: string;
+      origin?: string;
+      slug?: string;
+      metadata?: Record<string, any>;
+    },
+  ) {
+    try {
+      const store = await this.storeRepository.findById(storeId);
+      if (!store?.ownerId) {
+        return;
+      }
+
+      const redis = this.redis;
+      if (redis) {
+        const ttlSeconds = Number(
+          this.configService.get<string>('PUBLIC_WIDGET_AUDIT_TTL_SECONDS') ||
+            '300',
+        );
+        if (ttlSeconds > 0) {
+          const key = `public_widget_audit:${storeId}:${data.event}`;
+          const set = await redis.set(
+            key,
+            String(Date.now()),
+            'EX',
+            ttlSeconds,
+            'NX',
+          );
+          if (!set) {
+            return;
+          }
+        }
+      }
+
+      const metadata = {
+        event: data.event,
+        origin: data.origin,
+        slug: data.slug,
+        ...data.metadata,
+      };
+
+      await this.notificationService.createInAppNotification(
+        store.ownerId,
+        storeId,
+        'Widget güvenlik uyarısı',
+        data.message,
+        'security',
+        metadata,
+      );
+
+      this.logger.warn(
+        `Widget security event: ${data.event} (${storeId}) ${data.message}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to record widget security event: ${data.event}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
+  }
+
+  private async getWidgetBlockStatus(
+    widgetKey?: string,
+    slug?: string,
+  ): Promise<
+    | {
+        blocked: boolean;
+        blockedAt?: string;
+        reason?: string;
+        ttlSeconds?: number;
+      }
+    | undefined
+  > {
+    const redis = this.redis;
+    if (!redis) {
+      return undefined;
+    }
+
+    const keys = [
+      widgetKey ? `public_widget_block:widgetKey:${widgetKey}` : null,
+      slug ? `public_widget_block:slug:${slug}` : null,
+    ].filter(Boolean) as string[];
+
+    for (const key of keys) {
+      const value = await redis.get(key);
+      if (!value) {
+        continue;
+      }
+
+      let payload: any = {};
+      try {
+        payload = JSON.parse(value);
+      } catch {
+        payload = {};
+      }
+
+      const ttlMs = await redis.pttl(key);
+      return {
+        blocked: true,
+        blockedAt: payload.blockedAt,
+        reason: payload.reason,
+        ttlSeconds: ttlMs > 0 ? Math.ceil(ttlMs / 1000) : undefined,
+      };
+    }
+
+    return { blocked: false };
+  }
+
+  private async clearWidgetBlock(widgetKey?: string, slug?: string) {
+    const redis = this.redis;
+    if (!redis) {
+      return;
+    }
+
+    const keys = [
+      widgetKey ? `public_widget_block:widgetKey:${widgetKey}` : null,
+      slug ? `public_widget_block:slug:${slug}` : null,
+    ].filter(Boolean) as string[];
+
+    if (!keys.length) {
+      return;
+    }
+
+    await redis.del(...keys);
   }
 
   // ============= Private Helper Methods =============
@@ -1010,30 +1235,18 @@ export class WidgetService {
     }
 
     const widgetKey = this.widgetSettingsRepository.generateWidgetKey();
-    const publicToken = this.generatePublicToken();
 
     return await this.widgetSettingsRepository.create({
       storeId,
       widgetKey,
-      publicToken,
       allowedDomains: [],
       layout: 'list',
       showCompanyEmail: true,
       companyEmail: store.email,
-      sidebarMenuItems: {
-        service: true,
-        employee: true,
-        location: true,
+      sidebarMenuItems: this.normalizeSidebarMenuItems({
         extras: true,
-        dateTime: true,
-        customerInfo: true,
         payment: true,
-      },
-      employeeRequired: false,
-      locationRequired: false,
-      lastNameRequired: true,
-      emailRequired: true,
-      phoneRequired: true,
+      }),
       primaryColor: '#1A84EE',
       secondaryColor: '#ffffff',
       sidebarBackgroundColor: '#F5F7FA',

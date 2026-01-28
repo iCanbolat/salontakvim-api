@@ -73,6 +73,9 @@ export class AppointmentResponseDto {
   locationName?: string;
 
   @Expose()
+  storeName?: string;
+
+  @Expose()
   startDateTime: Date;
 
   @Expose()

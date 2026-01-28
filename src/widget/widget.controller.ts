@@ -54,13 +54,6 @@ export class WidgetController {
     return await this.widgetService.getEmbedCode(storeId);
   }
 
-  @Post('stores/:storeId/widget-settings/rotate-public-token')
-  @Roles('admin')
-  async rotatePublicToken(@Param('storeId', ParseUUIDPipe) storeId: string) {
-    const publicToken = await this.widgetService.rotatePublicToken(storeId);
-    return { publicToken };
-  }
-
   @Patch('stores/:storeId/widget-settings/allowed-domains')
   @Roles('admin')
   async updateAllowedDomains(
@@ -72,6 +65,20 @@ export class WidgetController {
       domains,
     );
     return { allowedDomains };
+  }
+
+  @Get('stores/:storeId/widget-settings/security-status')
+  @Roles('admin')
+  async getWidgetSecurityStatus(
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+  ) {
+    return await this.widgetService.getWidgetSecurityStatus(storeId);
+  }
+
+  @Post('stores/:storeId/widget-settings/unblock')
+  @Roles('admin')
+  async unblockWidgetAccess(@Param('storeId', ParseUUIDPipe) storeId: string) {
+    return await this.widgetService.unblockWidgetAccess(storeId);
   }
 
   // ============= Public Widget API Endpoints =============

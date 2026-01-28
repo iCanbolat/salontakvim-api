@@ -63,27 +63,6 @@ export class UpdateWidgetSettingsDto {
   @IsOptional()
   sidebarMenuItems?: SidebarMenuItemsDto;
 
-  // Field Requirements 
-  // @IsBoolean()
-  // @IsOptional()
-  // employeeRequired?: boolean;
-
-  // @IsBoolean()
-  // @IsOptional()
-  // locationRequired?: boolean;
-
-  @IsBoolean()
-  @IsOptional()
-  lastNameRequired?: boolean;
-
-  @IsBoolean()
-  @IsOptional()
-  emailRequired?: boolean;
-
-  @IsBoolean()
-  @IsOptional()
-  phoneRequired?: boolean;
-
   // Colors & Styling (inspired by Amelia)
   @IsHexColor()
   @IsOptional()
