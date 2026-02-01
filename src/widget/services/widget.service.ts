@@ -343,19 +343,8 @@ export class WidgetService {
 
     const baseUrl =
       this.configService.get<string>('APP_URL') || 'http://localhost:3000';
-    const apiBaseUrl =
-      this.configService.get<string>('PUBLIC_WIDGET_API_BASE_URL') || baseUrl;
-
     const embedEndpoint = `${baseUrl}/public/embed/${store.slug}/script.js`;
-    const embedCode = `<!-- SalonTakvim Widget Embed Code -->
-<div id="salontakvim-widget"></div>
-<script
-  src="${embedEndpoint}"
-  data-mode="inline"
-  data-container="#salontakvim-widget"
-  data-api-base="${apiBaseUrl}"
-  async
-></script>`;
+    const embedCode = `<!-- SalonTakvim Widget (signed embed) -->\n<script src="${embedEndpoint}"></script>`;
 
     return new WidgetEmbedCodeResponseDto({
       widgetKey: widgetSettings.widgetKey,
