@@ -14,11 +14,18 @@ import { UserRepository } from '../../auth/repositories/user.repository';
 import type {
   CreateFeedbackDto,
   UpdateFeedbackDto,
-  RespondToFeedbackDto,
   FeedbackResponseDto,
   FeedbackWithDetailsDto,
   FeedbackStatsDto,
 } from '../dto';
+
+type PaginatedFeedbackResult = {
+  data: FeedbackWithDetailsDto[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+};
 
 @Injectable()
 export class FeedbackService {
@@ -59,7 +66,7 @@ export class FeedbackService {
       throw new BadRequestException('You do not have access to this store');
     }
 
-    return { store, isOwner };
+    return { store, isOwner, staff };
   }
 
   async create(
@@ -148,6 +155,8 @@ export class FeedbackService {
     return {
       ...result.feedback,
       customer: result.customer,
+      staff: result.staff,
+      service: result.service,
     } as FeedbackWithDetailsDto;
   }
 
@@ -158,18 +167,57 @@ export class FeedbackService {
       customerId?: string;
       staffId?: string;
       serviceId?: string;
+      search?: string;
+      page?: number;
       limit?: number;
-      offset?: number;
     },
-  ): Promise<FeedbackWithDetailsDto[]> {
-    await this.validateStoreAccess(storeId, userId);
+  ): Promise<PaginatedFeedbackResult> {
+    const { isOwner, staff } = await this.validateStoreAccess(storeId, userId);
 
-    const results = await this.feedbackRepository.findAll(storeId, options);
+    // If not owner, only allow viewing their own feedback
+    const finalFilters = { ...options };
+    if (!isOwner && staff) {
+      finalFilters.staffId = staff.id;
+    }
 
-    return results.map(({ feedback, customer }) => ({
+    const result = await this.feedbackRepository.findAllPaginated(
+      storeId,
+      finalFilters,
+    );
+
+    const data = result.data.map(({ feedback, customer, staff, service }) => ({
       ...feedback,
       customer,
+      staff,
+      service,
     })) as FeedbackWithDetailsDto[];
+
+    return {
+      ...result,
+      data,
+    };
+  }
+
+  async findByAppointmentId(
+    storeId: string,
+    appointmentId: string,
+    userId: string,
+  ): Promise<FeedbackWithDetailsDto | null> {
+    await this.validateStoreAccess(storeId, userId);
+
+    const result = await this.feedbackRepository.findByAppointmentIdWithDetails(
+      appointmentId,
+      storeId,
+    );
+
+    if (!result) {
+      return null;
+    }
+
+    return {
+      ...result.feedback,
+      customer: result.customer,
+    } as FeedbackWithDetailsDto;
   }
 
   async getPublicFeedback(
@@ -225,33 +273,6 @@ export class FeedbackService {
     return updated as FeedbackResponseDto;
   }
 
-  async respondToFeedback(
-    storeId: string,
-    feedbackId: string,
-    userId: string,
-    dto: RespondToFeedbackDto,
-  ): Promise<FeedbackResponseDto> {
-    await this.validateStoreAccess(storeId, userId);
-
-    const feedback = await this.feedbackRepository.findById(
-      feedbackId,
-      storeId,
-    );
-
-    if (!feedback) {
-      throw new NotFoundException('Feedback not found');
-    }
-
-    const updated = await this.feedbackRepository.addStoreResponse(
-      feedbackId,
-      storeId,
-      dto.storeResponse,
-      userId,
-    );
-
-    return updated as FeedbackResponseDto;
-  }
-
   async delete(
     storeId: string,
     feedbackId: string,
@@ -284,9 +305,14 @@ export class FeedbackService {
     staffId?: string,
     serviceId?: string,
   ): Promise<FeedbackStatsDto> {
-    await this.validateStoreAccess(storeId, userId);
+    const { isOwner, staff } = await this.validateStoreAccess(storeId, userId);
 
-    return this.feedbackRepository.getStats(storeId, staffId, serviceId);
+    let finalStaffId = staffId;
+    if (!isOwner && staff) {
+      finalStaffId = staff.id;
+    }
+
+    return this.feedbackRepository.getStats(storeId, finalStaffId, serviceId);
   }
 
   async getPublicStats(storeId: string): Promise<FeedbackStatsDto> {

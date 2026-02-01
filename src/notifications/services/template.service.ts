@@ -103,6 +103,10 @@ Saygılarımızla,
             </div>
             
             <p>Randevunuzu iptal etmeniz veya değiştirmeniz gerekiyorsa lütfen en kısa sürede bize bildirin.</p>
+            <p>
+              Randevunuzu iptal etmek için
+              <a href="{{cancelLink}}">buraya tıklayın</a>.
+            </p>
             
             <p style="color: #666; font-size: 14px; margin-top: 30px;">
               Saygılarımızla,<br>
@@ -124,9 +128,11 @@ Randevunuzu iptal etmeniz veya değiştirmeniz gerekiyorsa lütfen en kısa sür
 
 Saygılarımızla,
 {{storeName}}
-{{storePhone}}`,
+{{storePhone}}
+
+Randevunuzu iptal etmek için: {{cancelLink}}`,
         smsContent:
-          '{{storeName}}: Yarın randevunuz var. {{appointmentDateTime}} - {{serviceName}}',
+          '{{storeName}}: Yarın randevunuz var. {{appointmentDateTime}} - {{serviceName}}. İptal: {{cancelLink}}',
         availableVariables: [
           'customerName',
           'serviceName',
@@ -134,6 +140,7 @@ Saygılarımızla,
           'staffName',
           'storeName',
           'storePhone',
+          'cancelLink',
         ],
       },
       appointment_reminder_1h: {
@@ -153,6 +160,10 @@ Saygılarımızla,
             </div>
             
             <p>Görüşmek üzere!</p>
+            <p>
+              Randevunuzu iptal etmek için
+              <a href="{{cancelLink}}">buraya tıklayın</a>.
+            </p>
             
             <p style="color: #666; font-size: 14px; margin-top: 30px;">
               {{storeName}}<br>
@@ -172,9 +183,11 @@ Adres: {{storeAddress}}
 Görüşmek üzere!
 
 {{storeName}}
-{{storePhone}}`,
+{{storePhone}}
+
+Randevuyu iptal et: {{cancelLink}}`,
         smsContent:
-          '{{storeName}}: 1 saat sonra randevunuz. {{appointmentDateTime}} - {{storeAddress}}',
+          '{{storeName}}: 1 saat sonra randevunuz. {{appointmentDateTime}} - {{storeAddress}}. İptal: {{cancelLink}}',
         availableVariables: [
           'customerName',
           'serviceName',
@@ -183,6 +196,7 @@ Görüşmek üzere!
           'storeName',
           'storePhone',
           'storeAddress',
+          'cancelLink',
         ],
       },
       appointment_cancelled: {

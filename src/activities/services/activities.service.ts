@@ -30,4 +30,18 @@ export class ActivitiesService {
   async getRecentActivities(storeId: string, limit = 20) {
     return this.activityRepository.findRecentByStoreId(storeId, limit);
   }
+
+  async getActivitiesPaginated(
+    storeId: string,
+    page = 1,
+    limit = 20,
+    type?: string,
+  ) {
+    return this.activityRepository.findByStoreIdPaginated(
+      storeId,
+      page,
+      limit,
+      type,
+    );
+  }
 }

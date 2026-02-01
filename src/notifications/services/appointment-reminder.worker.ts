@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { randomBytes } from 'crypto';
 import { NotificationService } from './notification.service';
 import { NotificationRepository } from '../repositories/notification.repository';
 import { AppointmentRepository } from '../../appointments/repositories/appointment.repository';
@@ -45,24 +46,33 @@ export class AppointmentReminderWorker {
     for (const settings of settingsList) {
       const storeId = settings.storeId;
 
+      const store = await this.storeRepository.findById(storeId);
+
+      if (!store) {
+        this.logger.warn(
+          `Skipping reminders for store ${storeId}: store not found`,
+        );
+        continue;
+      }
+
       if (settings.reminder24hEnabled) {
-        await this.processWindow(storeId, '24h', window24Start, window24End);
+        await this.processWindow(store, '24h', window24Start, window24End);
       }
 
       if (settings.reminder1hEnabled) {
-        await this.processWindow(storeId, '1h', window1hStart, window1hEnd);
+        await this.processWindow(store, '1h', window1hStart, window1hEnd);
       }
     }
   }
 
   private async processWindow(
-    storeId: string,
+    store: any,
     type: '24h' | '1h',
     windowStart: Date,
     windowEnd: Date,
   ) {
     const appointments = await this.appointmentRepository.findPendingReminders(
-      storeId,
+      store.id,
       windowStart,
       windowEnd,
       type,
@@ -72,9 +82,16 @@ export class AppointmentReminderWorker {
       return;
     }
 
-    const store = await this.storeRepository.findById(storeId);
-
     for (const appointment of appointments) {
+      const claimed = await this.appointmentRepository.claimReminder(
+        appointment.id,
+        type,
+      );
+
+      if (!claimed) {
+        continue;
+      }
+
       try {
         const variables = await this.buildTemplateVariables(appointment, store);
 
@@ -91,34 +108,34 @@ export class AppointmentReminderWorker {
           this.logger.warn(
             `Skipping reminder for appointment ${appointment.id} (no recipient)`,
           );
-          await this.appointmentRepository.markReminderSent(
-            appointment.id,
-            type,
-          );
           continue;
         }
 
         if (type === '24h') {
           await this.notificationService.sendAppointmentReminder24h(
-            storeId,
+            store.id,
             recipientEmail,
             recipientPhone,
             variables,
           );
         } else {
           await this.notificationService.sendAppointmentReminder1h(
-            storeId,
+            store.id,
             recipientEmail,
             recipientPhone,
             variables,
           );
         }
-
-        await this.appointmentRepository.markReminderSent(appointment.id, type);
       } catch (error) {
         this.logger.error(
           `Failed to process ${type} reminder for appointment ${appointment.id}: ${error.message}`,
           error,
+        );
+
+        // Allow re-processing on next run if sending failed
+        await this.appointmentRepository.resetReminderFlag(
+          appointment.id,
+          type,
         );
       }
     }
@@ -145,6 +162,36 @@ export class AppointmentReminderWorker {
       ? await this.locationRepository.findById(appointment.locationId)
       : null;
 
+    const now = new Date();
+    const tokenValid =
+      appointment.cancelToken &&
+      appointment.cancelTokenExpiresAt &&
+      appointment.cancelTokenExpiresAt > now &&
+      !appointment.cancelTokenUsedAt;
+
+    let cancelToken = appointment.cancelToken || null;
+
+    if (!tokenValid) {
+      cancelToken = randomBytes(32).toString('hex');
+      const cancelTokenExpiresAt = new Date();
+      cancelTokenExpiresAt.setDate(cancelTokenExpiresAt.getDate() + 2);
+
+      await this.appointmentRepository.update(appointment.id, {
+        cancelToken,
+        cancelTokenExpiresAt,
+        cancelTokenUsedAt: null,
+      });
+    }
+
+    const cancelLink = cancelToken
+      ? this.buildCancelLink(
+          store?.slug,
+          store?.id,
+          appointment.id,
+          cancelToken,
+        )
+      : '';
+
     const customerName =
       customerUser?.firstName || appointment.guestFirstName || 'Müşteri';
 
@@ -166,8 +213,32 @@ export class AppointmentReminderWorker {
       storePhone: store?.phone,
       storeEmail: store?.email,
       storeAddress: location?.address,
+      cancelLink,
     };
 
     return variables;
+  }
+
+  private buildCancelLink(
+    storeSlug: string | null | undefined,
+    storeId: string,
+    appointmentId: string,
+    cancelToken: string,
+  ) {
+    const baseUrl = (
+      process.env.FRONTEND_URL || 'http://localhost:3000'
+    ).replace(/\/$/, '');
+
+    const params = new URLSearchParams({
+      appointmentId,
+      storeId,
+      token: cancelToken,
+    });
+
+    if (storeSlug) {
+      params.set('storeSlug', storeSlug);
+    }
+
+    return `${baseUrl}/appointments/cancel?${params.toString()}`;
   }
 }

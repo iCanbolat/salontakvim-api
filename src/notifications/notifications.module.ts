@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
@@ -26,8 +26,8 @@ import { LocationRepository } from '../locations/repositories/location.repositor
     ConfigModule,
     ScheduleModule.forRoot(),
     DrizzleModule,
-    AuthModule,
-    StoreModule,
+    forwardRef(() => AuthModule),
+    forwardRef(() => StoreModule),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({

@@ -25,6 +25,9 @@ class WidgetStoreInfo {
 
   @Expose()
   currency: string;
+
+  @Expose()
+  storeImages?: string[];
 }
 
 // Widget configuration for public use

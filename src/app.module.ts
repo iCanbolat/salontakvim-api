@@ -5,6 +5,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DrizzleModule } from './db/drizzle.module';
+import { FileUploadModule } from './common/file-upload';
 import { AuthModule } from './auth/auth.module';
 import { StoreModule } from './stores/store.module';
 import { CategoryModule } from './categories/category.module';
@@ -31,6 +32,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
     }),
     ScheduleModule.forRoot(),
     DrizzleModule,
+    FileUploadModule,
     AuthModule,
     StoreModule,
     CategoryModule,

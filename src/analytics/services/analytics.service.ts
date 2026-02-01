@@ -340,17 +340,23 @@ export class AnalyticsService {
       this.analyticsRepository.getRevenueByPaymentMethod(storeId, dateRange),
     ]);
 
+    const totalRevenueNum = parseFloat(totalRevenue);
+
+    // Calculate total count of appointments that contributed to revenue
+    const revenueAppointmentCount = byDate.reduce(
+      (sum, item) => sum + item.appointmentCount,
+      0,
+    );
+
     const averageAppointmentValue =
-      paidUnpaid.paid > 0
-        ? (parseFloat(totalRevenue) / paidUnpaid.paid).toFixed(2)
+      revenueAppointmentCount > 0
+        ? (totalRevenueNum / revenueAppointmentCount).toFixed(2)
         : '0.00';
 
     const collectionRate = this.calculatePercentage(
       paidUnpaid.paid,
       paidUnpaid.paid + paidUnpaid.unpaid,
     );
-
-    const totalRevenueNum = parseFloat(totalRevenue);
 
     const summary: RevenueSummaryDto = {
       totalRevenue,

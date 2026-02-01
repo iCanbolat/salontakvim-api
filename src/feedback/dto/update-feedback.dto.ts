@@ -6,9 +6,3 @@ export class UpdateFeedbackDto {
   @MaxLength(2000)
   comment?: string;
 }
-
-export class RespondToFeedbackDto {
-  @IsString()
-  @MaxLength(2000)
-  storeResponse: string;
-}

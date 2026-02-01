@@ -11,6 +11,8 @@ import {
   CreateCustomerFileData,
 } from '../repositories/customer-file.repository';
 import { StaffMemberRepository } from '../../staff/repositories/staff-member.repository';
+import { ActivitiesService } from '../../activities/services/activities.service';
+import { UserRepository } from '../../auth/repositories/user.repository';
 import {
   CustomerFileResponseDto,
   CustomerFileListResponseDto,
@@ -18,50 +20,10 @@ import {
 } from '../dto';
 import { plainToInstance } from 'class-transformer';
 import * as fs from 'fs';
-import * as path from 'path';
-import { randomUUID } from 'crypto';
-
-// File type detection based on mime type
-function getFileType(mimeType: string): 'image' | 'pdf' | 'document' | 'other' {
-  if (mimeType.startsWith('image/')) return 'image';
-  if (mimeType === 'application/pdf') return 'pdf';
-  if (
-    mimeType.includes('word') ||
-    mimeType.includes('document') ||
-    mimeType.includes('text/') ||
-    mimeType.includes('spreadsheet') ||
-    mimeType.includes('excel')
-  ) {
-    return 'document';
-  }
-  return 'other';
-}
-
-// Allowed MIME types for uploads
-const ALLOWED_MIME_TYPES = [
-  // Images
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-  'image/svg+xml',
-  // PDFs
-  'application/pdf',
-  // Documents
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'text/plain',
-  'text/csv',
-];
-
-// Max file size: 10MB
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+import { FileUploadService, FILE_TYPE_CONFIGS } from '../../common/file-upload';
 
 @Injectable()
 export class CustomerFileService {
-  private readonly uploadDir: string;
   private readonly baseUrl: string;
 
   constructor(
@@ -69,35 +31,12 @@ export class CustomerFileService {
     private readonly staffMemberRepository: StaffMemberRepository,
     private readonly storeService: StoreService,
     private readonly configService: ConfigService,
+    private readonly activitiesService: ActivitiesService,
+    private readonly userRepository: UserRepository,
+    private readonly fileUploadService: FileUploadService,
   ) {
-    // Setup upload directory
-    this.uploadDir =
-      this.configService.get<string>('UPLOAD_DIR') || './uploads';
     this.baseUrl =
       this.configService.get<string>('APP_URL') || 'http://localhost:8080';
-
-    // Ensure upload directory exists
-    this.ensureUploadDir();
-  }
-
-  private ensureUploadDir() {
-    const customerFilesDir = path.join(this.uploadDir, 'customer-files');
-    if (!fs.existsSync(customerFilesDir)) {
-      fs.mkdirSync(customerFilesDir, { recursive: true });
-    }
-  }
-
-  private getStoragePath(storeId: string, customerId: string): string {
-    const dir = path.join(
-      this.uploadDir,
-      'customer-files',
-      storeId,
-      customerId,
-    );
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    return dir;
   }
 
   async uploadFile(
@@ -110,55 +49,78 @@ export class CustomerFileService {
     // Verify store ownership/access
     await this.storeService.verifyStoreOwnership(storeId, userId);
 
-    // Validate file
-    if (!file) {
-      throw new BadRequestException('No file provided');
-    }
-
-    if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
-      throw new BadRequestException(
-        `File type not allowed. Allowed types: images, PDFs, and common documents`,
-      );
-    }
-
-    if (file.size > MAX_FILE_SIZE) {
-      throw new BadRequestException(
-        `File size exceeds maximum allowed size of ${MAX_FILE_SIZE / 1024 / 1024}MB`,
-      );
-    }
-
-    // Generate unique filename
-    const fileExt = path.extname(file.originalname);
-    const fileName = `${randomUUID()}${fileExt}`;
-    const storagePath = path.join(
-      this.getStoragePath(storeId, customerId),
-      fileName,
+    // Save file using the common file upload service
+    // Path: uploads/{storeId}/customer-files/{customerId}/{fileName}
+    const result = this.fileUploadService.saveFile(
+      file,
+      storeId,
+      'customer-files',
+      customerId,
     );
-
-    // Save file to disk
-    try {
-      fs.writeFileSync(storagePath, file.buffer);
-    } catch {
-      throw new BadRequestException('Failed to save file');
-    }
 
     // Create database record
     const createData: CreateCustomerFileData = {
       storeId,
       customerId,
       uploadedBy: userId,
-      fileName,
+      fileName: result.fileName,
       originalName: file.originalname,
       mimeType: file.mimetype,
-      fileType: getFileType(file.mimetype),
+      fileType: this.fileUploadService.getFileType(file.mimetype),
       fileSize: file.size,
-      storagePath,
+      storagePath: result.storagePath,
       storageProvider: 'local',
       description: metadata?.description,
       tags: metadata?.tags,
     };
 
     const customerFile = await this.customerFileRepository.create(createData);
+
+    const staffMember = await this.staffMemberRepository.findByUserIdAndStoreId(
+      userId,
+      storeId,
+    );
+
+    if (staffMember) {
+      const [staffUser, customerUser] = await Promise.all([
+        this.userRepository.findById(staffMember.userId),
+        this.userRepository.findById(customerId),
+      ]);
+
+      const staffName = [staffUser?.firstName, staffUser?.lastName]
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+
+      const customerName = [customerUser?.firstName, customerUser?.lastName]
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+
+      const resolvedCustomerName =
+        customerName || customerUser?.email || customerUser?.phone || 'Müşteri';
+
+      const fileCount = 1;
+      const sizeLabel = this.fileUploadService.formatFileSize(file.size);
+
+      await this.activitiesService.recordActivity(
+        storeId,
+        'staff',
+        `${staffName || 'Personel'} ${resolvedCustomerName} için ${fileCount} dosya yükledi (${sizeLabel})`,
+        {
+          staffId: staffMember.id,
+          staffUserId: staffMember.userId,
+          staffName: staffName || staffUser?.email || null,
+          customerId,
+          customerName: resolvedCustomerName,
+          fileId: customerFile.id,
+          fileName: customerFile.originalName,
+          fileCount,
+          fileSize: file.size,
+          fileSizeLabel: sizeLabel,
+        },
+      );
+    }
 
     return this.toResponseDto(customerFile);
   }

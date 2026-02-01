@@ -157,7 +157,7 @@ export class StaffInvitationService {
     await this.activitiesService.recordActivity(
       storeId,
       'staff',
-      'Personel daveti gönderildi',
+      `Personel daveti gönderildi: ${dto.email}`,
       {
         invitationId: invitation.id,
         email: dto.email,
@@ -282,14 +282,20 @@ export class StaffInvitationService {
       acceptedAt: new Date(),
     });
 
+    const staffFullName = [user.firstName, user.lastName]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+
     await this.activitiesService.recordActivity(
       invitation.storeId,
       'staff',
-      'Yeni personel daveti kabul edildi',
+      `Personel daveti kabul edildi: ${staffFullName || invitation.email}`,
       {
         staffId: staffMember.id,
         userId: user.id,
         email: invitation.email,
+        staffName: staffFullName || invitation.email,
         locationId: invitation.locationId,
         title: invitation.title,
         locationName,

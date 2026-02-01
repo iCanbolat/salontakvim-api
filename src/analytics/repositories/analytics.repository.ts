@@ -2,7 +2,19 @@ import { Inject, Injectable } from '@nestjs/common';
 import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { DRIZZLE_ORM } from '../../db/drizzle.module';
 import * as schema from '../../db/schema';
-import { eq, and, gte, lte, count, sum, sql, desc, asc } from 'drizzle-orm';
+import {
+  eq,
+  and,
+  gte,
+  lte,
+  count,
+  sum,
+  sql,
+  desc,
+  asc,
+  or,
+  notInArray,
+} from 'drizzle-orm';
 import {
   DateRange,
   AppointmentStatusCount,
@@ -61,7 +73,10 @@ export class AnalyticsRepository {
   ): Promise<string> {
     const conditions = [
       eq(schema.appointments.storeId, storeId),
-      eq(schema.appointments.isPaid, true),
+      or(
+        eq(schema.appointments.isPaid, true),
+        eq(schema.appointments.status, 'completed'),
+      ),
     ];
 
     if (dateRange) {
@@ -181,7 +196,9 @@ export class AnalyticsRepository {
       .select({
         date: dateColumn,
         count: count(),
-        revenue: sum(schema.appointments.totalPrice),
+        revenue: sum(
+          sql`CASE WHEN ${schema.appointments.isPaid} = true OR ${schema.appointments.status} = 'completed' THEN ${schema.appointments.totalPrice} ELSE 0 END`,
+        ),
       })
       .from(schema.appointments)
       .where(
@@ -339,7 +356,10 @@ export class AnalyticsRepository {
       .where(
         and(
           eq(schema.appointments.storeId, storeId),
-          eq(schema.appointments.isPaid, true),
+          or(
+            eq(schema.appointments.isPaid, true),
+            eq(schema.appointments.status, 'completed'),
+          ),
           gte(schema.appointments.startDateTime, dateRange.startDate),
           lte(schema.appointments.startDateTime, dateRange.endDate),
         ),
@@ -373,7 +393,10 @@ export class AnalyticsRepository {
       .where(
         and(
           eq(schema.appointments.storeId, storeId),
-          eq(schema.appointments.isPaid, true),
+          or(
+            eq(schema.appointments.isPaid, true),
+            eq(schema.appointments.status, 'completed'),
+          ),
           gte(schema.appointments.startDateTime, dateRange.startDate),
           lte(schema.appointments.startDateTime, dateRange.endDate),
         ),
@@ -409,7 +432,10 @@ export class AnalyticsRepository {
       .where(
         and(
           eq(schema.appointments.storeId, storeId),
-          eq(schema.appointments.isPaid, true),
+          or(
+            eq(schema.appointments.isPaid, true),
+            eq(schema.appointments.status, 'completed'),
+          ),
           gte(schema.appointments.startDateTime, dateRange.startDate),
           lte(schema.appointments.startDateTime, dateRange.endDate),
         ),
@@ -443,7 +469,10 @@ export class AnalyticsRepository {
       .where(
         and(
           eq(schema.appointments.storeId, storeId),
-          eq(schema.appointments.isPaid, true),
+          or(
+            eq(schema.appointments.isPaid, true),
+            eq(schema.appointments.status, 'completed'),
+          ),
           gte(schema.appointments.startDateTime, dateRange.startDate),
           lte(schema.appointments.startDateTime, dateRange.endDate),
         ),
@@ -471,6 +500,7 @@ export class AnalyticsRepository {
       .where(
         and(
           eq(schema.appointments.storeId, storeId),
+          notInArray(schema.appointments.status, ['cancelled', 'expired']),
           gte(schema.appointments.startDateTime, dateRange.startDate),
           lte(schema.appointments.startDateTime, dateRange.endDate),
         ),

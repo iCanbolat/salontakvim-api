@@ -410,30 +410,18 @@ export class AppointmentsService {
     const updated = await this.appointmentRepository.update(id, updateData);
 
     if (dto.status && appointment.status !== updated.status) {
-      await this.notifyStaffAndAdmin(
-        storeId,
-        appointment.staffId,
-        'Randevu Durumu Güncellendi',
-        `Randevu durumu ${updated.status} olarak güncellendi.`,
-        'appointment_status_changed',
-        {
-          appointmentId: id,
-          publicNumber: appointment.publicNumber,
-          oldStatus: appointment.status,
-          newStatus: updated.status,
-        },
-      );
-
-      await this.activitiesService.recordActivity(
-        storeId,
-        'appointment',
-        `Randevu durumu ${updated.status} olarak güncellendi`,
-        {
-          appointmentId: id,
-          oldStatus: appointment.status,
-          newStatus: updated.status,
-        },
-      );
+      if (updated.status !== 'cancelled') {
+        await this.activitiesService.recordActivity(
+          storeId,
+          'appointment',
+          `Randevu durumu ${updated.status} olarak güncellendi`,
+          {
+            appointmentId: id,
+            oldStatus: appointment.status,
+            newStatus: updated.status,
+          },
+        );
+      }
 
       if (updated.status === 'completed') {
         await this.sendFeedbackRequest(updated);
@@ -441,6 +429,24 @@ export class AppointmentsService {
 
       if (updated.status === 'confirmed') {
         await this.sendAppointmentConfirmationNotification(updated);
+      }
+    }
+
+    if (!dto.status) {
+      const changedFields = Object.keys(dto || {}).filter(
+        (key) => key !== 'status' && (dto as any)[key] !== undefined,
+      );
+
+      if (changedFields.length > 0) {
+        await this.activitiesService.recordActivity(
+          storeId,
+          'appointment',
+          'Randevu güncellendi',
+          {
+            appointmentId: id,
+            changedFields,
+          },
+        );
       }
     }
     return await this.getAppointmentById(updated.id, storeId);
@@ -475,30 +481,18 @@ export class AppointmentsService {
     const updated = await this.appointmentRepository.update(id, updateData);
 
     if (previousStatus !== updated.status) {
-      await this.notifyStaffAndAdmin(
-        storeId,
-        appointment.staffId,
-        'Randevu Durumu Güncellendi',
-        `Randevu durumu ${updated.status} olarak güncellendi.`,
-        'appointment_status_changed',
-        {
-          appointmentId: id,
-          publicNumber: appointment.publicNumber,
-          oldStatus: previousStatus,
-          newStatus: updated.status,
-        },
-      );
-
-      await this.activitiesService.recordActivity(
-        storeId,
-        'appointment',
-        `Randevu durumu ${updated.status} olarak güncellendi`,
-        {
-          appointmentId: id,
-          oldStatus: previousStatus,
-          newStatus: updated.status,
-        },
-      );
+      if (updated.status !== 'cancelled') {
+        await this.activitiesService.recordActivity(
+          storeId,
+          'appointment',
+          `Randevu durumu ${updated.status} olarak güncellendi`,
+          {
+            appointmentId: id,
+            oldStatus: previousStatus,
+            newStatus: updated.status,
+          },
+        );
+      }
 
       if (updated.status === 'completed') {
         await this.sendFeedbackRequest(updated);
@@ -556,17 +550,6 @@ export class AppointmentsService {
       {
         appointmentId: id,
         publicNumber: appointment.publicNumber,
-        reason,
-      },
-    );
-
-    await this.activitiesService.recordActivity(
-      appointment.storeId,
-      'appointment',
-      'Randevu müşteri tarafından iptal edildi',
-      {
-        appointmentId: id,
-        cancelledBy: customerId,
         reason,
       },
     );
@@ -649,16 +632,6 @@ export class AppointmentsService {
         appointmentId: appointment.id,
         publicNumber: appointment.publicNumber,
         reason: reason || 'cancel_link',
-      },
-    );
-
-    await this.activitiesService.recordActivity(
-      appointment.storeId,
-      'appointment',
-      'Randevu iptal linki üzerinden iptal edildi',
-      {
-        appointmentId: appointment.id,
-        reason: 'cancel_link',
       },
     );
 

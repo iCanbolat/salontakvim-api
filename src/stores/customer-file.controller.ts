@@ -27,6 +27,7 @@ import {
 } from './dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { DocumentFileInterceptor } from '../common/file-upload';
 import type { JwtPayload } from '../auth/interfaces/auth.interface';
 
 @Controller('stores/:storeId/customers/:customerId/files')
@@ -36,13 +37,7 @@ export class CustomerFileController {
   @Post()
   @Roles('admin', 'staff')
   @HttpCode(HttpStatus.CREATED)
-  @UseInterceptors(
-    FileInterceptor('file', {
-      limits: {
-        fileSize: 10 * 1024 * 1024, // 10MB
-      },
-    }),
-  )
+  @UseInterceptors(FileInterceptor('file'), DocumentFileInterceptor)
   async uploadFile(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('customerId', ParseUUIDPipe) customerId: string,

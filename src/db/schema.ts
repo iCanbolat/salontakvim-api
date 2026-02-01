@@ -161,6 +161,9 @@ export const stores = pgTable(
 
     currency: varchar('currency', { length: 3 }).default('TRY'),
 
+    // Store images for hosted widget page
+    storeImages: json('store_images').$type<string[]>().default([]),
+
     // Feedback
     sendFeedbackViaSms: boolean('send_feedback_via_sms')
       .default(false)
@@ -762,12 +765,6 @@ export const appointmentFeedback = pgTable(
     valueRating: integer('value_rating'), // Value for money
     // Feedback text
     comment: text('comment'),
-    // Response from store
-    storeResponse: text('store_response'),
-    respondedAt: timestamp('responded_at'),
-    respondedBy: uuid('responded_by').references(() => users.id, {
-      onDelete: 'set null',
-    }),
     isVerified: boolean('is_verified').default(true).notNull(), // Verified purchase
     // Timestamps
     createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -1319,10 +1316,6 @@ export const appointmentFeedbackRelations = relations(
     service: one(services, {
       fields: [appointmentFeedback.serviceId],
       references: [services.id],
-    }),
-    respondedByUser: one(users, {
-      fields: [appointmentFeedback.respondedBy],
-      references: [users.id],
     }),
   }),
 );

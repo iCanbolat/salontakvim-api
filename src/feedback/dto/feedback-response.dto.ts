@@ -11,9 +11,6 @@ export class FeedbackResponseDto {
   cleanlinessRating?: number | null;
   valueRating?: number | null;
   comment?: string | null;
-  storeResponse?: string | null;
-  respondedAt?: Date | null;
-  respondedBy?: string | null;
   isVerified: boolean;
   createdAt: Date;
   updatedAt: Date;

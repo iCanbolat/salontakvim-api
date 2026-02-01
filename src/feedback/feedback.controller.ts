@@ -15,7 +15,8 @@ import { FeedbackService } from './services/feedback.service';
 import {
   CreateFeedbackDto,
   UpdateFeedbackDto,
-  RespondToFeedbackDto,
+  GetStoreFeedbackDto,
+  GetPublicFeedbackDto,
 } from './dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -73,18 +74,15 @@ export class FeedbackController {
   async findAll(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @CurrentUser() user: JwtPayload,
-    @Query('customerId') customerId?: string,
-    @Query('staffId') staffId?: string,
-    @Query('serviceId') serviceId?: string,
-    @Query('limit') limit?: string,
-    @Query('offset') offset?: string,
+    @Query() query: GetStoreFeedbackDto,
   ) {
     return this.feedbackService.findAll(storeId, user.sub, {
-      customerId,
-      staffId,
-      serviceId,
-      limit: limit ? parseInt(limit) : undefined,
-      offset: offset ? parseInt(offset) : undefined,
+      customerId: query.customerId,
+      staffId: query.staffId,
+      serviceId: query.serviceId,
+      search: query.search,
+      page: query.page,
+      limit: query.limit,
     });
   }
 
@@ -92,17 +90,28 @@ export class FeedbackController {
   @Public()
   async getPublicFeedback(
     @Param('storeId', ParseUUIDPipe) storeId: string,
-    @Query('staffId') staffId?: string,
-    @Query('serviceId') serviceId?: string,
-    @Query('limit') limit?: string,
-    @Query('offset') offset?: string,
+    @Query() query: GetPublicFeedbackDto,
   ) {
     return this.feedbackService.getPublicFeedback(storeId, {
-      staffId,
-      serviceId,
-      limit: limit ? parseInt(limit) : 10,
-      offset: offset ? parseInt(offset) : undefined,
+      staffId: query.staffId,
+      serviceId: query.serviceId,
+      limit: query.limit ?? 10,
+      offset: query.page ? (query.page - 1) * (query.limit ?? 10) : undefined,
     });
+  }
+
+  @Get('appointment/:appointmentId')
+  @Roles('admin', 'staff')
+  async getByAppointmentId(
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('appointmentId', ParseUUIDPipe) appointmentId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.feedbackService.findByAppointmentId(
+      storeId,
+      appointmentId,
+      user.sub,
+    );
   }
 
   @Get('stats')
@@ -141,22 +150,6 @@ export class FeedbackController {
     @Body() dto: UpdateFeedbackDto,
   ) {
     return this.feedbackService.update(storeId, feedbackId, user.sub, dto);
-  }
-
-  @Post(':feedbackId/respond')
-  @Roles('admin', 'staff')
-  async respondToFeedback(
-    @Param('storeId', ParseUUIDPipe) storeId: string,
-    @Param('feedbackId', ParseUUIDPipe) feedbackId: string,
-    @CurrentUser() user: JwtPayload,
-    @Body() dto: RespondToFeedbackDto,
-  ) {
-    return this.feedbackService.respondToFeedback(
-      storeId,
-      feedbackId,
-      user.sub,
-      dto,
-    );
   }
 
   @Delete(':feedbackId')

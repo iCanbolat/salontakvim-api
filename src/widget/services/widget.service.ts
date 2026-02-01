@@ -343,9 +343,19 @@ export class WidgetService {
 
     const baseUrl =
       this.configService.get<string>('APP_URL') || 'http://localhost:3000';
+    const apiBaseUrl =
+      this.configService.get<string>('PUBLIC_WIDGET_API_BASE_URL') || baseUrl;
 
     const embedEndpoint = `${baseUrl}/public/embed/${store.slug}/script.js`;
-    const embedCode = `<!-- SalonTakvim Widget (signed embed) -->\n<script src="${embedEndpoint}"></script>`;
+    const embedCode = `<!-- SalonTakvim Widget Embed Code -->
+<div id="salontakvim-widget"></div>
+<script
+  src="${embedEndpoint}"
+  data-mode="inline"
+  data-container="#salontakvim-widget"
+  data-api-base="${apiBaseUrl}"
+  async
+></script>`;
 
     return new WidgetEmbedCodeResponseDto({
       widgetKey: widgetSettings.widgetKey,
@@ -1001,6 +1011,7 @@ export class WidgetService {
         email: store.email || undefined,
         phone: store.phone || undefined,
         currency: store.currency || 'TRY',
+        storeImages: store.storeImages || [],
       },
       layout: widgetSettings.layout,
       showCompanyEmail: widgetSettings.showCompanyEmail ?? true,
@@ -1211,13 +1222,18 @@ export class WidgetService {
       '(function(){',
       `  const cfg=${JSON.stringify(config)};`,
       '  const s=document.createElement("script");',
+      '  const anchor=document.currentScript;',
+      '  const container=anchor&&anchor.dataset?anchor.dataset.container:null;',
+      '  const mode=anchor&&anchor.dataset?anchor.dataset.mode:null;',
+      '  const apiBaseOverride=anchor&&anchor.dataset?anchor.dataset.apiBase:null;',
       '  s.src=cfg.loaderUrl;',
       '  s.async=true;',
       '  s.dataset.widgetKey=cfg.widgetKey;',
       '  s.dataset.slug=cfg.slug;',
       '  s.dataset.token=cfg.token;',
-      '  s.dataset.apiBase=cfg.apiBaseUrl;',
-      '  const anchor=document.currentScript;',
+      '  s.dataset.apiBase=apiBaseOverride||cfg.apiBaseUrl;',
+      '  if(container){s.dataset.container=container;}',
+      '  if(mode){s.dataset.mode=mode;}',
       '  if(anchor&&anchor.parentNode){',
       '    anchor.parentNode.insertBefore(s, anchor.nextSibling);',
       '  }else{',

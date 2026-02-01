@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, lt, sql } from 'drizzle-orm';
 import { DRIZZLE_ORM } from '../../db/drizzle.module';
 import * as schema from '../../db/schema';
 
@@ -131,6 +131,56 @@ export class NotificationRepository {
       orderBy: (notifications, { desc }) => [desc(notifications.createdAt)],
       limit,
     });
+  }
+
+  async getUserNotificationsPaginated(
+    userId: string,
+    page = 1,
+    limit = 20,
+    status: 'all' | 'read' | 'unread' = 'all',
+  ) {
+    const offset = (page - 1) * limit;
+    const conditions = [eq(schema.notifications.userId, userId)];
+
+    if (status === 'read') {
+      conditions.push(eq(schema.notifications.isRead, true));
+    } else if (status === 'unread') {
+      conditions.push(eq(schema.notifications.isRead, false));
+    }
+
+    const where = conditions.length > 1 ? and(...conditions) : conditions[0];
+
+    const data = await this.db
+      .select()
+      .from(schema.notifications)
+      .where(where)
+      .orderBy(sql`${schema.notifications.createdAt} DESC`)
+      .limit(limit)
+      .offset(offset);
+
+    const [countResult] = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(schema.notifications)
+      .where(where);
+
+    const total = Number(countResult?.count ?? 0);
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+    };
+  }
+
+  async deleteOlderThan(cutoff: Date) {
+    const deleted = await this.db
+      .delete(schema.notifications)
+      .where(lt(schema.notifications.createdAt, cutoff))
+      .returning({ id: schema.notifications.id });
+
+    return deleted.length;
   }
 
   async markAsRead(id: string, userId: string) {

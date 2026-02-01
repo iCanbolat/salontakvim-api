@@ -21,11 +21,30 @@ export class ActivitiesController {
   async getRecentActivities(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Query('limit') limit?: string,
+    @Query('page') page?: string,
+    @Query('type') type?: string,
+    @Query('status') status?: string,
   ) {
-    const parsed = Number.parseInt(limit ?? '', 10);
-    const parsedLimit = Number.isFinite(parsed)
-      ? Math.max(1, Math.min(parsed, 50))
+    const parsedLimitRaw = Number.parseInt(limit ?? '', 10);
+    const parsedLimit = Number.isFinite(parsedLimitRaw)
+      ? Math.max(1, Math.min(parsedLimitRaw, 50))
       : 10;
+
+    const parsedPageRaw = Number.parseInt(page ?? '', 10);
+    const parsedPage = Number.isFinite(parsedPageRaw)
+      ? Math.max(1, parsedPageRaw)
+      : undefined;
+
+    const resolvedType = type || status;
+
+    if (parsedPage || resolvedType) {
+      return this.activitiesService.getActivitiesPaginated(
+        storeId,
+        parsedPage ?? 1,
+        parsedLimit,
+        resolvedType,
+      );
+    }
 
     return this.activitiesService.getRecentActivities(storeId, parsedLimit);
   }

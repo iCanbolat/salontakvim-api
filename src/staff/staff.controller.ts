@@ -41,6 +41,7 @@ import { UpdateStaffBreakDto } from './dto/update-staff-break.dto';
 import { AssignServicesDto } from './dto/assign-services.dto';
 import { Public } from '../auth/decorators/public.decorator';
 import { AcceptInvitationDto } from './dto/accept-invitation.dto';
+import { AvatarFileInterceptor } from '../common/file-upload';
 
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -140,13 +141,7 @@ export class StaffController {
   @Post('stores/:storeId/staff/:staffId/avatar')
   @Roles('admin', 'staff')
   @HttpCode(HttpStatus.CREATED)
-  @UseInterceptors(
-    FileInterceptor('file', {
-      limits: {
-        fileSize: 5 * 1024 * 1024,
-      },
-    }),
-  )
+  @UseInterceptors(FileInterceptor('file'), AvatarFileInterceptor)
   async uploadStaffAvatar(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('staffId', ParseUUIDPipe) staffId: string,

@@ -1,5 +1,16 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { eq, and, sql, desc, avg, count } from 'drizzle-orm';
+import {
+  eq,
+  and,
+  sql,
+  desc,
+  avg,
+  count,
+  SQL,
+  or,
+  ilike,
+  aliasedTable,
+} from 'drizzle-orm';
 import {
   appointmentFeedback,
   appointments,
@@ -9,10 +20,25 @@ import {
 } from '../../db/schema';
 import { DRIZZLE_ORM } from '../../db/drizzle.module';
 import type { CreateFeedbackDto } from '../dto';
+import {
+  BaseRepository,
+  PaginatedResult,
+} from '../../common/repositories/base.repository';
+
+export interface FeedbackQueryFilters {
+  customerId?: string;
+  staffId?: string;
+  serviceId?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+}
 
 @Injectable()
-export class FeedbackRepository {
-  constructor(@Inject(DRIZZLE_ORM) private db: any) {}
+export class FeedbackRepository extends BaseRepository<any> {
+  constructor(@Inject(DRIZZLE_ORM) db: any) {
+    super(db);
+  }
 
   async create(
     storeId: string,
@@ -67,6 +93,42 @@ export class FeedbackRepository {
     return feedback;
   }
 
+  async findByAppointmentIdWithDetails(appointmentId: string, storeId: string) {
+    const staffUsers = aliasedTable(users, 'staff_users');
+    const [result] = await this.db
+      .select({
+        feedback: appointmentFeedback,
+        customer: {
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          avatar: users.avatar,
+        },
+        staff: {
+          id: staffMembers.id,
+          firstName: staffUsers.firstName,
+          lastName: staffUsers.lastName,
+        },
+        service: {
+          id: services.id,
+          name: services.name,
+        },
+      })
+      .from(appointmentFeedback)
+      .leftJoin(users, eq(appointmentFeedback.customerId, users.id))
+      .leftJoin(staffMembers, eq(appointmentFeedback.staffId, staffMembers.id))
+      .leftJoin(staffUsers, eq(staffMembers.userId, staffUsers.id))
+      .leftJoin(services, eq(appointmentFeedback.serviceId, services.id))
+      .where(
+        and(
+          eq(appointmentFeedback.appointmentId, appointmentId),
+          eq(appointmentFeedback.storeId, storeId),
+        ),
+      );
+
+    return result;
+  }
+
   async findAll(
     storeId: string,
     options?: {
@@ -91,6 +153,7 @@ export class FeedbackRepository {
       conditions.push(eq(appointmentFeedback.serviceId, options.serviceId));
     }
 
+    const staffUsers = aliasedTable(users, 'staff_users');
     let query = this.db
       .select({
         feedback: appointmentFeedback,
@@ -100,9 +163,21 @@ export class FeedbackRepository {
           lastName: users.lastName,
           avatar: users.avatar,
         },
+        staff: {
+          id: staffMembers.id,
+          firstName: staffUsers.firstName,
+          lastName: staffUsers.lastName,
+        },
+        service: {
+          id: services.id,
+          name: services.name,
+        },
       })
       .from(appointmentFeedback)
       .leftJoin(users, eq(appointmentFeedback.customerId, users.id))
+      .leftJoin(staffMembers, eq(appointmentFeedback.staffId, staffMembers.id))
+      .leftJoin(staffUsers, eq(staffMembers.userId, staffUsers.id))
+      .leftJoin(services, eq(appointmentFeedback.serviceId, services.id))
       .where(and(...conditions))
       .orderBy(desc(appointmentFeedback.createdAt))
       .$dynamic();
@@ -117,7 +192,119 @@ export class FeedbackRepository {
     return query;
   }
 
+  async findAllPaginated(
+    storeId: string,
+    filters: FeedbackQueryFilters = {},
+  ): Promise<
+    PaginatedResult<{ feedback: any; customer: any; staff: any; service: any }>
+  > {
+    const pagination = this.normalizePagination(filters, 10, 100);
+    const staffUsers = aliasedTable(users, 'staff_users');
+    const whereCondition = this.buildWhereClause(storeId, filters, staffUsers);
+
+    const queryFactory = (limit: number, offset: number) => {
+      let query = this.db
+        .select({
+          feedback: appointmentFeedback,
+          customer: {
+            id: users.id,
+            firstName: users.firstName,
+            lastName: users.lastName,
+            avatar: users.avatar,
+          },
+          staff: {
+            id: staffMembers.id,
+            firstName: staffUsers.firstName,
+            lastName: staffUsers.lastName,
+          },
+          service: {
+            id: services.id,
+            name: services.name,
+          },
+        })
+        .from(appointmentFeedback)
+        .leftJoin(users, eq(appointmentFeedback.customerId, users.id))
+        .leftJoin(
+          staffMembers,
+          eq(appointmentFeedback.staffId, staffMembers.id),
+        )
+        .leftJoin(staffUsers, eq(staffMembers.userId, staffUsers.id))
+        .leftJoin(services, eq(appointmentFeedback.serviceId, services.id))
+        .orderBy(desc(appointmentFeedback.createdAt))
+        .limit(limit)
+        .offset(offset);
+
+      if (whereCondition) {
+        query = query.where(whereCondition);
+      }
+
+      return query;
+    };
+
+    const countFactory = async () => {
+      let countQuery = this.db
+        .select({ count: count(appointmentFeedback.id) })
+        .from(appointmentFeedback)
+        .leftJoin(users, eq(appointmentFeedback.customerId, users.id))
+        .leftJoin(
+          staffMembers,
+          eq(appointmentFeedback.staffId, staffMembers.id),
+        )
+        .leftJoin(staffUsers, eq(staffMembers.userId, staffUsers.id))
+        .leftJoin(services, eq(appointmentFeedback.serviceId, services.id));
+
+      if (whereCondition) {
+        countQuery = countQuery.where(whereCondition);
+      }
+
+      const [result] = await countQuery;
+      return result ? Number(result.count) : 0;
+    };
+
+    return this.executePaginatedQuery(pagination, queryFactory, countFactory);
+  }
+
+  private buildWhereClause(
+    storeId: string,
+    filters: FeedbackQueryFilters = {},
+    staffUsers?: any,
+  ): SQL | undefined {
+    const conditions: SQL[] = [eq(appointmentFeedback.storeId, storeId)];
+
+    if (filters.customerId) {
+      conditions.push(eq(appointmentFeedback.customerId, filters.customerId));
+    }
+
+    if (filters.staffId) {
+      conditions.push(eq(appointmentFeedback.staffId, filters.staffId));
+    }
+
+    if (filters.serviceId) {
+      conditions.push(eq(appointmentFeedback.serviceId, filters.serviceId));
+    }
+
+    if (filters.search) {
+      const searchTerm = `%${filters.search}%`;
+      const searchConditions = [
+        ilike(appointmentFeedback.comment, searchTerm),
+        ilike(users.firstName, searchTerm),
+        ilike(users.lastName, searchTerm),
+        ilike(services.name, searchTerm),
+      ];
+
+      if (staffUsers) {
+        searchConditions.push(ilike(staffUsers.firstName, searchTerm));
+        searchConditions.push(ilike(staffUsers.lastName, searchTerm));
+      }
+
+      conditions.push(or(...searchConditions)!);
+    }
+
+    return this.combineWithAnd(conditions);
+  }
+
   async findWithDetails(id: string, storeId: string) {
+    const staffUsers = aliasedTable(users, 'staff_users');
     const [result] = await this.db
       .select({
         feedback: appointmentFeedback,
@@ -127,9 +314,21 @@ export class FeedbackRepository {
           lastName: users.lastName,
           avatar: users.avatar,
         },
+        staff: {
+          id: staffMembers.id,
+          firstName: staffUsers.firstName,
+          lastName: staffUsers.lastName,
+        },
+        service: {
+          id: services.id,
+          name: services.name,
+        },
       })
       .from(appointmentFeedback)
       .leftJoin(users, eq(appointmentFeedback.customerId, users.id))
+      .leftJoin(staffMembers, eq(appointmentFeedback.staffId, staffMembers.id))
+      .leftJoin(staffUsers, eq(staffMembers.userId, staffUsers.id))
+      .leftJoin(services, eq(appointmentFeedback.serviceId, services.id))
       .where(
         and(
           eq(appointmentFeedback.id, id),
@@ -149,31 +348,6 @@ export class FeedbackRepository {
       .update(appointmentFeedback)
       .set({
         ...data,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(appointmentFeedback.id, id),
-          eq(appointmentFeedback.storeId, storeId),
-        ),
-      )
-      .returning();
-
-    return feedback;
-  }
-
-  async addStoreResponse(
-    id: string,
-    storeId: string,
-    response: string,
-    respondedBy: string,
-  ) {
-    const [feedback] = await this.db
-      .update(appointmentFeedback)
-      .set({
-        storeResponse: response,
-        respondedAt: new Date(),
-        respondedBy,
         updatedAt: new Date(),
       })
       .where(

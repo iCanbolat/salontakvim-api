@@ -299,6 +299,42 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
     return updated;
   }
 
+  async claimReminder(id: string, type: '24h' | '1h') {
+    const conditions = [eq(schema.appointments.id, id)];
+
+    if (type === '24h') {
+      conditions.push(eq(schema.appointments.reminder24hSent, false));
+    } else {
+      conditions.push(eq(schema.appointments.reminder1hSent, false));
+    }
+
+    const [updated] = await this.db
+      .update(schema.appointments)
+      .set(
+        type === '24h'
+          ? { reminder24hSent: true, updatedAt: new Date() }
+          : { reminder1hSent: true, updatedAt: new Date() },
+      )
+      .where(and(...conditions))
+      .returning({ id: schema.appointments.id });
+
+    return Boolean(updated);
+  }
+
+  async resetReminderFlag(id: string, type: '24h' | '1h') {
+    const [updated] = await this.db
+      .update(schema.appointments)
+      .set(
+        type === '24h'
+          ? { reminder24hSent: false, updatedAt: new Date() }
+          : { reminder1hSent: false, updatedAt: new Date() },
+      )
+      .where(eq(schema.appointments.id, id))
+      .returning({ id: schema.appointments.id });
+
+    return Boolean(updated);
+  }
+
   async findOverlappingAppointments(
     staffId: string,
     startDateTime: Date,
@@ -372,33 +408,49 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
       businessThreshold.getMonth() - businessRetentionMonths,
     );
 
-    const standardResult = await this.db
-      .delete(schema.appointments)
-      .using(schema.stores, schema.users)
-      .where(
-        and(
-          eq(schema.appointments.storeId, schema.stores.id),
-          eq(schema.stores.ownerId, schema.users.id),
-          ne(schema.appointments.status, 'pending'),
-          lt(schema.appointments.endDateTime, defaultThreshold),
-          ne(schema.users.paymentStatus, 'business'),
-        ),
-      )
-      .returning({ id: schema.appointments.id });
+    const standardStoreIds = (
+      await this.db
+        .select({ id: schema.stores.id })
+        .from(schema.stores)
+        .innerJoin(schema.users, eq(schema.stores.ownerId, schema.users.id))
+        .where(ne(schema.users.paymentStatus, 'business'))
+    ).map((row) => row.id);
 
-    const businessResult = await this.db
-      .delete(schema.appointments)
-      .using(schema.stores, schema.users)
-      .where(
-        and(
-          eq(schema.appointments.storeId, schema.stores.id),
-          eq(schema.stores.ownerId, schema.users.id),
-          ne(schema.appointments.status, 'pending'),
-          lt(schema.appointments.endDateTime, businessThreshold),
-          eq(schema.users.paymentStatus, 'business'),
-        ),
-      )
-      .returning({ id: schema.appointments.id });
+    const businessStoreIds = (
+      await this.db
+        .select({ id: schema.stores.id })
+        .from(schema.stores)
+        .innerJoin(schema.users, eq(schema.stores.ownerId, schema.users.id))
+        .where(eq(schema.users.paymentStatus, 'business'))
+    ).map((row) => row.id);
+
+    const standardResult =
+      standardStoreIds.length > 0
+        ? await this.db
+            .delete(schema.appointments)
+            .where(
+              and(
+                inArray(schema.appointments.storeId, standardStoreIds),
+                ne(schema.appointments.status, 'pending'),
+                lt(schema.appointments.endDateTime, defaultThreshold),
+              ),
+            )
+            .returning({ id: schema.appointments.id })
+        : [];
+
+    const businessResult =
+      businessStoreIds.length > 0
+        ? await this.db
+            .delete(schema.appointments)
+            .where(
+              and(
+                inArray(schema.appointments.storeId, businessStoreIds),
+                ne(schema.appointments.status, 'pending'),
+                lt(schema.appointments.endDateTime, businessThreshold),
+              ),
+            )
+            .returning({ id: schema.appointments.id })
+        : [];
 
     return {
       deletedStandard: standardResult.length,

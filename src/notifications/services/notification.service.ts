@@ -425,11 +425,29 @@ export class NotificationService {
     return this.repository.getUserNotifications(userId);
   }
 
+  async getUserNotificationsPaginated(
+    userId: string,
+    page = 1,
+    limit = 20,
+    status: 'all' | 'read' | 'unread' = 'all',
+  ) {
+    return this.repository.getUserNotificationsPaginated(
+      userId,
+      page,
+      limit,
+      status,
+    );
+  }
+
   async markAsRead(id: string, userId: string) {
     return this.repository.markAsRead(id, userId);
   }
 
   async markAllAsRead(userId: string) {
     return this.repository.markAllAsRead(userId);
+  }
+
+  async deleteInAppNotificationsOlderThan(cutoff: Date) {
+    return this.repository.deleteOlderThan(cutoff);
   }
 }

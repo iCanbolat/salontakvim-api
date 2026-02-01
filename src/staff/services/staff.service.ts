@@ -18,6 +18,8 @@ import { LocationRepository } from '../../locations/repositories/location.reposi
 import { ServiceResponseDto } from '../../services/dto';
 import { ConfigService } from '@nestjs/config';
 import type { Express } from 'express';
+import { ActivitiesService } from '../../activities/services/activities.service';
+import { FileUploadService } from '../../common/file-upload';
 
 @Injectable()
 export class StaffService {
@@ -28,54 +30,9 @@ export class StaffService {
     private readonly locationRepository: LocationRepository,
     private readonly serviceRepository: ServiceRepository,
     private readonly configService: ConfigService,
+    private readonly activitiesService: ActivitiesService,
+    private readonly fileUploadService: FileUploadService,
   ) {}
-
-  private readonly maxAvatarSize = 5 * 1024 * 1024;
-
-  private get uploadDir() {
-    return this.configService.get<string>('UPLOAD_DIR') || './uploads';
-  }
-
-  private get baseUrl() {
-    return this.configService.get<string>('APP_URL') || 'http://localhost:8080';
-  }
-
-  private get apiPrefix() {
-    return this.configService.get<string>('API_PREFIX') || 'api';
-  }
-
-  private ensureAvatarDir(storeId: string) {
-    const dir = path.join(this.uploadDir, storeId, 'avatars');
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    return dir;
-  }
-
-  private buildAvatarUrl(storeId: string, fileName: string) {
-    const normalizedBase = this.baseUrl.replace(/\/+$/, '');
-    const prefixSegment = this.apiPrefix.replace(/^\/+|\/+$/g, '');
-    const hasPrefixAlready =
-      prefixSegment.length > 0 && normalizedBase.endsWith(`/${prefixSegment}`);
-    const prefix =
-      prefixSegment.length > 0 && !hasPrefixAlready ? `/${prefixSegment}` : '';
-
-    return `${normalizedBase}${prefix}/stores/${storeId}/avatars/${encodeURIComponent(fileName)}`;
-  }
-
-  private validateAvatarFile(file: Express.Multer.File) {
-    if (!file) {
-      throw new BadRequestException('No file provided');
-    }
-
-    if (!file.mimetype.startsWith('image/')) {
-      throw new BadRequestException('Only image files are allowed');
-    }
-
-    if (file.size > this.maxAvatarSize) {
-      throw new BadRequestException('Avatar file size exceeds 5MB');
-    }
-  }
 
   private filterByLocationId(staffList: StaffMember[], locationId?: string) {
     if (!locationId) {
@@ -246,6 +203,39 @@ export class StaffService {
 
       if (user.role !== role) {
         await this.userRepository.update(staff.userId, { role });
+
+        const staffName = [user.firstName, user.lastName]
+          .filter((part) => Boolean(part))
+          .join(' ')
+          .trim();
+
+        if (role === 'admin') {
+          await this.activitiesService.recordActivity(
+            storeId,
+            'staff',
+            `Personel yönetici yetkisi verildi: ${staffName || user.email}`,
+            {
+              staffId: staff.id,
+              userId: user.id,
+              staffName: staffName || user.email,
+              previousRole: user.role,
+              newRole: role,
+            },
+          );
+        } else if (user.role === 'admin') {
+          await this.activitiesService.recordActivity(
+            storeId,
+            'staff',
+            `Personel yönetici yetkisi kaldırıldı: ${staffName || user.email}`,
+            {
+              staffId: staff.id,
+              userId: user.id,
+              staffName: staffName || user.email,
+              previousRole: user.role,
+              newRole: role,
+            },
+          );
+        }
       }
     }
 
@@ -266,55 +256,43 @@ export class StaffService {
       throw new NotFoundException('Staff member not found');
     }
 
-    this.validateAvatarFile(file);
-
     const user = await this.userRepository.findById(staff.userId);
     if (!user) {
       throw new NotFoundException('User not found for staff member');
     }
 
-    const avatarDir = this.ensureAvatarDir(storeId);
-    const fileExt = path.extname(file.originalname) || '.png';
-    const fileName = `${staff.userId}-${randomUUID()}${fileExt}`;
-    const storagePath = path.join(avatarDir, fileName);
-
+    // Delete existing avatar if exists
     if (user.avatar?.includes(`/stores/${storeId}/avatars/`)) {
       const existingName = path.basename(user.avatar);
-      const existingPath = path.join(avatarDir, existingName);
-      if (fs.existsSync(existingPath)) {
-        fs.unlinkSync(existingPath);
-      }
+      this.fileUploadService.deleteFileByPath(storeId, 'avatars', existingName);
     }
 
-    fs.writeFileSync(storagePath, file.buffer);
+    // Save new avatar using common file upload service
+    const result = this.fileUploadService.saveFile(
+      file,
+      storeId,
+      'avatars',
+      undefined,
+      `${staff.userId}-${randomUUID()}`,
+    );
 
-    const avatarUrl = this.buildAvatarUrl(storeId, fileName);
-    await this.userRepository.update(staff.userId, { avatar: avatarUrl });
+    await this.userRepository.update(staff.userId, { avatar: result.fileUrl });
 
-    return { avatarUrl };
+    return { avatarUrl: result.fileUrl };
   }
 
   async getAvatarFile(storeId: string, fileName: string) {
-    const safeName = path.basename(fileName);
-    const filePath = path.join(this.uploadDir, storeId, 'avatars', safeName);
+    const fileInfo = this.fileUploadService.getFileInfo(
+      storeId,
+      'avatars',
+      fileName,
+    );
 
-    if (!fs.existsSync(filePath)) {
+    if (!fileInfo) {
       throw new NotFoundException('Avatar file not found');
     }
 
-    const ext = path.extname(safeName).toLowerCase();
-    const mimeType =
-      ext === '.png'
-        ? 'image/png'
-        : ext === '.jpg' || ext === '.jpeg'
-          ? 'image/jpeg'
-          : ext === '.gif'
-            ? 'image/gif'
-            : ext === '.webp'
-              ? 'image/webp'
-              : 'application/octet-stream';
-
-    return { path: filePath, mimeType, fileName: safeName };
+    return fileInfo;
   }
 
   async createSelfStaffProfile(
