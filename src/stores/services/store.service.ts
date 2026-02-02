@@ -37,9 +37,30 @@ export class StoreService {
     }
 
     const store = await this.storeRepository.create({
-      ...createStoreDto,
+      name: createStoreDto.name,
+      slug: createStoreDto.slug,
+      description: createStoreDto.description,
+      logo: createStoreDto.logo,
+      email: createStoreDto.email,
+      phone: createStoreDto.phone,
+      currency: createStoreDto.currency,
+      sendFeedbackViaSms: createStoreDto.sendFeedbackViaSms,
       ownerId,
     });
+
+    // Optionally create staff profile for the owner
+    if (createStoreDto.createStaffProfile) {
+      await this.staffMemberRepository.create({
+        userId: ownerId,
+        storeId: store.id,
+        title: createStoreDto.staffTitle || null,
+        bio: createStoreDto.staffBio || null,
+        isVisible:
+          typeof createStoreDto.staffIsVisible === 'boolean'
+            ? createStoreDto.staffIsVisible
+            : true,
+      });
+    }
 
     return plainToInstance(StoreResponseDto, store, {
       excludeExtraneousValues: true,
@@ -66,6 +87,13 @@ export class StoreService {
     return plainToInstance(StoreResponseDto, store, {
       excludeExtraneousValues: true,
     });
+  }
+
+  /**
+   * Find store by owner ID without throwing error (for onboarding check)
+   */
+  async findByOwnerIdSafe(ownerId: string): Promise<Store | null> {
+    return await this.storeRepository.findByOwnerId(ownerId);
   }
 
   async findMyStore(userId: string): Promise<StoreResponseDto> {

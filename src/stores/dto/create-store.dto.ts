@@ -50,4 +50,23 @@ export class CreateStoreDto {
   @IsBoolean()
   @IsOptional()
   sendFeedbackViaSms?: boolean;
+
+  // Optional staff profile creation for the owner (onboarding)
+  @IsBoolean()
+  @IsOptional()
+  createStaffProfile?: boolean;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(255)
+  staffTitle?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(1000)
+  staffBio?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  staffIsVisible?: boolean;
 }

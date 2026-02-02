@@ -5,11 +5,11 @@ export interface AuthResponse {
     firstName: string | null;
     lastName: string | null;
     role: 'admin' | 'staff' | 'customer';
-    paymentStatus: 'freemium' | 'paid';
     avatar: string | null;
   };
   accessToken: string;
   refreshToken: string;
+  needsOnboarding?: boolean;
 }
 
 export interface JwtPayload {

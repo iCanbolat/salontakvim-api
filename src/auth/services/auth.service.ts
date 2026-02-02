@@ -45,7 +45,7 @@ export class AuthService {
     // Hash password
     const hashedPassword = await bcrypt.hash(registerDto.password, 10);
 
-    // Create user (default role: admin, paymentStatus: freemium)
+    // Create user (default role: admin)
     const user = await this.userRepository.create({
       email: registerDto.email,
       firstName: registerDto.firstName,
@@ -53,7 +53,6 @@ export class AuthService {
       phone: registerDto.phone,
       password: hashedPassword,
       role: 'admin', // Default
-      paymentStatus: 'freemium', // Default
       authProvider: registerDto.authProvider || 'local',
       providerId: registerDto.providerId,
       avatar: registerDto.avatar,
@@ -120,11 +119,16 @@ export class AuthService {
     // Update last login
     await this.userRepository.updateLastLogin(user.id);
 
+    // Check if user has a store (needs onboarding if not)
+    const store = await this.storeService.findByOwnerIdSafe(user.id);
+    const needsOnboarding = !store && user.role === 'admin';
+
     // Generate tokens
     const tokens = await this.generateTokens(user);
 
     return {
       user: this.sanitizeUser(user),
+      needsOnboarding,
       ...tokens,
     };
   }
@@ -136,6 +140,8 @@ export class AuthService {
       socialAuthDto.provider,
     );
 
+    let isNewUser = false;
+
     if (!user) {
       // Check if email already exists with different provider
       const existingUser = await this.userRepository.findByEmail(
@@ -144,6 +150,8 @@ export class AuthService {
       if (existingUser) {
         throw new EmailAlreadyExistsException(socialAuthDto.email);
       }
+
+      isNewUser = true;
 
       // Create new user
       user = await this.userRepository.create({
@@ -154,7 +162,6 @@ export class AuthService {
         providerId: socialAuthDto.providerId,
         avatar: socialAuthDto.avatar,
         role: 'admin',
-        paymentStatus: 'freemium',
         emailVerified: true, // Social accounts are pre-verified
       });
     }
@@ -162,11 +169,16 @@ export class AuthService {
     // Update last login
     await this.userRepository.updateLastLogin(user.id);
 
+    // Check if user has a store (needs onboarding if not)
+    const store = await this.storeService.findByOwnerIdSafe(user.id);
+    const needsOnboarding = !store;
+
     // Generate tokens
     const tokens = await this.generateTokens(user);
 
     return {
       user: this.sanitizeUser(user),
+      needsOnboarding,
       ...tokens,
     };
   }
@@ -211,11 +223,14 @@ export class AuthService {
     await this.refreshTokenRepository.deleteAllByUserId(userId);
   }
 
-  async getProfile(userId: string): Promise<{ user: any }> {
+  async getProfile(userId: string): Promise<{ user: any; hasStore: boolean }> {
     const user = await this.userRepository.findById(userId);
     if (!user) {
       throw new UserNotFoundException(userId.toString());
     }
+
+    // Check if user has a store
+    const store = await this.storeService.findByOwnerIdSafe(userId);
 
     return {
       user: {
@@ -225,7 +240,6 @@ export class AuthService {
         lastName: user.lastName,
         phone: user.phone,
         role: user.role,
-        paymentStatus: user.paymentStatus,
         authProvider: user.authProvider,
         providerId: user.providerId,
         avatar: user.avatar,
@@ -235,6 +249,7 @@ export class AuthService {
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       },
+      hasStore: !!store,
     };
   }
 
@@ -291,7 +306,6 @@ export class AuthService {
       firstName: user.firstName,
       lastName: user.lastName,
       role: user.role,
-      paymentStatus: user.paymentStatus,
       avatar: user.avatar,
     };
   }

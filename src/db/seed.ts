@@ -34,7 +34,6 @@ async function seed() {
         phone: '+90 555 123 4567',
         password: hashedPassword,
         role: 'admin',
-        paymentStatus: 'paid',
         authProvider: 'local',
         isActive: true,
         emailVerified: true,
@@ -55,6 +54,7 @@ async function seed() {
         email: 'info@guzelliklsalonu.com',
         phone: '+90 555 987 6543',
         currency: 'TRY',
+        paymentStatus: 'paid',
         isActive: true,
       })
       .returning();

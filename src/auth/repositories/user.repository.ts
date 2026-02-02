@@ -45,7 +45,6 @@ export class UserRepository implements IUserRepository {
     phone?: string;
     password?: string;
     role?: 'admin' | 'staff' | 'customer';
-    paymentStatus?: 'freemium' | 'paid';
     authProvider?: 'local' | 'google' | 'facebook' | 'apple';
     providerId?: string;
     avatar?: string;
@@ -56,7 +55,6 @@ export class UserRepository implements IUserRepository {
       .values({
         ...userData,
         role: userData.role || 'admin',
-        paymentStatus: userData.paymentStatus || 'freemium',
         authProvider: userData.authProvider || 'local',
         emailVerified: userData.emailVerified || false,
       })

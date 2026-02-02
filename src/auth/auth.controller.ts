@@ -6,7 +6,11 @@ import {
   HttpCode,
   HttpStatus,
   Get,
+  Req,
+  Res,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import type { Request, Response } from 'express';
 import { AuthService } from './services/auth.service';
 import {
   RegisterDto,
@@ -16,12 +20,16 @@ import {
 } from './dto/auth.dto';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { Public } from './decorators/public.decorator';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @Public()
   @Post('register')
@@ -42,6 +50,50 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async socialAuth(@Body() socialAuthDto: SocialAuthDto) {
     return this.authService.socialAuth(socialAuthDto);
+  }
+
+  // Google OAuth - Initiate
+  @Public()
+  @Get('google')
+  @UseGuards(GoogleAuthGuard)
+  async googleAuth() {
+    // Guard redirects to Google
+  }
+
+  // Google OAuth - Callback
+  @Public()
+  @Get('google/callback')
+  @UseGuards(GoogleAuthGuard)
+  async googleAuthCallback(@Req() req: Request, @Res() res: Response) {
+    const googleUser = req.user as {
+      providerId: string;
+      email: string;
+      firstName: string;
+      lastName?: string;
+      avatar?: string;
+    };
+
+    const authResponse = await this.authService.socialAuth({
+      providerId: googleUser.providerId,
+      email: googleUser.email,
+      firstName: googleUser.firstName,
+      lastName: googleUser.lastName,
+      avatar: googleUser.avatar,
+      provider: 'google',
+    });
+
+    // Redirect to frontend with tokens
+    const frontendUrl = this.configService.get<string>(
+      'FRONTEND_URL',
+      'http://localhost:3000',
+    );
+    const params = new URLSearchParams({
+      accessToken: authResponse.accessToken,
+      refreshToken: authResponse.refreshToken,
+      needsOnboarding: authResponse.needsOnboarding ? 'true' : 'false',
+    });
+
+    return res.redirect(`${frontendUrl}/auth/callback?${params.toString()}`);
   }
 
   @Public()

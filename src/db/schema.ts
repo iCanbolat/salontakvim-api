@@ -123,9 +123,6 @@ export const users = pgTable(
     phone: varchar('phone', { length: 50 }),
     password: text('password'), // nullable for social login and customers
     role: userRoleEnum('role').default('admin').notNull(),
-    paymentStatus: paymentStatusEnum('payment_status')
-      .default('freemium')
-      .notNull(), // Only for admin role
     authProvider: authProviderEnum('auth_provider').default('local').notNull(),
     providerId: varchar('provider_id', { length: 255 }), // ID from social provider
     avatar: text('avatar'),
@@ -160,6 +157,9 @@ export const stores = pgTable(
     phone: varchar('phone', { length: 50 }),
 
     currency: varchar('currency', { length: 3 }).default('TRY'),
+    paymentStatus: paymentStatusEnum('payment_status')
+      .default('freemium')
+      .notNull(),
 
     // Store images for hosted widget page
     storeImages: json('store_images').$type<string[]>().default([]),

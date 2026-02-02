@@ -412,16 +412,14 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
       await this.db
         .select({ id: schema.stores.id })
         .from(schema.stores)
-        .innerJoin(schema.users, eq(schema.stores.ownerId, schema.users.id))
-        .where(ne(schema.users.paymentStatus, 'business'))
+        .where(ne(schema.stores.paymentStatus, 'business'))
     ).map((row) => row.id);
 
     const businessStoreIds = (
       await this.db
         .select({ id: schema.stores.id })
         .from(schema.stores)
-        .innerJoin(schema.users, eq(schema.stores.ownerId, schema.users.id))
-        .where(eq(schema.users.paymentStatus, 'business'))
+        .where(eq(schema.stores.paymentStatus, 'business'))
     ).map((row) => row.id);
 
     const standardResult =

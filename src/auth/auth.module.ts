@@ -8,6 +8,7 @@ import { UserRepository } from './repositories/user.repository';
 import { RefreshTokenRepository } from './repositories/refresh-token.repository';
 import { LocalStrategy } from './strategies/local.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { GoogleStrategy } from './strategies/google.strategy';
 import { DrizzleModule } from '../db/drizzle.module';
 import { StoreModule } from '../stores/store.module';
 
@@ -37,6 +38,7 @@ import { StoreModule } from '../stores/store.module';
     RefreshTokenRepository,
     LocalStrategy,
     JwtStrategy,
+    GoogleStrategy,
   ],
   exports: [AuthService, UserRepository],
 })
