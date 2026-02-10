@@ -147,7 +147,7 @@ export class StaffScheduleService {
     await this.activitiesService.recordActivity(
       storeId,
       'staff',
-       `Personel ${staff.firstName} ${staff.lastName} izin talebi oluşturdu`,
+      `Personel ${staff.firstName} ${staff.lastName} izin talebi oluşturdu`,
       {
         staffId: staff.id,
         breakId: createdBreak.id,
@@ -174,7 +174,7 @@ export class StaffScheduleService {
           status: createdBreak.status,
           startDate: createdBreak.startDate,
           endDate: createdBreak.endDate,
-          url: '/admin/staff?tab=timeoffs',
+          url: '/staff?tab=timeoffs',
         },
       );
     }
@@ -205,7 +205,7 @@ export class StaffScheduleService {
               startDate: createdBreak.startDate,
               endDate: createdBreak.endDate,
               locationId: staff.locationId,
-              url: '/manager/staff?tab=timeoffs',
+              url: '/staff?tab=timeoffs',
             },
           ),
         ),

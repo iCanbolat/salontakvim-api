@@ -865,7 +865,7 @@ export class AppointmentsService {
     metadata?: Record<string, any>,
   ) {
     const appointmentUrl = metadata?.publicNumber
-      ? `/admin/appointments?search=${metadata.publicNumber}`
+      ? `/appointments?search=${metadata.publicNumber}`
       : undefined;
     const enrichedMetadata = appointmentUrl
       ? { ...metadata, url: appointmentUrl }

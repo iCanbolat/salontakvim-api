@@ -34,7 +34,7 @@ export class StaffInvitationService {
     const baseUrl =
       this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
 
-    return `${baseUrl.replace(/\/$/, '')}/staff/invitations/accept?token=${token}`;
+    return `${baseUrl.replace(/\/$/, '')}/invitations/accept?token=${token}`;
   }
 
   async getInvitationByToken(token: string) {

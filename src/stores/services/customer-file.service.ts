@@ -157,7 +157,7 @@ export class CustomerFileService {
               fileId: customerFile.id,
               fileName: customerFile.originalName,
               publicNumber: appointment.publicNumber,
-              url: `/staff/appointments/${appointment.id}`,
+              url: `/appointments/${appointment.id}`,
             },
           );
         }
