@@ -15,6 +15,7 @@ import { ServiceRepository } from '../services/repositories/service.repository';
 import { ActivitiesModule } from '../activities/activities.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { StoreModule } from '../stores/store.module';
+import { CategoryRepository } from '../categories/repositories/category.repository';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { StoreModule } from '../stores/store.module';
     ServiceStaffRepository,
     LocationRepository,
     ServiceRepository,
+    CategoryRepository,
   ],
   exports: [
     StaffService,
@@ -48,6 +50,7 @@ import { StoreModule } from '../stores/store.module';
     ServiceStaffRepository,
     LocationRepository,
     ServiceRepository,
+    CategoryRepository,
   ],
 })
 export class StaffModule {}

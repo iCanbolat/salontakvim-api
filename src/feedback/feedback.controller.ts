@@ -59,7 +59,7 @@ export class FeedbackController {
   }
 
   @Post()
-  @Roles('admin', 'staff', 'customer')
+  @Roles('admin', 'manager', 'staff', 'customer')
   @HttpCode(HttpStatus.CREATED)
   async create(
     @Param('storeId', ParseUUIDPipe) storeId: string,
@@ -69,8 +69,25 @@ export class FeedbackController {
     return this.feedbackService.create(storeId, dto, user.sub);
   }
 
+  @Get('dashboard')
+  @Roles('admin', 'manager', 'staff')
+  async getDashboard(
+    // Relax UUID parsing here to avoid false negatives in edge cases
+    @Param('storeId') storeId: string,
+    @CurrentUser() user: JwtPayload,
+    @Query() query: GetStoreFeedbackDto,
+  ) {
+    return this.feedbackService.getDashboard(storeId, user.sub, user.role, {
+      staffId: query.staffId,
+      serviceId: query.serviceId,
+      search: query.search,
+      page: query.page,
+      limit: query.limit,
+    });
+  }
+
   @Get()
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async findAll(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @CurrentUser() user: JwtPayload,
@@ -101,7 +118,7 @@ export class FeedbackController {
   }
 
   @Get('appointment/:appointmentId')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async getByAppointmentId(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('appointmentId', ParseUUIDPipe) appointmentId: string,
@@ -115,7 +132,7 @@ export class FeedbackController {
   }
 
   @Get('stats')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async getStats(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @CurrentUser() user: JwtPayload,
@@ -132,7 +149,7 @@ export class FeedbackController {
   }
 
   @Get(':feedbackId')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async findById(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('feedbackId', ParseUUIDPipe) feedbackId: string,
@@ -142,7 +159,7 @@ export class FeedbackController {
   }
 
   @Patch(':feedbackId')
-  @Roles('admin', 'staff', 'customer')
+  @Roles('admin', 'manager', 'staff', 'customer')
   async update(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('feedbackId', ParseUUIDPipe) feedbackId: string,
@@ -153,7 +170,7 @@ export class FeedbackController {
   }
 
   @Delete(':feedbackId')
-  @Roles('admin', 'staff', 'customer')
+  @Roles('admin', 'manager', 'staff', 'customer')
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(
     @Param('storeId', ParseUUIDPipe) storeId: string,

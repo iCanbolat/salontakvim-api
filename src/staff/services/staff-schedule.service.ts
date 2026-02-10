@@ -12,6 +12,7 @@ import { CreateWorkingHoursDto } from '../dto/create-working-hours.dto';
 import { UpdateWorkingHoursDto } from '../dto/update-working-hours.dto';
 import { CreateStaffBreakDto } from '../dto/create-staff-break.dto';
 import { StaffBreakStatus } from '../dto/create-staff-break.dto';
+import { PaginationOptions } from '../../common/repositories/base.repository';
 import { UpdateStaffBreakDto } from '../dto/update-staff-break.dto';
 import { StoreRepository } from '../../stores/repositories/store.repository';
 import { NotificationService } from '../../notifications/services/notification.service';
@@ -146,7 +147,7 @@ export class StaffScheduleService {
     await this.activitiesService.recordActivity(
       storeId,
       'staff',
-      'Personel zaman izni eklendi',
+       `Personel ${staff.firstName} ${staff.lastName} izin talebi oluşturdu`,
       {
         staffId: staff.id,
         breakId: createdBreak.id,
@@ -154,6 +155,7 @@ export class StaffScheduleService {
         endDate: dto.endDate,
         startTime: dto.startTime,
         endTime: dto.endTime,
+        locationId: staff.locationId || null,
       },
     );
 
@@ -164,7 +166,7 @@ export class StaffScheduleService {
         store.ownerId,
         storeId,
         'Yeni izin talebi',
-        `Personel #${staff.id} izin talebi oluşturdu`,
+        `Personel ${staff.firstName} ${staff.lastName} izin talebi oluşturdu`,
         'staff_time_off',
         {
           breakId: createdBreak.id,
@@ -174,6 +176,39 @@ export class StaffScheduleService {
           endDate: createdBreak.endDate,
           url: '/admin/staff?tab=timeoffs',
         },
+      );
+    }
+
+    if (staff.locationId) {
+      const managerUserIds =
+        await this.staffMemberRepository.findManagerUserIdsByStoreAndLocation(
+          storeId,
+          staff.locationId,
+        );
+
+      const uniqueManagerIds = managerUserIds.filter(
+        (managerId) => managerId !== staff.userId,
+      );
+
+      await Promise.all(
+        uniqueManagerIds.map((managerId) =>
+          this.notificationService.createInAppNotification(
+            managerId,
+            storeId,
+            'Yeni izin talebi',
+            `Personel ${staff.firstName} ${staff.lastName} izin talebi oluşturdu`,
+            'staff_time_off',
+            {
+              breakId: createdBreak.id,
+              staffId: staff.id,
+              status: createdBreak.status,
+              startDate: createdBreak.startDate,
+              endDate: createdBreak.endDate,
+              locationId: staff.locationId,
+              url: '/manager/staff?tab=timeoffs',
+            },
+          ),
+        ),
       );
     }
 
@@ -244,10 +279,17 @@ export class StaffScheduleService {
     return await this.staffBreakRepository.update(breakId, dto);
   }
 
-  async getStoreBreaks(storeId: string, status?: StaffBreakStatus) {
-    return await this.staffBreakRepository.findByStoreIdWithStaff(
+  async getStoreBreaks(
+    storeId: string,
+    status?: StaffBreakStatus,
+    locationId?: string,
+    pagination: PaginationOptions = {},
+  ) {
+    return await this.staffBreakRepository.findByStoreIdWithStaffPaginated(
       storeId,
       status,
+      locationId,
+      pagination,
     );
   }
 

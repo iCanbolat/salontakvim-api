@@ -40,6 +40,41 @@ export class CategoryRepository implements ICategoryRepository {
       .orderBy(schema.categories.position);
   }
 
+  async findByStoreIdAndLocationId(
+    storeId: string,
+    locationId: string,
+  ): Promise<Category[]> {
+    return await this.db
+      .selectDistinct({
+        id: schema.categories.id,
+        storeId: schema.categories.storeId,
+        name: schema.categories.name,
+        description: schema.categories.description,
+        color: schema.categories.color,
+        icon: schema.categories.icon,
+        position: schema.categories.position,
+        isVisible: schema.categories.isVisible,
+        createdAt: schema.categories.createdAt,
+        updatedAt: schema.categories.updatedAt,
+      })
+      .from(schema.categories)
+      .innerJoin(
+        schema.services,
+        eq(schema.categories.id, schema.services.categoryId),
+      )
+      .innerJoin(
+        schema.serviceLocations,
+        eq(schema.services.id, schema.serviceLocations.serviceId),
+      )
+      .where(
+        and(
+          eq(schema.categories.storeId, storeId),
+          eq(schema.serviceLocations.locationId, locationId),
+        ),
+      )
+      .orderBy(schema.categories.position);
+  }
+
   async findByIdAndStoreId(
     id: string,
     storeId: string,

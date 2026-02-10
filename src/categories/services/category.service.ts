@@ -47,11 +47,20 @@ export class CategoryService {
   async findAll(
     storeId: string,
     userId: string,
+    locationId?: string,
   ): Promise<CategoryResponseDto[]> {
     // Verify store access (owner or staff)
     await this.storeService.validateStoreExists(storeId);
 
-    const categories = await this.categoryRepository.findByStoreId(storeId);
+    let categories: any[];
+    if (locationId) {
+      categories = await this.categoryRepository.findByStoreIdAndLocationId(
+        storeId,
+        locationId,
+      );
+    } else {
+      categories = await this.categoryRepository.findByStoreId(storeId);
+    }
 
     return plainToInstance(CategoryResponseDto, categories, {
       excludeExtraneousValues: true,

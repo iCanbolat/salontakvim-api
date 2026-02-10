@@ -13,6 +13,7 @@ import {
 import { StaffMemberRepository } from '../../staff/repositories/staff-member.repository';
 import { ActivitiesService } from '../../activities/services/activities.service';
 import { UserRepository } from '../../auth/repositories/user.repository';
+import { NotificationService } from '../../notifications/services/notification.service';
 import {
   CustomerFileResponseDto,
   CustomerFileListResponseDto,
@@ -34,6 +35,7 @@ export class CustomerFileService {
     private readonly activitiesService: ActivitiesService,
     private readonly userRepository: UserRepository,
     private readonly fileUploadService: FileUploadService,
+    private readonly notificationService: NotificationService,
   ) {
     this.baseUrl =
       this.configService.get<string>('APP_URL') || 'http://localhost:8080';
@@ -43,8 +45,13 @@ export class CustomerFileService {
     storeId: string,
     customerId: string,
     userId: string,
+    userRole: string,
     file: Express.Multer.File,
-    metadata?: { description?: string; tags?: string[] },
+    metadata?: {
+      description?: string;
+      tags?: string[];
+      appointmentId?: string;
+    },
   ): Promise<CustomerFileResponseDto> {
     // Verify store ownership/access
     await this.storeService.verifyStoreOwnership(storeId, userId);
@@ -63,6 +70,7 @@ export class CustomerFileService {
       storeId,
       customerId,
       uploadedBy: userId,
+      appointmentId: metadata?.appointmentId,
       fileName: result.fileName,
       originalName: file.originalname,
       mimeType: file.mimetype,
@@ -76,29 +84,26 @@ export class CustomerFileService {
 
     const customerFile = await this.customerFileRepository.create(createData);
 
+    const customerUser = await this.userRepository.findById(customerId);
+    const customerName = [customerUser?.firstName, customerUser?.lastName]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+    const resolvedCustomerName =
+      customerName || customerUser?.email || customerUser?.phone || 'Müşteri';
+
     const staffMember = await this.staffMemberRepository.findByUserIdAndStoreId(
       userId,
       storeId,
     );
 
     if (staffMember) {
-      const [staffUser, customerUser] = await Promise.all([
-        this.userRepository.findById(staffMember.userId),
-        this.userRepository.findById(customerId),
-      ]);
+      const staffUser = await this.userRepository.findById(staffMember.userId);
 
       const staffName = [staffUser?.firstName, staffUser?.lastName]
         .filter(Boolean)
         .join(' ')
         .trim();
-
-      const customerName = [customerUser?.firstName, customerUser?.lastName]
-        .filter(Boolean)
-        .join(' ')
-        .trim();
-
-      const resolvedCustomerName =
-        customerName || customerUser?.email || customerUser?.phone || 'Müşteri';
 
       const fileCount = 1;
       const sizeLabel = this.fileUploadService.formatFileSize(file.size);
@@ -118,15 +123,52 @@ export class CustomerFileService {
           fileCount,
           fileSize: file.size,
           fileSizeLabel: sizeLabel,
+          locationId: staffMember.locationId || null,
         },
       );
+    }
+
+    if (
+      metadata?.appointmentId &&
+      (userRole === 'admin' || userRole === 'manager')
+    ) {
+      const appointment =
+        await this.customerFileRepository.findAppointmentSummary(
+          storeId,
+          metadata.appointmentId,
+          customerId,
+        );
+
+      if (appointment?.status === 'confirmed' && appointment.staffId) {
+        const appointmentStaff = await this.staffMemberRepository.findById(
+          appointment.staffId,
+        );
+
+        if (appointmentStaff?.userId && appointmentStaff.userId !== userId) {
+          await this.notificationService.createInAppNotification(
+            appointmentStaff.userId,
+            storeId,
+            'Randevu dosyasi yuklendi',
+            `${resolvedCustomerName} icin ${customerFile.originalName} dosyasi eklendi.`,
+            'appointment_file_uploaded',
+            {
+              appointmentId: appointment.id,
+              customerId,
+              fileId: customerFile.id,
+              fileName: customerFile.originalName,
+              publicNumber: appointment.publicNumber,
+              url: `/staff/appointments/${appointment.id}`,
+            },
+          );
+        }
+      }
     }
 
     return this.toResponseDto(customerFile);
   }
 
   /**
-   * Get all files for a store
+   * Get all files for a store (paginated)
    * Admin gets all files, staff only gets files from their assigned customers
    */
   async getAllStoreFiles(
@@ -137,7 +179,7 @@ export class CustomerFileService {
       fileType?: string;
       search?: string;
       limit?: number;
-      offset?: number;
+      page?: number;
     },
   ): Promise<CustomerFileListResponseDto> {
     // Verify store ownership/access
@@ -158,21 +200,53 @@ export class CustomerFileService {
       staffId = staffMember.id;
     }
 
-    const { files, total, totalSize } =
-      await this.customerFileRepository.findByStore(storeId, {
-        ...options,
-        staffId,
-      });
+    const result = await this.customerFileRepository.findByStore(storeId, {
+      ...options,
+      staffId,
+    });
 
     return plainToInstance(
       CustomerFileListResponseDto,
       {
-        files: files.map((f) => this.toResponseDto(f)),
-        total,
-        totalSize,
+        data: result.data.map((f) => this.toResponseDto(f)),
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages: result.totalPages,
+        totalSize: result.totalSize,
       },
       { excludeExtraneousValues: true },
     );
+  }
+
+  async getFolders(
+    storeId: string,
+    userId: string,
+    userRole: string,
+    options?: { search?: string; page?: number; limit?: number },
+  ) {
+    await this.storeService.verifyStoreOwnership(storeId, userId);
+
+    let staffId: string | undefined;
+    let locationId: string | undefined;
+
+    if (userRole === 'staff' || userRole === 'manager') {
+      const staffMember =
+        await this.staffMemberRepository.findByUserIdAndStoreId(
+          userId,
+          storeId,
+        );
+      if (staffMember) {
+        staffId = staffMember.id;
+        locationId = staffMember.locationId || undefined;
+      }
+    }
+
+    return this.customerFileRepository.getFolders(storeId, options, {
+      userRole,
+      staffId,
+      locationId,
+    });
   }
 
   async getFiles(
@@ -182,26 +256,29 @@ export class CustomerFileService {
     options?: {
       fileType?: string;
       search?: string;
+      appointmentId?: string;
       limit?: number;
-      offset?: number;
+      page?: number;
     },
   ): Promise<CustomerFileListResponseDto> {
     // Verify store ownership/access
     await this.storeService.verifyStoreOwnership(storeId, userId);
 
-    const { files, total, totalSize } =
-      await this.customerFileRepository.findByCustomer(
-        storeId,
-        customerId,
-        options,
-      );
+    const result = await this.customerFileRepository.findByCustomer(
+      storeId,
+      customerId,
+      options,
+    );
 
     return plainToInstance(
       CustomerFileListResponseDto,
       {
-        files: files.map((f) => this.toResponseDto(f)),
-        total,
-        totalSize,
+        data: result.data.map((f) => this.toResponseDto(f)),
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages: result.totalPages,
+        totalSize: result.totalSize,
       },
       { excludeExtraneousValues: true },
     );
@@ -291,10 +368,13 @@ export class CustomerFileService {
       }
 
       // Check if staff has any appointments with this customer
-      const { files } = await this.customerFileRepository.findByStore(storeId, {
-        staffId: staffMember.id,
-        limit: 1,
-      });
+      const { data: files } = await this.customerFileRepository.findByStore(
+        storeId,
+        {
+          staffId: staffMember.id,
+          limit: 1,
+        },
+      );
 
       const hasAccess = files.some((f) => f.customerId === file.customerId);
       if (!hasAccess) {
@@ -304,7 +384,7 @@ export class CustomerFileService {
           { staffId: staffMember.id },
         );
         const customerIds = new Set(
-          allStaffFiles.files.map((f) => f.customerId),
+          allStaffFiles.data.map((f) => f.customerId),
         );
         if (!customerIds.has(file.customerId)) {
           throw new ForbiddenException(

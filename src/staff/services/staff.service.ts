@@ -16,10 +16,13 @@ import { UpdateStaffProfileDto } from '../dto/update-staff-profile.dto';
 import { AssignServicesDto } from '../dto/assign-services.dto';
 import { LocationRepository } from '../../locations/repositories/location.repository';
 import { ServiceResponseDto } from '../../services/dto';
+import { CategoryResponseDto } from '../../categories/dto';
 import { ConfigService } from '@nestjs/config';
 import type { Express } from 'express';
 import { ActivitiesService } from '../../activities/services/activities.service';
 import { FileUploadService } from '../../common/file-upload';
+import { StaffWorkingHoursRepository } from '../repositories/staff-working-hours.repository';
+import { CategoryRepository } from '../../categories/repositories/category.repository';
 
 @Injectable()
 export class StaffService {
@@ -29,6 +32,8 @@ export class StaffService {
     private readonly userRepository: UserRepository,
     private readonly locationRepository: LocationRepository,
     private readonly serviceRepository: ServiceRepository,
+    private readonly staffWorkingHoursRepository: StaffWorkingHoursRepository,
+    private readonly categoryRepository: CategoryRepository,
     private readonly configService: ConfigService,
     private readonly activitiesService: ActivitiesService,
     private readonly fileUploadService: FileUploadService,
@@ -117,6 +122,29 @@ export class StaffService {
     return plainToInstance(ServiceResponseDto, services, {
       excludeExtraneousValues: true,
     });
+  }
+
+  async getStaffDetails(storeId: string, staffId: string, locationId?: string) {
+    const staff = await this.getStaffMember(storeId, staffId);
+    const [services, workingHours, categories] = await Promise.all([
+      this.buildAssignedServicesResponse(staff.id),
+      this.staffWorkingHoursRepository.findByStaffId(staff.id),
+      locationId
+        ? this.categoryRepository.findByStoreIdAndLocationId(
+            storeId,
+            locationId,
+          )
+        : this.categoryRepository.findByStoreId(storeId),
+    ]);
+
+    return {
+      staff,
+      services,
+      workingHours,
+      categories: plainToInstance(CategoryResponseDto, categories, {
+        excludeExtraneousValues: true,
+      }),
+    };
   }
 
   // ============= Staff Management =============
@@ -209,30 +237,27 @@ export class StaffService {
           .join(' ')
           .trim();
 
-        if (role === 'admin') {
+        let activityMessage = '';
+        if (role === 'admin' || role === 'manager') {
+          const roleLabel = role === 'admin' ? 'admin' : 'manager';
+          activityMessage = `Staff ${roleLabel} access granted: ${staffName || user.email}`;
+        } else if (user.role === 'admin' || user.role === 'manager') {
+          const prevRoleLabel = user.role === 'admin' ? 'admin' : 'manager';
+          activityMessage = `Staff ${prevRoleLabel} access revoked: ${staffName || user.email}`;
+        }
+
+        if (activityMessage) {
           await this.activitiesService.recordActivity(
             storeId,
             'staff',
-            `Personel yönetici yetkisi verildi: ${staffName || user.email}`,
+            activityMessage,
             {
               staffId: staff.id,
               userId: user.id,
               staffName: staffName || user.email,
               previousRole: user.role,
               newRole: role,
-            },
-          );
-        } else if (user.role === 'admin') {
-          await this.activitiesService.recordActivity(
-            storeId,
-            'staff',
-            `Personel yönetici yetkisi kaldırıldı: ${staffName || user.email}`,
-            {
-              staffId: staff.id,
-              userId: user.id,
-              staffName: staffName || user.email,
-              previousRole: user.role,
-              newRole: role,
+              locationId: staff.locationId || null,
             },
           );
         }

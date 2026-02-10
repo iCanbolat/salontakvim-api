@@ -10,6 +10,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { ActivitiesService } from './services/activities.service';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { JwtPayload } from '../auth/interfaces/auth.interface';
 
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -17,13 +19,15 @@ export class ActivitiesController {
   constructor(private readonly activitiesService: ActivitiesService) {}
 
   @Get('stores/:storeId/activities')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async getRecentActivities(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Query('limit') limit?: string,
     @Query('page') page?: string,
     @Query('type') type?: string,
     @Query('status') status?: string,
+    @Query('locationId') locationId?: string,
+    @CurrentUser() user?: JwtPayload,
   ) {
     const parsedLimitRaw = Number.parseInt(limit ?? '', 10);
     const parsedLimit = Number.isFinite(parsedLimitRaw)
@@ -36,6 +40,8 @@ export class ActivitiesController {
       : undefined;
 
     const resolvedType = type || status;
+    const resolvedLocationId =
+      user?.role === 'manager' ? user.locationId : locationId;
 
     if (parsedPage || resolvedType) {
       return this.activitiesService.getActivitiesPaginated(
@@ -43,9 +49,14 @@ export class ActivitiesController {
         parsedPage ?? 1,
         parsedLimit,
         resolvedType,
+        resolvedLocationId,
       );
     }
 
-    return this.activitiesService.getRecentActivities(storeId, parsedLimit);
+    return this.activitiesService.getRecentActivities(
+      storeId,
+      parsedLimit,
+      resolvedLocationId,
+    );
   }
 }

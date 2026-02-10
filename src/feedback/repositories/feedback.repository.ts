@@ -29,6 +29,7 @@ export interface FeedbackQueryFilters {
   customerId?: string;
   staffId?: string;
   serviceId?: string;
+  locationId?: string;
   search?: string;
   page?: number;
   limit?: number;
@@ -283,6 +284,10 @@ export class FeedbackRepository extends BaseRepository<any> {
       conditions.push(eq(appointmentFeedback.serviceId, filters.serviceId));
     }
 
+    if (filters.locationId) {
+      conditions.push(eq(staffMembers.locationId, filters.locationId));
+    }
+
     if (filters.search) {
       const searchTerm = `%${filters.search}%`;
       const searchConditions = [
@@ -372,36 +377,51 @@ export class FeedbackRepository extends BaseRepository<any> {
       );
   }
 
-  async getStats(storeId: string, staffId?: string, serviceId?: string) {
-    const conditions = [eq(appointmentFeedback.storeId, storeId)];
+  async getStats(
+    storeId: string,
+    filters: { staffId?: string; serviceId?: string; locationId?: string } = {},
+  ) {
+    const conditions: SQL[] = [eq(appointmentFeedback.storeId, storeId)];
 
-    if (staffId) {
-      conditions.push(eq(appointmentFeedback.staffId, staffId));
+    if (filters.staffId) {
+      conditions.push(eq(appointmentFeedback.staffId, filters.staffId));
     }
-    if (serviceId) {
-      conditions.push(eq(appointmentFeedback.serviceId, serviceId));
+    if (filters.serviceId) {
+      conditions.push(eq(appointmentFeedback.serviceId, filters.serviceId));
+    }
+    if (filters.locationId) {
+      conditions.push(eq(staffMembers.locationId, filters.locationId));
     }
 
-    const [stats] = await this.db
-      .select({
-        totalFeedback: count(appointmentFeedback.id),
-        avgOverall: avg(appointmentFeedback.overallRating),
-        avgService: avg(appointmentFeedback.serviceRating),
-        avgStaff: avg(appointmentFeedback.staffRating),
-        avgCleanliness: avg(appointmentFeedback.cleanlinessRating),
-        avgValue: avg(appointmentFeedback.valueRating),
-      })
-      .from(appointmentFeedback)
-      .where(and(...conditions));
+    const whereCondition = and(...conditions);
+
+    // Base query setup
+    const createBaseQuery = (selection: any) => {
+      let query = this.db.select(selection).from(appointmentFeedback);
+      if (filters.locationId) {
+        query = query.leftJoin(
+          staffMembers,
+          eq(appointmentFeedback.staffId, staffMembers.id),
+        );
+      }
+      return query;
+    };
+
+    const [stats] = await createBaseQuery({
+      totalFeedback: count(appointmentFeedback.id),
+      avgOverall: avg(appointmentFeedback.overallRating),
+      avgService: avg(appointmentFeedback.serviceRating),
+      avgStaff: avg(appointmentFeedback.staffRating),
+      avgCleanliness: avg(appointmentFeedback.cleanlinessRating),
+      avgValue: avg(appointmentFeedback.valueRating),
+    }).where(whereCondition);
 
     // Get rating distribution
-    const distribution = await this.db
-      .select({
-        rating: appointmentFeedback.overallRating,
-        count: count(appointmentFeedback.id),
-      })
-      .from(appointmentFeedback)
-      .where(and(...conditions))
+    const distribution = await createBaseQuery({
+      rating: appointmentFeedback.overallRating,
+      count: count(appointmentFeedback.id),
+    })
+      .where(whereCondition)
       .groupBy(appointmentFeedback.overallRating);
 
     const ratingDistribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };

@@ -25,14 +25,14 @@ export class StoreFilesController {
   constructor(private readonly customerFileService: CustomerFileService) {}
 
   @Get()
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async getAllStoreFiles(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @CurrentUser() user: JwtPayload,
     @Query('fileType') fileType?: string,
     @Query('search') search?: string,
     @Query('limit') limit?: string,
-    @Query('offset') offset?: string,
+    @Query('page') page?: string,
   ): Promise<CustomerFileListResponseDto> {
     return this.customerFileService.getAllStoreFiles(
       storeId,
@@ -42,13 +42,29 @@ export class StoreFilesController {
         fileType,
         search,
         limit: limit ? parseInt(limit, 10) : undefined,
-        offset: offset ? parseInt(offset, 10) : undefined,
+        page: page ? parseInt(page, 10) : undefined,
       },
     );
   }
 
+  @Get('folders')
+  @Roles('admin', 'manager', 'staff')
+  async getFolders(
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @CurrentUser() user: JwtPayload,
+    @Query('search') search?: string,
+    @Query('limit') limit?: string,
+    @Query('page') page?: string,
+  ) {
+    return this.customerFileService.getFolders(storeId, user.sub, user.role, {
+      search,
+      limit: limit ? parseInt(limit, 10) : undefined,
+      page: page ? parseInt(page, 10) : undefined,
+    });
+  }
+
   @Get(':fileId/download')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async downloadFile(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('fileId', ParseUUIDPipe) fileId: string,

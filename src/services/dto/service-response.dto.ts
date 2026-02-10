@@ -59,6 +59,9 @@ export class ServiceResponseDto {
   categoryColor?: string;
 
   @Expose()
+  categoryName?: string;
+
+  @Expose()
   image?: string;
 
   @Expose()

@@ -32,13 +32,13 @@ export class StoreController {
   }
 
   @Get('my-store')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async getMyStore(@CurrentUser() user: JwtPayload): Promise<StoreResponseDto> {
     return this.storeService.findMyStore(user.sub);
   }
 
   @Get(':id')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async findById(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
@@ -47,7 +47,7 @@ export class StoreController {
   }
 
   @Get('slug/:slug')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async findBySlug(@Param('slug') slug: string): Promise<StoreResponseDto> {
     return this.storeService.findBySlug(slug);
   }
@@ -83,7 +83,7 @@ export class StoreController {
   }
 
   @Get(':id/analytics')
-  @Roles('admin', 'staff')
+  @Roles('admin')
   async getAnalytics(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
@@ -95,22 +95,28 @@ export class StoreController {
   }
 
   @Get(':storeId/customers')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async getCustomers(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @CurrentUser() user: JwtPayload,
     @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
-    return this.storeService.getCustomers(storeId, user.sub, search);
+    return this.storeService.getCustomers(storeId, user, {
+      search,
+      page: page ? parseInt(page, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
+    });
   }
 
   @Get(':storeId/customers/:customerId')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async getCustomerProfile(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('customerId', ParseUUIDPipe) customerId: string,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.storeService.getCustomerProfile(storeId, customerId, user.sub);
+    return this.storeService.getCustomerProfile(storeId, customerId, user);
   }
 }

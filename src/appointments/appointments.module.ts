@@ -16,6 +16,7 @@ import { QueueModule } from '../queue/queue.module';
 import { CouponModule } from '../coupons/coupon.module';
 import { AppointmentExpirationService } from './services/appointment-expiration.service';
 import { AppointmentCleanupService } from './services/appointment-cleanup.service';
+import { FeedbackModule } from '../feedback/feedback.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { AppointmentCleanupService } from './services/appointment-cleanup.servic
     ActivitiesModule,
     QueueModule,
     CouponModule,
+    FeedbackModule,
   ],
   controllers: [AppointmentsController],
   providers: [

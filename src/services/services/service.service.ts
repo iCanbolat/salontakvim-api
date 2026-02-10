@@ -30,6 +30,7 @@ export class ServiceService {
     storeId: string,
     userId: string,
     createServiceDto: CreateServiceDto,
+    autoAssignLocationId?: string,
   ): Promise<ServiceResponseDto> {
     // Verify store ownership
     await this.storeService.verifyStoreOwnership(storeId, userId);
@@ -58,6 +59,14 @@ export class ServiceService {
       price: createServiceDto.price.toString(),
     });
 
+    // Auto-assign service to location for manager role
+    if (autoAssignLocationId) {
+      await this.serviceRepository.assignServiceToLocation(
+        service.id,
+        autoAssignLocationId,
+      );
+    }
+
     return plainToInstance(ServiceResponseDto, service, {
       excludeExtraneousValues: true,
     });
@@ -66,11 +75,21 @@ export class ServiceService {
   async findAll(
     storeId: string,
     userId: string,
+    locationId?: string,
   ): Promise<ServiceResponseDto[]> {
     // Verify store access
     await this.storeService.validateStoreExists(storeId);
 
-    const services = await this.serviceRepository.findByStoreId(storeId);
+    let services: any[];
+    if (locationId) {
+      // Filter by location for manager role
+      services = await this.serviceRepository.findByStoreIdAndLocationId(
+        storeId,
+        locationId,
+      );
+    } else {
+      services = await this.serviceRepository.findByStoreId(storeId);
+    }
 
     return plainToInstance(ServiceResponseDto, services, {
       excludeExtraneousValues: true,

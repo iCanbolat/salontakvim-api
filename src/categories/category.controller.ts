@@ -26,7 +26,7 @@ export class CategoryController {
   constructor(private readonly categoryService: CategoryService) {}
 
   @Post()
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   @HttpCode(HttpStatus.CREATED)
   async create(
     @Param('storeId', ParseUUIDPipe) storeId: string,
@@ -37,16 +37,18 @@ export class CategoryController {
   }
 
   @Get()
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async findAll(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @CurrentUser() user: JwtPayload,
   ): Promise<CategoryResponseDto[]> {
-    return this.categoryService.findAll(storeId, user.sub);
+    // For manager role, filter by their assigned location
+    const locationId = user.role === 'manager' ? user.locationId : undefined;
+    return this.categoryService.findAll(storeId, user.sub, locationId);
   }
 
   @Get(':id')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async findOne(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('id', ParseUUIDPipe) id: string,
@@ -56,7 +58,7 @@ export class CategoryController {
   }
 
   @Patch(':id')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async update(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('id', ParseUUIDPipe) id: string,
@@ -72,7 +74,7 @@ export class CategoryController {
   }
 
   @Delete(':id')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(
     @Param('storeId', ParseUUIDPipe) storeId: string,
@@ -83,7 +85,7 @@ export class CategoryController {
   }
 
   @Patch()
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async reorder(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @CurrentUser() user: JwtPayload,

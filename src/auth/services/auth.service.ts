@@ -232,6 +232,17 @@ export class AuthService {
     // Check if user has a store
     const store = await this.storeService.findByOwnerIdSafe(userId);
 
+    // Get locationId and storeId for manager/staff roles
+    let locationId: string | null = null;
+    let staffStoreId: string | null = null;
+    if (user.role === 'manager' || user.role === 'staff') {
+      const staffMember = await this.staffMemberRepository.findByUserId(userId);
+      if (staffMember) {
+        locationId = staffMember.locationId;
+        staffStoreId = staffMember.storeId;
+      }
+    }
+
     return {
       user: {
         id: user.id,
@@ -248,6 +259,8 @@ export class AuthService {
         lastLogin: user.lastLogin,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
+        locationId,
+        storeId: staffStoreId,
       },
       hasStore: !!store,
     };

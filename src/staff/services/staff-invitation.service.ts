@@ -162,13 +162,14 @@ export class StaffInvitationService {
         invitationId: invitation.id,
         email: dto.email,
         invitedBy,
+        locationId: dto.locationId || null,
       },
     );
 
     return invitation;
   }
 
-  async getInvitations(storeId: string) {
+  async getInvitations(storeId: string, locationId?: string) {
     const [invitations, locationMap] = await Promise.all([
       this.staffInvitationRepository.findByStoreId(storeId),
       this.locationRepository
@@ -179,7 +180,12 @@ export class StaffInvitationService {
         ),
     ]);
 
-    return invitations.map((invitation) => ({
+    // Filter by locationId if provided (for manager role)
+    const filteredInvitations = locationId
+      ? invitations.filter((inv) => inv.locationId === locationId)
+      : invitations;
+
+    return filteredInvitations.map((invitation) => ({
       ...invitation,
       locationName:
         invitation.locationId != null

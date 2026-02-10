@@ -143,6 +143,7 @@ export class AnalyticsService {
 
     const { startDate, endDate } = this.parseDateRange(query);
     const dateRange = { startDate, endDate };
+    const locationId = query.locationId;
 
     // Get all stats in parallel
     const [
@@ -156,15 +157,31 @@ export class AnalyticsService {
       tomorrowAppointments,
       todayRevenue,
     ] = await Promise.all([
-      this.analyticsRepository.getTotalAppointments(storeId), // All time
-      this.analyticsRepository.getTotalRevenue(storeId), // All time
-      this.analyticsRepository.getTotalCustomers(storeId),
-      this.getTotalStaff(storeId),
-      this.analyticsRepository.getAppointmentsByStatus(storeId), // All time
-      this.analyticsRepository.getPopularTimeSlot(storeId, dateRange),
-      this.getAppointmentsForDate(storeId, new Date()),
-      this.getAppointmentsForDate(storeId, new Date(Date.now() + 86400000)), // Tomorrow
-      this.getRevenueForDate(storeId, new Date()),
+      this.analyticsRepository.getTotalAppointments(
+        storeId,
+        undefined,
+        locationId,
+      ), // All time
+      this.analyticsRepository.getTotalRevenue(storeId, undefined, locationId), // All time
+      this.analyticsRepository.getTotalCustomers(storeId, locationId),
+      this.getTotalStaff(storeId, locationId),
+      this.analyticsRepository.getAppointmentsByStatus(
+        storeId,
+        undefined,
+        locationId,
+      ), // All time
+      this.analyticsRepository.getPopularTimeSlot(
+        storeId,
+        dateRange,
+        locationId,
+      ),
+      this.getAppointmentsForDate(storeId, new Date(), locationId),
+      this.getAppointmentsForDate(
+        storeId,
+        new Date(Date.now() + 86400000),
+        locationId,
+      ), // Tomorrow
+      this.getRevenueForDate(storeId, new Date(), locationId),
     ]);
 
     // Calculate status counts
@@ -725,7 +742,10 @@ export class AnalyticsService {
 
   // ==================== HELPER METHODS ====================
 
-  private async getTotalStaff(storeId: string): Promise<number> {
+  private async getTotalStaff(
+    storeId: string,
+    locationId?: string,
+  ): Promise<number> {
     // This should ideally come from StaffModule, but kept simple for now
     return 0; // Placeholder - integrate with StaffRepository
   }
@@ -738,24 +758,34 @@ export class AnalyticsService {
   private async getAppointmentsForDate(
     storeId: string,
     date: Date,
+    locationId?: string,
   ): Promise<number> {
     const startDate = new Date(date.setHours(0, 0, 0, 0));
     const endDate = new Date(date.setHours(23, 59, 59, 999));
-    return this.analyticsRepository.getTotalAppointments(storeId, {
-      startDate,
-      endDate,
-    });
+    return this.analyticsRepository.getTotalAppointments(
+      storeId,
+      {
+        startDate,
+        endDate,
+      },
+      locationId,
+    );
   }
 
   private async getRevenueForDate(
     storeId: string,
     date: Date,
+    locationId?: string,
   ): Promise<string> {
     const startDate = new Date(date.setHours(0, 0, 0, 0));
     const endDate = new Date(date.setHours(23, 59, 59, 999));
-    return this.analyticsRepository.getTotalRevenue(storeId, {
-      startDate,
-      endDate,
-    });
+    return this.analyticsRepository.getTotalRevenue(
+      storeId,
+      {
+        startDate,
+        endDate,
+      },
+      locationId,
+    );
   }
 }

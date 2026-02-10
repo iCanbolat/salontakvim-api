@@ -3,17 +3,26 @@ import { eq, sql, and } from 'drizzle-orm';
 import { DRIZZLE_ORM } from '../../db/drizzle.module';
 import * as schema from '../../db/schema';
 import {
+  BaseRepository,
+  PaginatedResult,
+} from '../../common/repositories/base.repository';
+import {
   IStoreRepository,
   Store,
   NewStore,
 } from '../interfaces/repository.interface';
 
 @Injectable()
-export class StoreRepository implements IStoreRepository {
+export class StoreRepository
+  extends BaseRepository<Store>
+  implements IStoreRepository
+{
   constructor(
     @Inject(DRIZZLE_ORM)
-    private readonly db: any,
-  ) {}
+    protected readonly db: any,
+  ) {
+    super(db);
+  }
 
   async create(data: NewStore): Promise<Store> {
     const [store] = await this.db
@@ -175,71 +184,148 @@ export class StoreRepository implements IStoreRepository {
     return updatedStore;
   }
 
-  async getCustomers(storeId: string, search?: string) {
+  async getCustomers(
+    storeId: string,
+    search?: string,
+    options?: {
+      staffId?: string;
+      locationId?: string;
+      page?: number;
+      limit?: number;
+    },
+  ): Promise<PaginatedResult<any>> {
+    const pagination = this.normalizePagination(options);
     const searchTerm = search?.trim().toLowerCase();
     const likeTerm = searchTerm ? `%${searchTerm}%` : null;
 
-    let query = this.db
-      .select({
-        id: schema.users.id,
-        publicNumber: schema.storeCustomers.publicNumber,
-        email: schema.users.email,
-        firstName: schema.users.firstName,
-        lastName: schema.users.lastName,
-        phone: schema.users.phone,
-        lastLogin: schema.users.lastLogin,
-        createdAt: schema.users.createdAt,
-        updatedAt: schema.users.updatedAt,
-        totalAppointments: sql<number>`COUNT(${schema.appointments.id})`,
-        completedAppointments: sql<number>`COUNT(CASE WHEN ${schema.appointments.status} = 'completed' THEN 1 END)`,
-        cancelledAppointments: sql<number>`COUNT(CASE WHEN ${schema.appointments.status} = 'cancelled' THEN 1 END)`,
-        totalSpent: sql<string>`COALESCE(SUM(CASE WHEN ${schema.appointments.status} = 'completed' THEN ${schema.appointments.totalPrice}::numeric ELSE 0 END), 0)::text`,
-        lastAppointmentDate: sql<Date | null>`MAX(${schema.appointments.startDateTime})`,
-        nextAppointmentDate: sql<Date | null>`MIN(CASE WHEN ${schema.appointments.startDateTime} > NOW() THEN ${schema.appointments.startDateTime} END)`,
-      })
-      .from(schema.users)
-      .innerJoin(
-        schema.appointments,
-        and(
-          eq(schema.appointments.customerId, schema.users.id),
-          eq(schema.appointments.storeId, storeId),
-        ),
-      )
-      .leftJoin(
-        schema.storeCustomers,
-        and(
-          eq(schema.storeCustomers.storeId, storeId),
-          eq(schema.storeCustomers.customerId, schema.users.id),
-        ),
-      );
+    const appointmentConditions = [
+      eq(schema.appointments.customerId, schema.users.id),
+      eq(schema.appointments.storeId, storeId),
+    ];
 
-    if (searchTerm && likeTerm) {
-      query = query.where(
-        sql`(
+    if (options?.staffId) {
+      appointmentConditions.push(
+        eq(schema.appointments.staffId, options.staffId),
+      );
+    }
+
+    if (options?.locationId) {
+      appointmentConditions.push(
+        eq(schema.appointments.locationId, options.locationId),
+      );
+    }
+
+    const whereClause =
+      searchTerm && likeTerm
+        ? sql`(
           LOWER(CONCAT_WS(' ', ${schema.users.firstName}, ${schema.users.lastName})) LIKE ${likeTerm}
           OR LOWER(COALESCE(${schema.users.email}, '')) LIKE ${likeTerm}
           OR LOWER(COALESCE(${schema.users.phone}, '')) LIKE ${likeTerm}
           OR LOWER(COALESCE(${schema.storeCustomers.publicNumber}, '')) LIKE ${likeTerm}
-        )`,
+        )`
+        : undefined;
+
+    const queryFactory = async (limit: number, offset: number) => {
+      let query = this.db
+        .select({
+          id: schema.users.id,
+          publicNumber: schema.storeCustomers.publicNumber,
+          email: schema.users.email,
+          firstName: schema.users.firstName,
+          lastName: schema.users.lastName,
+          phone: schema.users.phone,
+          lastLogin: schema.users.lastLogin,
+          createdAt: schema.users.createdAt,
+          updatedAt: schema.users.updatedAt,
+          totalAppointments: sql<number>`COUNT(${schema.appointments.id})`,
+          completedAppointments: sql<number>`COUNT(CASE WHEN ${schema.appointments.status} = 'completed' THEN 1 END)`,
+          cancelledAppointments: sql<number>`COUNT(CASE WHEN ${schema.appointments.status} = 'cancelled' THEN 1 END)`,
+          totalSpent: sql<string>`COALESCE(SUM(CASE WHEN ${schema.appointments.status} = 'completed' THEN ${schema.appointments.totalPrice}::numeric ELSE 0 END), 0)::text`,
+          lastAppointmentDate: sql<Date | null>`MAX(${schema.appointments.startDateTime})`,
+          nextAppointmentDate: sql<Date | null>`MIN(CASE WHEN ${schema.appointments.startDateTime} > NOW() THEN ${schema.appointments.startDateTime} END)`,
+        })
+        .from(schema.users)
+        .innerJoin(schema.appointments, and(...appointmentConditions))
+        .leftJoin(
+          schema.storeCustomers,
+          and(
+            eq(schema.storeCustomers.storeId, storeId),
+            eq(schema.storeCustomers.customerId, schema.users.id),
+          ),
+        );
+
+      if (whereClause) {
+        query = query.where(whereClause);
+      }
+
+      return query
+        .groupBy(
+          schema.users.id,
+          schema.storeCustomers.publicNumber,
+          schema.users.email,
+          schema.users.firstName,
+          schema.users.lastName,
+          schema.users.phone,
+          schema.users.lastLogin,
+          schema.users.createdAt,
+          schema.users.updatedAt,
+        )
+        .orderBy(sql`MAX(${schema.appointments.startDateTime}) DESC`)
+        .limit(limit)
+        .offset(offset);
+    };
+
+    const countFactory = async () => {
+      let query = this.db
+        .select({
+          count: sql<number>`COUNT(DISTINCT ${schema.users.id})`,
+        })
+        .from(schema.users)
+        .innerJoin(schema.appointments, and(...appointmentConditions))
+        .leftJoin(
+          schema.storeCustomers,
+          and(
+            eq(schema.storeCustomers.storeId, storeId),
+            eq(schema.storeCustomers.customerId, schema.users.id),
+          ),
+        );
+
+      if (whereClause) {
+        query = query.where(whereClause);
+      }
+
+      const [result] = await query;
+      return Number(result?.count || 0);
+    };
+
+    return this.executePaginatedQuery(pagination, queryFactory, countFactory);
+  }
+
+  async getCustomerProfile(
+    storeId: string,
+    customerId: string,
+    options?: {
+      staffId?: string;
+      locationId?: string;
+    },
+  ) {
+    const appointmentConditions = [
+      eq(schema.appointments.customerId, schema.users.id),
+      eq(schema.appointments.storeId, storeId),
+    ];
+
+    if (options?.staffId) {
+      appointmentConditions.push(
+        eq(schema.appointments.staffId, options.staffId),
       );
     }
 
-    return query
-      .groupBy(
-        schema.users.id,
-        schema.storeCustomers.publicNumber,
-        schema.users.email,
-        schema.users.firstName,
-        schema.users.lastName,
-        schema.users.phone,
-        schema.users.lastLogin,
-        schema.users.createdAt,
-        schema.users.updatedAt,
-      )
-      .orderBy(sql`MAX(${schema.appointments.startDateTime}) DESC`);
-  }
+    if (options?.locationId) {
+      appointmentConditions.push(
+        eq(schema.appointments.locationId, options.locationId),
+      );
+    }
 
-  async getCustomerProfile(storeId: string, customerId: string) {
     const [customer] = await this.db
       .select({
         id: schema.users.id,
@@ -266,10 +352,7 @@ export class StoreRepository implements IStoreRepository {
           eq(schema.storeCustomers.customerId, schema.users.id),
         ),
       )
-      .leftJoin(
-        schema.appointments,
-        sql`${schema.appointments.customerId} = ${schema.users.id} AND ${schema.appointments.storeId} = ${storeId}`,
-      )
+      .leftJoin(schema.appointments, and(...appointmentConditions))
       .where(eq(schema.users.id, customerId))
       .groupBy(
         schema.users.id,
@@ -281,10 +364,30 @@ export class StoreRepository implements IStoreRepository {
         schema.users.lastLogin,
         schema.users.createdAt,
         schema.users.updatedAt,
+      )
+      .having(
+        options?.staffId || options?.locationId
+          ? sql`COUNT(${schema.appointments.id}) > 0`
+          : sql`TRUE`,
       );
 
     if (!customer) {
       return null;
+    }
+
+    const appointmentFilters = [
+      eq(schema.appointments.storeId, storeId),
+      eq(schema.appointments.customerId, customerId),
+    ];
+
+    if (options?.staffId) {
+      appointmentFilters.push(eq(schema.appointments.staffId, options.staffId));
+    }
+
+    if (options?.locationId) {
+      appointmentFilters.push(
+        eq(schema.appointments.locationId, options.locationId),
+      );
     }
 
     const appointments = await this.db
@@ -329,12 +432,7 @@ export class StoreRepository implements IStoreRepository {
         eq(schema.appointments.staffId, schema.staffMembers.id),
       )
       .leftJoin(schema.users, eq(schema.staffMembers.userId, schema.users.id))
-      .where(
-        and(
-          eq(schema.appointments.storeId, storeId),
-          eq(schema.appointments.customerId, customerId),
-        ),
-      )
+      .where(and(...appointmentFilters))
       .orderBy(sql`${schema.appointments.startDateTime} DESC`);
 
     const formattedAppointments = appointments.map((appointment) => {

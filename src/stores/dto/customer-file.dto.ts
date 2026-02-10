@@ -9,6 +9,10 @@ import {
 
 export class UploadCustomerFileDto {
   @IsOptional()
+  @IsUUID()
+  appointmentId?: string;
+
+  @IsOptional()
   @IsString()
   @MaxLength(500)
   description?: string;
@@ -73,6 +77,9 @@ export class CustomerFileResponseDto {
   uploadedBy: string | null;
 
   @Expose()
+  appointmentId: string | null;
+
+  @Expose()
   fileName: string;
 
   @Expose()
@@ -98,21 +105,59 @@ export class CustomerFileResponseDto {
   createdAt: Date;
 
   @Expose()
-  updatedAt: Date;
-
   // URL for downloading the file (generated, not stored)
-  @Expose()
   downloadUrl?: string;
 }
 
 export class CustomerFileListResponseDto {
   @Expose()
   @Type(() => CustomerFileResponseDto)
-  files: CustomerFileResponseDto[];
+  data: CustomerFileResponseDto[];
 
   @Expose()
   total: number;
 
   @Expose()
+  page: number;
+
+  @Expose()
+  limit: number;
+
+  @Expose()
+  totalPages: number;
+
+  @Expose()
   totalSize: number; // Total size of all files in bytes
+}
+
+export class FolderStatsDto {
+  @Expose()
+  customerId: string;
+
+  @Expose()
+  fileCount: number;
+
+  @Expose()
+  totalSize: number;
+
+  @Expose()
+  lastUploadedAt: Date;
+}
+
+export class FolderListResponseDto {
+  @Expose()
+  @Type(() => FolderStatsDto)
+  data: FolderStatsDto[];
+
+  @Expose()
+  total: number;
+
+  @Expose()
+  page: number;
+
+  @Expose()
+  limit: number;
+
+  @Expose()
+  totalPages: number;
 }

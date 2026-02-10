@@ -20,7 +20,12 @@ import { relations, sql } from 'drizzle-orm';
 // ================================
 // ENUMS
 // ================================
-export const userRoleEnum = pgEnum('user_role', ['admin', 'staff', 'customer']);
+export const userRoleEnum = pgEnum('user_role', [
+  'admin',
+  'manager',
+  'staff',
+  'customer',
+]);
 export const paymentStatusEnum = pgEnum('payment_status', [
   'freemium',
   'paid',
@@ -1054,6 +1059,9 @@ export const customerFiles = pgTable(
       .default('local')
       .notNull(), // 'local', 's3', etc.
     // Optional metadata
+    appointmentId: uuid('appointment_id').references(() => appointments.id, {
+      onDelete: 'set null',
+    }),
     description: text('description'),
     tags: json('tags').$type<string[]>(),
     // Timestamps
@@ -1064,6 +1072,7 @@ export const customerFiles = pgTable(
     index('customer_files_store_id_idx').on(table.storeId),
     index('customer_files_customer_id_idx').on(table.customerId),
     index('customer_files_uploaded_by_idx').on(table.uploadedBy),
+    index('customer_files_appointment_id_idx').on(table.appointmentId),
     index('customer_files_file_type_idx').on(table.fileType),
     index('customer_files_created_at_idx').on(table.createdAt),
   ],
@@ -1235,6 +1244,10 @@ export const customerFilesRelations = relations(customerFiles, ({ one }) => ({
   uploader: one(users, {
     fields: [customerFiles.uploadedBy],
     references: [users.id],
+  }),
+  appointment: one(appointments, {
+    fields: [customerFiles.appointmentId],
+    references: [appointments.id],
   }),
 }));
 

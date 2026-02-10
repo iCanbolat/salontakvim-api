@@ -4,6 +4,7 @@ import { users } from '../../db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { IUserRepository } from '../interfaces/repository.interface';
+import { UserRole } from '../interfaces/auth.interface';
 
 @Injectable()
 export class UserRepository implements IUserRepository {
@@ -44,7 +45,7 @@ export class UserRepository implements IUserRepository {
     lastName?: string;
     phone?: string;
     password?: string;
-    role?: 'admin' | 'staff' | 'customer';
+    role?: UserRole;
     authProvider?: 'local' | 'google' | 'facebook' | 'apple';
     providerId?: string;
     avatar?: string;
@@ -72,7 +73,7 @@ export class UserRepository implements IUserRepository {
       avatar?: string;
       emailVerified?: boolean;
       isActive?: boolean;
-      role?: 'admin' | 'staff' | 'customer';
+      role?: UserRole;
     },
   ) {
     const result = await this.db

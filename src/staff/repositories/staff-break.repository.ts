@@ -1,18 +1,25 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { eq, and, gte, lte } from 'drizzle-orm';
+import { eq, and, gte, lte, count } from 'drizzle-orm';
 import { DRIZZLE_ORM } from '../../db/drizzle.module';
 import * as schema from '../../db/schema';
 import { StaffBreak, NewStaffBreak } from '../interfaces/repository.interface';
+import {
+  BaseRepository,
+  PaginatedResult,
+  PaginationOptions,
+} from '../../common/repositories/base.repository';
 
 type StaffBreakStatusEnum =
   (typeof schema.staffBreakStatusEnum.enumValues)[number];
 
 @Injectable()
-export class StaffBreakRepository {
+export class StaffBreakRepository extends BaseRepository<StaffBreak> {
   constructor(
     @Inject(DRIZZLE_ORM)
-    private readonly db: any,
-  ) {}
+    db: any,
+  ) {
+    super(db);
+  }
 
   async create(data: NewStaffBreak): Promise<StaffBreak> {
     const [staffBreak] = await this.db
@@ -89,11 +96,16 @@ export class StaffBreakRepository {
   async findByStoreIdWithStaff(
     storeId: string,
     status?: StaffBreakStatusEnum,
+    locationId?: string,
   ): Promise<any[]> {
     const conditions = [eq(schema.staffMembers.storeId, storeId)];
 
     if (status) {
       conditions.push(eq(schema.staffBreaks.status, status));
+    }
+
+    if (locationId) {
+      conditions.push(eq(schema.staffMembers.locationId, locationId));
     }
 
     const whereClause =
@@ -126,6 +138,80 @@ export class StaffBreakRepository {
       .innerJoin(schema.users, eq(schema.staffMembers.userId, schema.users.id))
       .where(whereClause)
       .orderBy(schema.staffBreaks.createdAt);
+  }
+
+  async findByStoreIdWithStaffPaginated(
+    storeId: string,
+    status?: StaffBreakStatusEnum,
+    locationId?: string,
+    options: PaginationOptions = {},
+  ): Promise<PaginatedResult<any>> {
+    const pagination = this.normalizePagination(options, 10, 100);
+    const conditions = [eq(schema.staffMembers.storeId, storeId)];
+
+    if (status) {
+      conditions.push(eq(schema.staffBreaks.status, status));
+    }
+
+    if (locationId) {
+      conditions.push(eq(schema.staffMembers.locationId, locationId));
+    }
+
+    const whereClause =
+      conditions.length === 1 ? conditions[0] : and(...conditions);
+
+    const queryFactory = (limit: number, offset: number) =>
+      this.db
+        .select({
+          id: schema.staffBreaks.id,
+          staffId: schema.staffBreaks.staffId,
+          type: schema.staffBreaks.type,
+          status: schema.staffBreaks.status,
+          startDate: schema.staffBreaks.startDate,
+          endDate: schema.staffBreaks.endDate,
+          startTime: schema.staffBreaks.startTime,
+          endTime: schema.staffBreaks.endTime,
+          reason: schema.staffBreaks.reason,
+          isRecurring: schema.staffBreaks.isRecurring,
+          createdAt: schema.staffBreaks.createdAt,
+          updatedAt: schema.staffBreaks.updatedAt,
+          staffTitle: schema.staffMembers.title,
+          staffFirstName: schema.users.firstName,
+          staffLastName: schema.users.lastName,
+          staffEmail: schema.users.email,
+        })
+        .from(schema.staffBreaks)
+        .innerJoin(
+          schema.staffMembers,
+          eq(schema.staffBreaks.staffId, schema.staffMembers.id),
+        )
+        .innerJoin(
+          schema.users,
+          eq(schema.staffMembers.userId, schema.users.id),
+        )
+        .where(whereClause)
+        .orderBy(schema.staffBreaks.createdAt)
+        .limit(limit)
+        .offset(offset);
+
+    const countFactory = async () => {
+      const [result] = await this.db
+        .select({ count: count(schema.staffBreaks.id) })
+        .from(schema.staffBreaks)
+        .innerJoin(
+          schema.staffMembers,
+          eq(schema.staffBreaks.staffId, schema.staffMembers.id),
+        )
+        .innerJoin(
+          schema.users,
+          eq(schema.staffMembers.userId, schema.users.id),
+        )
+        .where(whereClause);
+
+      return result ? Number(result.count) : 0;
+    };
+
+    return this.executePaginatedQuery(pagination, queryFactory, countFactory);
   }
 
   async delete(id: string): Promise<void> {

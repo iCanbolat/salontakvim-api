@@ -49,8 +49,13 @@ export class AnalyticsRepository {
   async getTotalAppointments(
     storeId: string,
     dateRange?: DateRange,
+    locationId?: string,
   ): Promise<number> {
     const conditions = [eq(schema.appointments.storeId, storeId)];
+
+    if (locationId) {
+      conditions.push(eq(schema.appointments.locationId, locationId));
+    }
 
     if (dateRange) {
       conditions.push(
@@ -70,6 +75,7 @@ export class AnalyticsRepository {
   async getTotalRevenue(
     storeId: string,
     dateRange?: DateRange,
+    locationId?: string,
   ): Promise<string> {
     const conditions = [
       eq(schema.appointments.storeId, storeId),
@@ -78,6 +84,10 @@ export class AnalyticsRepository {
         eq(schema.appointments.status, 'completed'),
       ),
     ];
+
+    if (locationId) {
+      conditions.push(eq(schema.appointments.locationId, locationId));
+    }
 
     if (dateRange) {
       conditions.push(
@@ -94,11 +104,20 @@ export class AnalyticsRepository {
     return result[0]?.total || '0';
   }
 
-  async getTotalCustomers(storeId: string): Promise<number> {
+  async getTotalCustomers(
+    storeId: string,
+    locationId?: string,
+  ): Promise<number> {
+    const conditions = [eq(schema.appointments.storeId, storeId)];
+
+    if (locationId) {
+      conditions.push(eq(schema.appointments.locationId, locationId));
+    }
+
     const result = await this.db
       .select({ count: count() })
       .from(schema.appointments)
-      .where(eq(schema.appointments.storeId, storeId))
+      .where(and(...conditions))
       .groupBy(schema.appointments.customerId);
 
     return result.length;
@@ -107,8 +126,13 @@ export class AnalyticsRepository {
   async getAppointmentsByStatus(
     storeId: string,
     dateRange?: DateRange,
+    locationId?: string,
   ): Promise<AppointmentStatusCount[]> {
     const conditions = [eq(schema.appointments.storeId, storeId)];
+
+    if (locationId) {
+      conditions.push(eq(schema.appointments.locationId, locationId));
+    }
 
     if (dateRange) {
       conditions.push(
@@ -135,8 +159,13 @@ export class AnalyticsRepository {
   async getPopularTimeSlot(
     storeId: string,
     dateRange?: DateRange,
+    locationId?: string,
   ): Promise<string> {
     const conditions = [eq(schema.appointments.storeId, storeId)];
+
+    if (locationId) {
+      conditions.push(eq(schema.appointments.locationId, locationId));
+    }
 
     if (dateRange) {
       conditions.push(

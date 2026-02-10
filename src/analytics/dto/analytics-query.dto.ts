@@ -1,4 +1,11 @@
-import { IsOptional, IsDateString, IsEnum, IsInt, Min } from 'class-validator';
+import {
+  IsOptional,
+  IsDateString,
+  IsEnum,
+  IsInt,
+  Min,
+  IsUUID,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export enum DateRangePreset {
@@ -43,9 +50,8 @@ export class AnalyticsQueryDto {
   staffId?: number;
 
   @IsOptional()
-  @IsInt()
-  @Type(() => Number)
-  locationId?: number;
+  @IsUUID()
+  locationId?: string;
 
   @IsOptional()
   @IsInt()

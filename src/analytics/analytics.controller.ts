@@ -15,6 +15,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AnalyticsQueryDto } from './dto';
+import type { JwtPayload } from '../auth/interfaces/auth.interface';
 
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -25,13 +26,18 @@ export class AnalyticsController {
   ) {}
 
   @Get('stores/:storeId/analytics/dashboard')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async getDashboard(
     @Param('storeId', ParseUUIDPipe) storeId: string,
-    @CurrentUser('sub') userId: string,
+    @CurrentUser() user: JwtPayload,
     @Query() query: AnalyticsQueryDto,
   ) {
-    return this.analyticsService.getDashboard(storeId, userId, query);
+    const resolvedQuery =
+      user.role === 'manager' && user.locationId
+        ? { ...query, locationId: user.locationId }
+        : query;
+
+    return this.analyticsService.getDashboard(storeId, user.sub, resolvedQuery);
   }
 
   @Get('stores/:storeId/analytics/appointments')

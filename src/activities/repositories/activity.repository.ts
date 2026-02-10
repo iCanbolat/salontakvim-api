@@ -20,11 +20,28 @@ export class ActivityRepository {
     return activity;
   }
 
-  async findRecentByStoreId(storeId: string, limit = 20): Promise<Activity[]> {
+  async findRecentByStoreId(
+    storeId: string,
+    limit = 20,
+    locationId?: string,
+  ): Promise<Activity[]> {
+    const conditions = [eq(schema.activities.storeId, storeId)];
+
+    if (locationId) {
+      conditions.push(
+        eq(
+          sql<string>`${schema.activities.metadata} ->> 'locationId'`,
+          locationId,
+        ),
+      );
+    }
+
+    const where = conditions.length > 1 ? and(...conditions) : conditions[0];
+
     return this.db
       .select()
       .from(schema.activities)
-      .where(eq(schema.activities.storeId, storeId))
+      .where(where)
       .orderBy(desc(schema.activities.createdAt))
       .limit(limit);
   }
@@ -34,12 +51,22 @@ export class ActivityRepository {
     page = 1,
     limit = 20,
     type?: string,
+    locationId?: string,
   ) {
     const offset = (page - 1) * limit;
     const conditions = [eq(schema.activities.storeId, storeId)];
 
     if (type) {
       conditions.push(eq(schema.activities.type, type as any));
+    }
+
+    if (locationId) {
+      conditions.push(
+        eq(
+          sql<string>`${schema.activities.metadata} ->> 'locationId'`,
+          locationId,
+        ),
+      );
     }
 
     const where = conditions.length > 1 ? and(...conditions) : conditions[0];

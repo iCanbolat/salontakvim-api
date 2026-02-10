@@ -30,18 +30,40 @@ export class ServiceStaffRepository {
       .where(eq(schema.serviceStaff.staffId, staffId));
   }
 
-  async findServicesByStaffId(staffId: string): Promise<Service[]> {
-    const rows = await this.db
-      .select({ service: schema.services })
+  async findServicesByStaffId(staffId: string): Promise<any[]> {
+    return await this.db
+      .select({
+        id: schema.services.id,
+        storeId: schema.services.storeId,
+        categoryId: schema.services.categoryId,
+        name: schema.services.name,
+        description: schema.services.description,
+        duration: schema.services.duration,
+        price: schema.services.price,
+        capacity: schema.services.capacity,
+        bufferTimeBefore: schema.services.bufferTimeBefore,
+        bufferTimeAfter: schema.services.bufferTimeAfter,
+        image: schema.services.image,
+        isVisible: schema.services.isVisible,
+        showBringingAnyoneOption: schema.services.showBringingAnyoneOption,
+        allowRecurring: schema.services.allowRecurring,
+        position: schema.services.position,
+        createdAt: schema.services.createdAt,
+        updatedAt: schema.services.updatedAt,
+        categoryColor: schema.categories.color,
+        categoryName: schema.categories.name,
+      })
       .from(schema.serviceStaff)
       .innerJoin(
         schema.services,
         eq(schema.serviceStaff.serviceId, schema.services.id),
       )
+      .leftJoin(
+        schema.categories,
+        eq(schema.services.categoryId, schema.categories.id),
+      )
       .where(eq(schema.serviceStaff.staffId, staffId))
       .orderBy(asc(schema.services.position));
-
-    return rows.map((row: { service: Service }) => row.service);
   }
 
   async findByServiceId(serviceId: string): Promise<ServiceStaff[]> {

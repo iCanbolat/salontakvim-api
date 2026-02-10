@@ -52,26 +52,58 @@ export class StaffController {
     private readonly staffScheduleService: StaffScheduleService,
   ) {}
 
+  private async assertManagerLocationAccess(
+    storeId: string,
+    staffId: string,
+    user: JwtPayload,
+    actionLabel: string,
+  ) {
+    if (user.role !== 'manager' || !user.locationId) {
+      return;
+    }
+
+    const staff = await this.staffService.getStaffMember(storeId, staffId);
+    if (staff.locationId !== user.locationId) {
+      throw new ForbiddenException(
+        `You can only ${actionLabel} for staff in your location`,
+      );
+    }
+  }
+
   // ============= Staff Invitations =============
 
   @Post('stores/:storeId/staff/invite')
-  @Roles('admin')
+  @Roles('admin', 'manager')
   async inviteStaff(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Body() dto: InviteStaffDto,
     @CurrentUser() user: JwtPayload,
   ) {
+    // For manager role, force the invitation to their location
+    const inviteDto =
+      user.role === 'manager' && user.locationId
+        ? { ...dto, locationId: user.locationId }
+        : dto;
+
     return await this.staffInvitationService.inviteStaff(
       storeId,
-      dto,
+      inviteDto,
       user.sub,
     );
   }
 
   @Get('stores/:storeId/staff/invitations')
-  @Roles('admin')
-  async getInvitations(@Param('storeId', ParseUUIDPipe) storeId: string) {
-    return await this.staffInvitationService.getInvitations(storeId);
+  @Roles('admin', 'manager')
+  async getInvitations(
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    // For manager role, filter invitations by their location
+    const locationId = user.role === 'manager' ? user.locationId : undefined;
+    return await this.staffInvitationService.getInvitations(
+      storeId,
+      locationId,
+    );
   }
 
   @Get('staff/invitations/:token')
@@ -102,9 +134,10 @@ export class StaffController {
   // ============= Staff Management =============
 
   @Get('stores/:storeId/staff')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async getStaffMembers(
     @Param('storeId', ParseUUIDPipe) storeId: string,
+    @CurrentUser() user: JwtPayload,
     @Query('includeHidden') includeHidden?: string,
     @Query('serviceId') serviceId?: string,
     @Query('locationId') locationId?: string,
@@ -112,34 +145,74 @@ export class StaffController {
   ) {
     const includeHiddenBool = includeHidden === 'true';
 
+    // For manager role, force filter by their assigned location
+    const effectiveLocationId =
+      user.role === 'manager' ? user.locationId : locationId;
+
     return await this.staffService.getStaffMembers(storeId, includeHiddenBool, {
       serviceId: serviceId,
-      locationId: locationId,
+      locationId: effectiveLocationId,
       search,
     });
   }
 
   @Get('stores/:storeId/staff/:staffId')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async getStaffMember(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('staffId', ParseUUIDPipe) staffId: string,
+    @CurrentUser() user: JwtPayload,
   ) {
-    return await this.staffService.getStaffMember(storeId, staffId);
+    const locationId = user.role === 'manager' ? user.locationId : undefined;
+    const details = await this.staffService.getStaffDetails(
+      storeId,
+      staffId,
+      locationId,
+    );
+
+    // For manager role, verify staff belongs to their location
+    if (user.role === 'manager' && user.locationId) {
+      if (details.staff.locationId !== user.locationId) {
+        throw new ForbiddenException(
+          'You can only view staff members from your location',
+        );
+      }
+    }
+
+    return details;
   }
 
   @Patch('stores/:storeId/staff/:staffId')
-  @Roles('admin')
+  @Roles('admin', 'manager')
   async updateStaffProfile(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('staffId', ParseUUIDPipe) staffId: string,
+    @CurrentUser() user: JwtPayload,
     @Body() dto: UpdateStaffProfileDto,
   ) {
+    // For manager role, verify staff belongs to their location
+    if (user.role === 'manager' && user.locationId) {
+      const staff = await this.staffService.getStaffMember(storeId, staffId);
+      if (staff.locationId !== user.locationId) {
+        throw new ForbiddenException(
+          'You can only update staff members from your location',
+        );
+      }
+      // Manager cannot change role to admin or change locationId
+      if (dto.role === 'admin') {
+        throw new ForbiddenException('Managers cannot grant admin access');
+      }
+      if (dto.locationId && dto.locationId !== user.locationId) {
+        throw new ForbiddenException(
+          'Managers cannot move staff to another location',
+        );
+      }
+    }
     return await this.staffService.updateStaffProfile(storeId, staffId, dto);
   }
 
   @Post('stores/:storeId/staff/:staffId/avatar')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   @HttpCode(HttpStatus.CREATED)
   @UseInterceptors(FileInterceptor('file'), AvatarFileInterceptor)
   async uploadStaffAvatar(
@@ -204,17 +277,26 @@ export class StaffController {
   // ============= Service Assignments =============
 
   @Post('stores/:storeId/staff/:staffId/services')
-  @Roles('admin')
+  @Roles('admin', 'manager')
   async assignServices(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('staffId', ParseUUIDPipe) staffId: string,
     @Body() dto: AssignServicesDto,
+    @CurrentUser() user: JwtPayload,
   ) {
+    if (user.role === 'manager' && user.locationId) {
+      const staff = await this.staffService.getStaffMember(storeId, staffId);
+      if (staff.locationId !== user.locationId) {
+        throw new ForbiddenException(
+          'You can only manage services for staff in your location',
+        );
+      }
+    }
     return await this.staffService.assignServices(storeId, staffId, dto);
   }
 
   @Get('stores/:storeId/staff/:staffId/services')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async getStaffServices(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('staffId', ParseUUIDPipe) staffId: string,
@@ -223,12 +305,21 @@ export class StaffController {
   }
 
   @Delete('stores/:storeId/staff/:staffId/services/:serviceId')
-  @Roles('admin')
+  @Roles('admin', 'manager')
   async removeServiceFromStaff(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('staffId', ParseUUIDPipe) staffId: string,
     @Param('serviceId', ParseUUIDPipe) serviceId: string,
+    @CurrentUser() user: JwtPayload,
   ) {
+    if (user.role === 'manager' && user.locationId) {
+      const staff = await this.staffService.getStaffMember(storeId, staffId);
+      if (staff.locationId !== user.locationId) {
+        throw new ForbiddenException(
+          'You can only manage services for staff in your location',
+        );
+      }
+    }
     await this.staffService.removeServiceFromStaff(storeId, staffId, serviceId);
     return { message: 'Service removed from staff successfully' };
   }
@@ -236,12 +327,19 @@ export class StaffController {
   // ============= Working Hours =============
 
   @Post('stores/:storeId/staff/:staffId/working-hours')
-  @Roles('admin')
+  @Roles('admin', 'manager')
   async createWorkingHours(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('staffId', ParseUUIDPipe) staffId: string,
     @Body() dto: CreateWorkingHoursDto,
+    @CurrentUser() user: JwtPayload,
   ) {
+    await this.assertManagerLocationAccess(
+      storeId,
+      staffId,
+      user,
+      'create working hours',
+    );
     return await this.staffScheduleService.createWorkingHours(
       storeId,
       staffId,
@@ -250,22 +348,36 @@ export class StaffController {
   }
 
   @Get('stores/:storeId/staff/:staffId/working-hours')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async getWorkingHours(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('staffId', ParseUUIDPipe) staffId: string,
+    @CurrentUser() user: JwtPayload,
   ) {
+    await this.assertManagerLocationAccess(
+      storeId,
+      staffId,
+      user,
+      'view working hours',
+    );
     return await this.staffScheduleService.getWorkingHours(storeId, staffId);
   }
 
   @Patch('stores/:storeId/staff/:staffId/working-hours/:workingHoursId')
-  @Roles('admin')
+  @Roles('admin', 'manager')
   async updateWorkingHours(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('staffId', ParseUUIDPipe) staffId: string,
     @Param('workingHoursId', ParseUUIDPipe) workingHoursId: string,
     @Body() dto: UpdateWorkingHoursDto,
+    @CurrentUser() user: JwtPayload,
   ) {
+    await this.assertManagerLocationAccess(
+      storeId,
+      staffId,
+      user,
+      'update working hours',
+    );
     return await this.staffScheduleService.updateWorkingHours(
       storeId,
       staffId,
@@ -275,12 +387,19 @@ export class StaffController {
   }
 
   @Delete('stores/:storeId/staff/:staffId/working-hours/:workingHoursId')
-  @Roles('admin')
+  @Roles('admin', 'manager')
   async deleteWorkingHours(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('staffId', ParseUUIDPipe) staffId: string,
     @Param('workingHoursId', ParseUUIDPipe) workingHoursId: string,
+    @CurrentUser() user: JwtPayload,
   ) {
+    await this.assertManagerLocationAccess(
+      storeId,
+      staffId,
+      user,
+      'delete working hours',
+    );
     await this.staffScheduleService.deleteWorkingHours(
       storeId,
       staffId,
@@ -292,23 +411,44 @@ export class StaffController {
   // ============= Breaks & Time Off =============
 
   @Get('stores/:storeId/breaks')
-  @Roles('admin')
+  @Roles('admin', 'manager')
   async getStoreBreaks(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Query('status', new ParseEnumPipe(StaffBreakStatus, { optional: true }))
     status?: StaffBreakStatus,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @CurrentUser() user?: JwtPayload,
   ) {
-    return await this.staffScheduleService.getStoreBreaks(storeId, status);
+    const locationId = user?.role === 'manager' ? user.locationId : undefined;
+    const pageNumber = page ? Number(page) : undefined;
+    const limitNumber = limit ? Number(limit) : undefined;
+
+    return await this.staffScheduleService.getStoreBreaks(
+      storeId,
+      status,
+      locationId,
+      {
+        page: Number.isFinite(pageNumber) ? pageNumber : undefined,
+        limit: Number.isFinite(limitNumber) ? limitNumber : undefined,
+      },
+    );
   }
 
   @Post('stores/:storeId/staff/:staffId/breaks')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async createStaffBreak(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('staffId', ParseUUIDPipe) staffId: string,
     @Body() dto: CreateStaffBreakDto,
     @CurrentUser() user: JwtPayload,
   ) {
+    await this.assertManagerLocationAccess(
+      storeId,
+      staffId,
+      user,
+      'create breaks',
+    );
     if (user.role === 'staff') {
       const staff = await this.staffScheduleService.getStaffByUserId(user.sub);
       if (!staff || staff.id !== staffId) {
@@ -324,22 +464,36 @@ export class StaffController {
   }
 
   @Get('stores/:storeId/staff/:staffId/breaks')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async getStaffBreaks(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('staffId', ParseUUIDPipe) staffId: string,
+    @CurrentUser() user: JwtPayload,
   ) {
+    await this.assertManagerLocationAccess(
+      storeId,
+      staffId,
+      user,
+      'view breaks',
+    );
     return await this.staffScheduleService.getStaffBreaks(storeId, staffId);
   }
 
   @Patch('stores/:storeId/staff/:staffId/breaks/:breakId')
-  @Roles('admin')
+  @Roles('admin', 'manager')
   async updateStaffBreak(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('staffId', ParseUUIDPipe) staffId: string,
     @Param('breakId', ParseUUIDPipe) breakId: string,
     @Body() dto: UpdateStaffBreakDto,
+    @CurrentUser() user: JwtPayload,
   ) {
+    await this.assertManagerLocationAccess(
+      storeId,
+      staffId,
+      user,
+      'update breaks',
+    );
     return await this.staffScheduleService.updateStaffBreak(
       storeId,
       staffId,
@@ -349,13 +503,19 @@ export class StaffController {
   }
 
   @Delete('stores/:storeId/staff/:staffId/breaks/:breakId')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async deleteStaffBreak(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('staffId', ParseUUIDPipe) staffId: string,
     @Param('breakId', ParseUUIDPipe) breakId: string,
     @CurrentUser() user: JwtPayload,
   ) {
+    await this.assertManagerLocationAccess(
+      storeId,
+      staffId,
+      user,
+      'delete breaks',
+    );
     if (user.role === 'staff') {
       const staff = await this.staffScheduleService.getStaffByUserId(user.sub);
       if (!staff || staff.id !== staffId) {

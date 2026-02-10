@@ -5,6 +5,7 @@ import {
   ConflictException,
   Inject,
   Logger,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -17,12 +18,15 @@ import { AvailabilityService } from './availability.service';
 import { ServiceRepository } from '../../services/repositories/service.repository';
 import { ServiceExtraRepository } from '../../services/repositories/service-extra.repository';
 import { StaffMemberRepository } from '../../staff/repositories/staff-member.repository';
+import { ServiceStaffRepository } from '../../staff/repositories/service-staff.repository';
 import { LocationRepository } from '../../locations/repositories/location.repository';
 import { UserRepository } from '../../auth/repositories/user.repository';
 import { StoreRepository } from '../../stores/repositories/store.repository';
 import { NotificationService } from '../../notifications/services/notification.service';
 import { ActivitiesService } from '../../activities/services/activities.service';
 import { CouponService } from '../../coupons/services/coupon.service';
+import { FeedbackService } from '../../feedback/services/feedback.service';
+import { CustomerFileService } from '../../stores/services/customer-file.service';
 import { FEEDBACK_QUEUE } from '../../queue/queue.module';
 import type { FeedbackJobData } from '../../queue/processors/feedback.processor';
 import {
@@ -65,12 +69,16 @@ export class AppointmentsService {
     private readonly serviceRepository: ServiceRepository,
     private readonly serviceExtraRepository: ServiceExtraRepository,
     private readonly staffMemberRepository: StaffMemberRepository,
+    private readonly serviceStaffRepository: ServiceStaffRepository,
     private readonly locationRepository: LocationRepository,
     private readonly userRepository: UserRepository,
     private readonly storeRepository: StoreRepository,
     private readonly notificationService: NotificationService,
     private readonly activitiesService: ActivitiesService,
     private readonly couponService: CouponService,
+    @Inject(forwardRef(() => FeedbackService))
+    private readonly feedbackService: FeedbackService,
+    private readonly customerFileService: CustomerFileService,
     @InjectQueue(FEEDBACK_QUEUE)
     private readonly feedbackQueue: Queue<FeedbackJobData>,
   ) {}
@@ -101,21 +109,6 @@ export class AppointmentsService {
       );
       if (!staff) {
         throw new NotFoundException('Staff member not found');
-      }
-    } else {
-      // If no staff specified, assign to first available staff for this service
-      // TODO: Implement smart staff assignment based on availability
-      // For now, we'll get the first staff member that can perform this service
-      const serviceStaff = await this.serviceRepository.findById(dto.serviceId);
-      if (serviceStaff) {
-        // Get first visible staff member from store
-        const availableStaff =
-          await this.staffMemberRepository.findVisibleByStoreId(storeId);
-        if (availableStaff.length > 0) {
-          assignedStaffId = availableStaff[0].id;
-        } else {
-          throw new BadRequestException('No available staff members found');
-        }
       }
     }
 
@@ -182,6 +175,68 @@ export class AppointmentsService {
       startDateTime.getTime() + totalDurationMinutes * 60 * 1000,
     );
 
+    if (!assignedStaffId) {
+      // If no staff specified, assign to first available staff for this service
+      const serviceStaff = await this.serviceRepository.findById(dto.serviceId);
+      if (serviceStaff) {
+        const availableStaff =
+          await this.staffMemberRepository.findVisibleByStoreId(storeId);
+        const assignments = await this.serviceStaffRepository.findByServiceId(
+          dto.serviceId,
+        );
+        const staffIdsForService = new Set(
+          assignments.map((item) => item.staffId),
+        );
+
+        let eligibleStaff = availableStaff.filter((member) =>
+          staffIdsForService.has(member.id),
+        );
+
+        if (dto.locationId) {
+          eligibleStaff = eligibleStaff.filter(
+            (member) => member.locationId === dto.locationId,
+          );
+        }
+
+        if (!eligibleStaff.length) {
+          throw new BadRequestException(
+            'No available staff members found for the selected service',
+          );
+        }
+
+        const [datePart, timePart] = dto.startDateTime.split('T');
+        const requestedTime = timePart?.slice(0, 5);
+
+        for (const member of eligibleStaff) {
+          const slots = await this.availabilityService.getAvailableSlots(
+            member.id,
+            dto.serviceId,
+            datePart,
+            totalDurationMinutes,
+            service.bufferTimeBefore || 0,
+            service.bufferTimeAfter || 0,
+          );
+
+          const isAvailable = requestedTime
+            ? slots.some(
+                (slot) => slot.startTime === requestedTime && slot.available,
+              )
+            : slots.some((slot) => slot.available);
+
+          if (isAvailable) {
+            assignedStaffId = member.id;
+            break;
+          }
+        }
+
+        if (!assignedStaffId) {
+          throw new BadRequestException(
+            'No available staff members found for the selected time',
+          );
+        }
+      }
+    }
+
     // Check for conflicts with assigned staff
     if (assignedStaffId) {
       await this.checkAppointmentConflicts(
@@ -220,28 +275,28 @@ export class AppointmentsService {
     // Increment store appointment count
     await this.appointmentRepository.incrementStoreAppointmentCount(storeId);
 
+    const customerUser = await this.userRepository.findById(customerId);
+    const customerName = customerUser
+      ? [customerUser.firstName, customerUser.lastName]
+          .filter(Boolean)
+          .join(' ')
+          .trim() ||
+        customerUser.email ||
+        customerUser.phone ||
+        'Müşteri'
+      : 'Müşteri';
+    const appointmentDateTimeLabel = startDateTime.toLocaleString('tr-TR');
+
     await this.notifyStaffAndAdmin(
       storeId,
       assignedStaffId,
       'Yeni Randevu',
-      `${service.name} için yeni bir randevu oluşturuldu.`,
+      `${customerName} için ${service.name} randevusu ${appointmentDateTimeLabel} tarihinde oluşturuldu.`,
       'appointment_created',
       {
         appointmentId: appointment.id,
         publicNumber: appointment.publicNumber,
-      },
-    );
-
-    await this.activitiesService.recordActivity(
-      storeId,
-      'appointment',
-      `${service.name} için yeni randevu oluşturuldu`,
-      {
-        appointmentId: appointment.id,
-        customerId,
-        staffId: assignedStaffId || null,
-        startDateTime,
-        status: 'pending',
+        locationId: appointment.locationId || null,
       },
     );
 
@@ -327,6 +382,7 @@ export class AppointmentsService {
   async getAppointmentById(
     id: string,
     storeId: string,
+    userId?: string,
   ): Promise<AppointmentResponseDto> {
     const appointment = await this.appointmentRepository.findByIdAndStoreId(
       id,
@@ -338,7 +394,48 @@ export class AppointmentsService {
     }
 
     const cacheBundle = this.createAppointmentCacheBundle();
-    return this.buildAppointmentResponse(appointment, cacheBundle);
+    const result = await this.buildAppointmentResponse(
+      appointment,
+      cacheBundle,
+    );
+
+    // Aggregate related data if userId is provided
+    if (userId) {
+      // 1. Feedback (only for completed appointments)
+      if (result.status === 'completed') {
+        try {
+          // Use feedbackService to fetch feedback details
+          const feedback = await this.feedbackService.findByAppointmentId(
+            storeId,
+            id,
+            userId,
+          );
+          if (feedback) {
+            result.feedback = feedback;
+          }
+        } catch (error) {
+          // Ignore feedback fetch errors (it's optional data)
+        }
+      }
+
+      // 2. Customer Files (recent 5)
+      // Only if appointment has a customer
+      if (result.customerId) {
+        try {
+          const files = await this.customerFileService.getFiles(
+            storeId,
+            result.customerId,
+            userId,
+            { appointmentId: id, limit: 10 },
+          );
+          result.files = files.data;
+        } catch (error) {
+          // Ignore file fetch errors
+        }
+      }
+    }
+
+    return result;
   }
 
   async updateAppointment(
@@ -419,6 +516,7 @@ export class AppointmentsService {
             appointmentId: id,
             oldStatus: appointment.status,
             newStatus: updated.status,
+            locationId: updated.locationId || appointment.locationId || null,
           },
         );
       }
@@ -445,6 +543,7 @@ export class AppointmentsService {
           {
             appointmentId: id,
             changedFields,
+            locationId: updated.locationId || appointment.locationId || null,
           },
         );
       }
@@ -490,6 +589,7 @@ export class AppointmentsService {
             appointmentId: id,
             oldStatus: previousStatus,
             newStatus: updated.status,
+            locationId: updated.locationId || appointment.locationId || null,
           },
         );
       }
@@ -797,6 +897,33 @@ export class AppointmentsService {
         message,
         type,
         enrichedMetadata,
+      );
+    }
+
+    const locationId = metadata?.locationId;
+    if (type === 'appointment_created' && locationId) {
+      const managerUserIds =
+        await this.staffMemberRepository.findManagerUserIdsByStoreAndLocation(
+          storeId,
+          locationId,
+        );
+
+      const managerTargets = managerUserIds.filter(
+        (managerId) =>
+          managerId !== staffUserId && managerId !== store?.ownerId,
+      );
+
+      await Promise.all(
+        managerTargets.map((managerId) =>
+          this.notificationService.createInAppNotification(
+            managerId,
+            storeId,
+            title,
+            message,
+            type,
+            enrichedMetadata,
+          ),
+        ),
       );
     }
   }

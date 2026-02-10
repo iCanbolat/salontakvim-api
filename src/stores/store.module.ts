@@ -10,10 +10,14 @@ import { StoreRepository } from './repositories/store.repository';
 import { CustomerFileRepository } from './repositories/customer-file.repository';
 import { StaffMemberRepository } from '../staff/repositories/staff-member.repository';
 import { ActivitiesModule } from '../activities/activities.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { UserRepository } from '../auth/repositories/user.repository';
 
 @Module({
-  imports: [forwardRef(() => ActivitiesModule)],
+  imports: [
+    forwardRef(() => ActivitiesModule),
+    forwardRef(() => NotificationsModule),
+  ],
   controllers: [
     StoreController,
     CustomerFileController,

@@ -35,7 +35,7 @@ export class CustomerFileController {
   constructor(private readonly customerFileService: CustomerFileService) {}
 
   @Post()
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   @HttpCode(HttpStatus.CREATED)
   @UseInterceptors(FileInterceptor('file'), DocumentFileInterceptor)
   async uploadFile(
@@ -49,32 +49,39 @@ export class CustomerFileController {
       storeId,
       customerId,
       user.sub,
+      user.role,
       file,
-      { description: body.description, tags: body.tags },
+      {
+        description: body.description,
+        tags: body.tags,
+        appointmentId: body.appointmentId,
+      },
     );
   }
 
   @Get()
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async getFiles(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('customerId', ParseUUIDPipe) customerId: string,
     @CurrentUser() user: JwtPayload,
     @Query('fileType') fileType?: string,
     @Query('search') search?: string,
+    @Query('appointmentId') appointmentId?: string,
     @Query('limit') limit?: string,
-    @Query('offset') offset?: string,
+    @Query('page') page?: string,
   ): Promise<CustomerFileListResponseDto> {
     return this.customerFileService.getFiles(storeId, customerId, user.sub, {
       fileType,
       search,
+      appointmentId,
       limit: limit ? parseInt(limit, 10) : undefined,
-      offset: offset ? parseInt(offset, 10) : undefined,
+      page: page ? parseInt(page, 10) : undefined,
     });
   }
 
   @Get(':fileId')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async getFile(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('customerId', ParseUUIDPipe) customerId: string,
@@ -90,7 +97,7 @@ export class CustomerFileController {
   }
 
   @Get(':fileId/download')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async downloadFile(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('customerId', ParseUUIDPipe) customerId: string,
@@ -115,7 +122,7 @@ export class CustomerFileController {
   }
 
   @Patch(':fileId')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async updateFile(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('customerId', ParseUUIDPipe) customerId: string,
@@ -133,7 +140,7 @@ export class CustomerFileController {
   }
 
   @Delete(':fileId')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteFile(
     @Param('storeId', ParseUUIDPipe) storeId: string,
@@ -150,7 +157,7 @@ export class CustomerFileController {
   }
 
   @Delete()
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   @HttpCode(HttpStatus.OK)
   async deleteMultipleFiles(
     @Param('storeId', ParseUUIDPipe) storeId: string,

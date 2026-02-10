@@ -35,7 +35,7 @@ export class AppointmentsController {
   // ============= Customer Endpoints =============
 
   @Post('stores/:storeId/appointments')
-  @Roles('customer', 'admin', 'staff')
+  @Roles('customer', 'admin', 'manager', 'staff')
   async createAppointment(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Body() dto: CreateAppointmentDto,
@@ -50,8 +50,13 @@ export class AppointmentsController {
       );
     }
 
-    // Admin/staff may create appointments for guests by providing guest details.
-    if ((user.role === 'admin' || user.role === 'staff') && hasGuestPayload) {
+    // Admin/staff/manager may create appointments for guests by providing guest details.
+    if (
+      (user.role === 'admin' ||
+        user.role === 'manager' ||
+        user.role === 'staff') &&
+      hasGuestPayload
+    ) {
       if (!dto.guestFirstName || !dto.guestEmail) {
         throw new BadRequestException(
           'guestFirstName and guestEmail are required when creating a guest appointment',
@@ -78,7 +83,7 @@ export class AppointmentsController {
   }
 
   @Get('appointments/:id')
-  @Roles('customer', 'admin', 'staff')
+  @Roles('customer', 'admin', 'manager', 'staff')
   async getMyAppointment(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
@@ -127,25 +132,39 @@ export class AppointmentsController {
   // ============= Admin/Staff Endpoints =============
 
   @Get('stores/:storeId/appointments')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async getStoreAppointments(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Query() query: GetStoreAppointmentsDto,
+    @CurrentUser() user: JwtPayload,
   ) {
-    return await this.appointmentsService.getStoreAppointments(storeId, query);
+    const resolvedQuery =
+      user.role === 'manager' && user.locationId
+        ? { ...query, locationId: user.locationId }
+        : query;
+
+    return await this.appointmentsService.getStoreAppointments(
+      storeId,
+      resolvedQuery,
+    );
   }
 
   @Get('stores/:storeId/appointments/:id')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async getStoreAppointment(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
   ) {
-    return await this.appointmentsService.getAppointmentById(id, storeId);
+    return await this.appointmentsService.getAppointmentById(
+      id,
+      storeId,
+      user.sub,
+    );
   }
 
   @Patch('stores/:storeId/appointments/:id')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async updateStoreAppointment(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('id', ParseUUIDPipe) id: string,
@@ -155,7 +174,7 @@ export class AppointmentsController {
   }
 
   @Patch('stores/:storeId/appointments/:id/status')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async updateAppointmentStatus(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('id', ParseUUIDPipe) id: string,

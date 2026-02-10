@@ -4,6 +4,7 @@ import { StaffMemberRepository } from '../../staff/repositories/staff-member.rep
 import { CreateStoreDto, UpdateStoreDto, StoreResponseDto } from '../dto';
 import { plainToInstance } from 'class-transformer';
 import { Store } from '../interfaces/repository.interface';
+import type { JwtPayload } from '../../auth/interfaces/auth.interface';
 import {
   StoreNotFoundException,
   StoreSlugAlreadyExistsException,
@@ -243,18 +244,95 @@ export class StoreService {
   }
 
   // Customers endpoint - get unique customers from appointments
-  async getCustomers(storeId: string, userId: string, search?: string) {
-    await this.verifyStoreOwnership(storeId, userId);
-    return this.storeRepository.getCustomers(storeId, search);
+  async getCustomers(
+    storeId: string,
+    user: JwtPayload,
+    options?: { search?: string; page?: number; limit?: number },
+  ) {
+    await this.verifyStoreOwnership(storeId, user.sub);
+
+    const repositoryOptions = {
+      page: options?.page,
+      limit: options?.limit,
+    };
+
+    if (user.role === 'admin') {
+      return this.storeRepository.getCustomers(
+        storeId,
+        options?.search,
+        repositoryOptions,
+      );
+    }
+
+    if (user.role === 'manager') {
+      if (!user.locationId) {
+        return { data: [], total: 0, page: 1, limit: 10, totalPages: 0 };
+      }
+
+      return this.storeRepository.getCustomers(storeId, options?.search, {
+        locationId: user.locationId,
+        ...repositoryOptions,
+      });
+    }
+
+    if (user.role === 'staff') {
+      const staffMember =
+        await this.staffMemberRepository.findByUserIdAndStoreId(
+          user.sub,
+          storeId,
+        );
+
+      if (!staffMember) {
+        return { data: [], total: 0, page: 1, limit: 10, totalPages: 0 };
+      }
+
+      return this.storeRepository.getCustomers(storeId, options?.search, {
+        staffId: staffMember.id,
+        ...repositoryOptions,
+      });
+    }
+
+    return { data: [], total: 0, page: 1, limit: 10, totalPages: 0 };
   }
 
   // Get customer profile with stats
   async getCustomerProfile(
     storeId: string,
     customerId: string,
-    userId: string,
+    user: JwtPayload,
   ) {
-    await this.verifyStoreOwnership(storeId, userId);
-    return this.storeRepository.getCustomerProfile(storeId, customerId);
+    await this.verifyStoreOwnership(storeId, user.sub);
+
+    if (user.role === 'admin') {
+      return this.storeRepository.getCustomerProfile(storeId, customerId);
+    }
+
+    if (user.role === 'manager') {
+      if (!user.locationId) {
+        return null;
+      }
+
+      return this.storeRepository.getCustomerProfile(storeId, customerId, {
+        locationId: user.locationId,
+      });
+    }
+
+    if (user.role === 'staff') {
+      const staffMember =
+        await this.staffMemberRepository.findByUserIdAndStoreId(
+          user.sub,
+          storeId,
+        );
+
+      if (!staffMember) {
+        return null;
+      }
+
+      return this.storeRepository.getCustomerProfile(storeId, customerId, {
+        staffId: staffMember.id,
+      });
+    }
+
+    return null;
   }
 }

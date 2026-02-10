@@ -9,6 +9,7 @@ import { FeedbackRepository } from '../repositories/feedback.repository';
 import { StoreRepository } from '../../stores/repositories/store.repository';
 import { AppointmentRepository } from '../../appointments/repositories/appointment.repository';
 import { StaffMemberRepository } from '../../staff/repositories/staff-member.repository';
+import { ServiceRepository } from '../../services/repositories/service.repository';
 import { ActivitiesService } from '../../activities/services/activities.service';
 import { UserRepository } from '../../auth/repositories/user.repository';
 import type {
@@ -34,6 +35,7 @@ export class FeedbackService {
     private readonly storeRepository: StoreRepository,
     private readonly appointmentRepository: AppointmentRepository,
     private readonly staffMemberRepository: StaffMemberRepository,
+    private readonly serviceRepository: ServiceRepository,
     private readonly activitiesService: ActivitiesService,
     private readonly userRepository: UserRepository,
   ) {}
@@ -67,6 +69,98 @@ export class FeedbackService {
     }
 
     return { store, isOwner, staff };
+  }
+
+  async getDashboard(
+    storeId: string,
+    userId: string,
+    userRole: string,
+    query: {
+      limit?: number;
+      page?: number;
+      staffId?: string;
+      serviceId?: string;
+      search?: string;
+    },
+  ) {
+    const { isOwner, staff } = await this.validateStoreAccess(storeId, userId);
+
+    let locationId: string | undefined;
+    let restrictedStaffId: string | undefined;
+
+    // Apply role-based scoping
+    if (!isOwner) {
+      if (userRole === 'manager' && staff?.locationId) {
+        locationId = staff.locationId;
+      } else if (userRole === 'staff' && staff?.id) {
+        restrictedStaffId = staff.id;
+      }
+    }
+
+    // Determine effective filters
+    const finalStaffId = restrictedStaffId ?? query.staffId;
+
+    // 1. Get Feedback List (Paginated)
+    const feedbackPromise = this.feedbackRepository.findAllPaginated(storeId, {
+      ...query,
+      limit: query.limit || 10,
+      page: query.page || 1,
+      staffId: finalStaffId,
+      locationId,
+    });
+
+    // 2. Get Stats
+    const statsPromise = this.feedbackRepository.getStats(storeId, {
+      staffId: finalStaffId, // Use effective staff filter
+      serviceId: query.serviceId,
+      locationId, // Apply location filter
+    });
+
+    // 3. Get Staff List (for filters)
+    // Admin sees all.
+    // Manager: Ideally sees only staff in their location.
+    // Staff: Sees everyone? Or self? Usually everyone in dropdowns is fine, or filtered.
+    // Let's filter if manager has location.
+    const staffListPromise = this.staffMemberRepository.findByStoreId(storeId);
+
+    // 4. Get Services List (for filters)
+    const servicesPromise = this.serviceRepository.findByStoreId(storeId);
+
+    const [feedback, stats, allStaff, services] = await Promise.all([
+      feedbackPromise,
+      statsPromise,
+      staffListPromise,
+      servicesPromise,
+    ]);
+
+    // Post-process staff list if needed (e.g. filter by location for Manager)
+    // Note: Staff might want to filter by other staff members to see their ratings (if allowed?)
+    // Requirement says: "Staff sees related to self". So restrictedStaffId is set.
+    // Manager: Location scoped.
+    let filteredStaff = allStaff;
+    if (locationId) {
+      filteredStaff = allStaff.filter((s) => s.locationId === locationId);
+    }
+    // If restricted to self (Staff role), maybe we only return themselves in the list?
+    // Or we kept full list but filtering won't show unrelated feedback.
+    // "staff kendisiyle alakalı ... görecek".
+    // If I show other staff in filter dropdown, and they select it, `finalStaffId` becomes that staff.
+    // `restrictedStaffId` is NOT set if query.staffId changes?
+    // Wait, `finalStaffId = restrictedStaffId ?? query.staffId`.
+    // If `restrictedStaffId` is set, it OVERRIDES `query.staffId`.
+    // So if Staff selects "Alice", code uses `restrictedStaffId` (Self/Bob).
+    // So they can't see Alice's feedback. Correct.
+    // So showing Alice in dropdown is misleading.
+    if (restrictedStaffId) {
+      filteredStaff = allStaff.filter((s) => s.id === restrictedStaffId);
+    }
+
+    return {
+      feedback,
+      stats,
+      staff: filteredStaff,
+      services,
+    };
   }
 
   async create(
@@ -312,7 +406,10 @@ export class FeedbackService {
       finalStaffId = staff.id;
     }
 
-    return this.feedbackRepository.getStats(storeId, finalStaffId, serviceId);
+    return this.feedbackRepository.getStats(storeId, {
+      staffId: finalStaffId,
+      serviceId,
+    });
   }
 
   async getPublicStats(storeId: string): Promise<FeedbackStatsDto> {

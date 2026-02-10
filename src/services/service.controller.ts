@@ -30,23 +30,32 @@ export class ServiceController {
 
   // Services endpoints
   @Post()
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   @HttpCode(HttpStatus.CREATED)
   async create(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @CurrentUser() user: JwtPayload,
     @Body() createServiceDto: CreateServiceDto,
   ): Promise<ServiceResponseDto> {
-    return this.serviceService.create(storeId, user.sub, createServiceDto);
+    // For manager role, auto-assign service to their location
+    const locationId = user.role === 'manager' ? user.locationId : undefined;
+    return this.serviceService.create(
+      storeId,
+      user.sub,
+      createServiceDto,
+      locationId,
+    );
   }
 
   @Get()
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async findAll(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @CurrentUser() user: JwtPayload,
   ): Promise<ServiceResponseDto[]> {
-    return this.serviceService.findAll(storeId, user.sub);
+    // For manager role, filter by their assigned location
+    const locationId = user.role === 'manager' ? user.locationId : undefined;
+    return this.serviceService.findAll(storeId, user.sub, locationId);
   }
 
   @Get('visible')
@@ -58,7 +67,7 @@ export class ServiceController {
   }
 
   @Get(':id')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async findOne(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('id', ParseUUIDPipe) id: string,
@@ -68,7 +77,7 @@ export class ServiceController {
   }
 
   @Patch(':id')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async update(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('id', ParseUUIDPipe) id: string,
@@ -79,7 +88,7 @@ export class ServiceController {
   }
 
   @Delete(':id')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(
     @Param('storeId', ParseUUIDPipe) storeId: string,
@@ -91,7 +100,7 @@ export class ServiceController {
 
   // Service Extras endpoints
   @Post(':id/extras')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   @HttpCode(HttpStatus.CREATED)
   async createExtra(
     @Param('storeId', ParseUUIDPipe) storeId: string,
@@ -108,7 +117,7 @@ export class ServiceController {
   }
 
   @Get(':id/extras')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async findAllExtras(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('id', ParseUUIDPipe) serviceId: string,
@@ -118,7 +127,7 @@ export class ServiceController {
   }
 
   @Patch(':id/extras/:extraId')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   async updateExtra(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('id', ParseUUIDPipe) serviceId: string,
@@ -136,7 +145,7 @@ export class ServiceController {
   }
 
   @Delete(':id/extras/:extraId')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager', 'staff')
   @HttpCode(HttpStatus.NO_CONTENT)
   async removeExtra(
     @Param('storeId', ParseUUIDPipe) storeId: string,

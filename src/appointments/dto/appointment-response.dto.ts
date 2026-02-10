@@ -127,6 +127,12 @@ export class AppointmentResponseDto {
   @Expose()
   updatedAt: Date;
 
+  @Expose()
+  feedback?: any;
+
+  @Expose()
+  files?: any[];
+
   @Exclude()
   guestFirstName?: string;
 

@@ -27,8 +27,12 @@ export class ActivitiesService {
     return activity;
   }
 
-  async getRecentActivities(storeId: string, limit = 20) {
-    return this.activityRepository.findRecentByStoreId(storeId, limit);
+  async getRecentActivities(storeId: string, limit = 20, locationId?: string) {
+    return this.activityRepository.findRecentByStoreId(
+      storeId,
+      limit,
+      locationId,
+    );
   }
 
   async getActivitiesPaginated(
@@ -36,12 +40,14 @@ export class ActivitiesService {
     page = 1,
     limit = 20,
     type?: string,
+    locationId?: string,
   ) {
     return this.activityRepository.findByStoreIdPaginated(
       storeId,
       page,
       limit,
       type,
+      locationId,
     );
   }
 }

@@ -9,6 +9,7 @@ import {
 
 export enum StaffRole {
   ADMIN = 'admin',
+  MANAGER = 'manager',
   STAFF = 'staff',
 }
 

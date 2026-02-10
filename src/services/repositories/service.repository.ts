@@ -53,6 +53,7 @@ export class ServiceRepository implements IServiceRepository {
         createdAt: schema.services.createdAt,
         updatedAt: schema.services.updatedAt,
         categoryColor: schema.categories.color,
+        categoryName: schema.categories.name,
       })
       .from(schema.services)
       .leftJoin(
@@ -84,6 +85,7 @@ export class ServiceRepository implements IServiceRepository {
         createdAt: schema.services.createdAt,
         updatedAt: schema.services.updatedAt,
         categoryColor: schema.categories.color,
+        categoryName: schema.categories.name,
       })
       .from(schema.services)
       .leftJoin(
@@ -126,6 +128,7 @@ export class ServiceRepository implements IServiceRepository {
         createdAt: schema.services.createdAt,
         updatedAt: schema.services.updatedAt,
         categoryColor: schema.categories.color,
+        categoryName: schema.categories.name,
       })
       .from(schema.services)
       .leftJoin(
@@ -175,5 +178,59 @@ export class ServiceRepository implements IServiceRepository {
       .limit(1);
 
     return result?.position ?? -1;
+  }
+
+  async findByStoreIdAndLocationId(
+    storeId: string,
+    locationId: string,
+  ): Promise<any[]> {
+    return await this.db
+      .select({
+        id: schema.services.id,
+        storeId: schema.services.storeId,
+        categoryId: schema.services.categoryId,
+        name: schema.services.name,
+        description: schema.services.description,
+        duration: schema.services.duration,
+        price: schema.services.price,
+        capacity: schema.services.capacity,
+        bufferTimeBefore: schema.services.bufferTimeBefore,
+        bufferTimeAfter: schema.services.bufferTimeAfter,
+        image: schema.services.image,
+        isVisible: schema.services.isVisible,
+        showBringingAnyoneOption: schema.services.showBringingAnyoneOption,
+        allowRecurring: schema.services.allowRecurring,
+        position: schema.services.position,
+        createdAt: schema.services.createdAt,
+        updatedAt: schema.services.updatedAt,
+        categoryColor: schema.categories.color,
+        categoryName: schema.categories.name,
+      })
+      .from(schema.services)
+      .innerJoin(
+        schema.serviceLocations,
+        eq(schema.services.id, schema.serviceLocations.serviceId),
+      )
+      .leftJoin(
+        schema.categories,
+        eq(schema.services.categoryId, schema.categories.id),
+      )
+      .where(
+        and(
+          eq(schema.services.storeId, storeId),
+          eq(schema.serviceLocations.locationId, locationId),
+        ),
+      )
+      .orderBy(schema.services.position);
+  }
+
+  async assignServiceToLocation(
+    serviceId: string,
+    locationId: string,
+  ): Promise<void> {
+    await this.db.insert(schema.serviceLocations).values({
+      serviceId,
+      locationId,
+    });
   }
 }

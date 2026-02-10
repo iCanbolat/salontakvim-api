@@ -40,20 +40,43 @@ export class StaffMemberRepository {
     return staffMember || null;
   }
 
-  async findByStoreId(storeId: string): Promise<StaffMember[]> {
-    return await this.db
-      .select()
+  async findByStoreId(storeId: string): Promise<
+    (StaffMember & {
+      firstName?: string | null;
+      lastName?: string | null;
+    })[]
+  > {
+    const rows = await this.db
+      .select({
+        staff: schema.staffMembers,
+        user: {
+          firstName: schema.users.firstName,
+          lastName: schema.users.lastName,
+        },
+      })
       .from(schema.staffMembers)
+      .leftJoin(schema.users, eq(schema.staffMembers.userId, schema.users.id))
       .where(eq(schema.staffMembers.storeId, storeId));
+
+    return rows.map((row) => ({
+      ...row.staff,
+      firstName: row.user?.firstName ?? null,
+      lastName: row.user?.lastName ?? null,
+    }));
   }
 
-  async findByIdAndStoreId(
-    id: string,
-    storeId: string,
-  ): Promise<StaffMember | null> {
-    const [staffMember] = await this.db
-      .select()
+  async findByIdAndStoreId(id: string, storeId: string): Promise<any | null> {
+    const rows = await this.db
+      .select({
+        staffMember: schema.staffMembers,
+        user: {
+          firstName: schema.users.firstName,
+          lastName: schema.users.lastName,
+          email: schema.users.email,
+        },
+      })
       .from(schema.staffMembers)
+      .innerJoin(schema.users, eq(schema.staffMembers.userId, schema.users.id))
       .where(
         and(
           eq(schema.staffMembers.id, id),
@@ -61,7 +84,15 @@ export class StaffMemberRepository {
         ),
       )
       .limit(1);
-    return staffMember || null;
+
+    if (rows.length === 0) return null;
+
+    return {
+      ...rows[0].staffMember,
+      firstName: rows[0].user.firstName,
+      lastName: rows[0].user.lastName,
+      email: rows[0].user.email,
+    };
   }
 
   async findByUserIdAndStoreId(
@@ -91,6 +122,26 @@ export class StaffMemberRepository {
           eq(schema.staffMembers.isVisible, true),
         ),
       );
+  }
+
+  async findManagerUserIdsByStoreAndLocation(
+    storeId: string,
+    locationId: string,
+  ): Promise<string[]> {
+    const rows = await this.db
+      .select({ userId: schema.users.id })
+      .from(schema.staffMembers)
+      .innerJoin(schema.users, eq(schema.staffMembers.userId, schema.users.id))
+      .where(
+        and(
+          eq(schema.staffMembers.storeId, storeId),
+          eq(schema.staffMembers.locationId, locationId),
+          eq(schema.users.role, 'manager'),
+          eq(schema.users.isActive, true),
+        ),
+      );
+
+    return rows.map((row) => row.userId);
   }
 
   async update(id: string, data: Partial<StaffMember>): Promise<StaffMember> {
