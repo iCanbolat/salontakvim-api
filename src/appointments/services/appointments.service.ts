@@ -947,7 +947,7 @@ export class AppointmentsService {
       params.set('storeSlug', storeSlug);
     }
 
-    return `${baseUrl}/feedback?${params.toString()}`;
+    return `${baseUrl}/appointments/feedback?${params.toString()}`;
   }
 
   private buildCancelLink(
