@@ -94,7 +94,7 @@ export class NotificationsGateway
       return store ? [store.id] : [];
     }
 
-    if (role === 'staff') {
+    if (role === 'manager' || role === 'staff') {
       const staff = await this.staffMemberRepository.findByUserId(userId);
       return staff ? [staff.storeId] : [];
     }

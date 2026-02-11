@@ -508,10 +508,14 @@ export class AppointmentsService {
 
     if (dto.status && appointment.status !== updated.status) {
       if (updated.status !== 'cancelled') {
+        const activityMessage = await this.buildStatusActivityMessage(
+          updated,
+          updated.status,
+        );
         await this.activitiesService.recordActivity(
           storeId,
           'appointment',
-          `Randevu durumu ${updated.status} olarak güncellendi`,
+          activityMessage,
           {
             appointmentId: id,
             oldStatus: appointment.status,
@@ -536,10 +540,18 @@ export class AppointmentsService {
       );
 
       if (changedFields.length > 0) {
+        const customerName = await this.resolveUserName(updated.customerId);
+        const serviceName = await this.resolveServiceName(updated.serviceId);
+        const details = [customerName, serviceName]
+          .filter(Boolean)
+          .join(' \u2022 ');
+        const message = details
+          ? `Randevu güncellendi: ${details}`
+          : 'Randevu güncellendi';
         await this.activitiesService.recordActivity(
           storeId,
           'appointment',
-          'Randevu güncellendi',
+          message,
           {
             appointmentId: id,
             changedFields,
@@ -581,10 +593,14 @@ export class AppointmentsService {
 
     if (previousStatus !== updated.status) {
       if (updated.status !== 'cancelled') {
+        const activityMessage = await this.buildStatusActivityMessage(
+          updated,
+          updated.status,
+        );
         await this.activitiesService.recordActivity(
           storeId,
           'appointment',
-          `Randevu durumu ${updated.status} olarak güncellendi`,
+          activityMessage,
           {
             appointmentId: id,
             oldStatus: previousStatus,
@@ -1433,5 +1449,50 @@ export class AppointmentsService {
 
     cache?.set(userId, name ?? null);
     return name;
+  }
+
+  private getStatusLabel(status: string): { verb: string; label: string } {
+    switch (status) {
+      case 'confirmed':
+        return { verb: 'onaylandı', label: 'Onaylandı' };
+      case 'completed':
+        return { verb: 'tamamlandı', label: 'Tamamlandı' };
+      case 'no_show':
+        return { verb: 'gelmedi olarak işaretlendi', label: 'Gelmedi' };
+      case 'pending':
+        return { verb: 'beklemeye alındı', label: 'Beklemede' };
+      case 'expired':
+        return { verb: 'süresi doldu', label: 'Süresi Doldu' };
+      default:
+        return {
+          verb: `${status} olarak güncellendi`,
+          label: status,
+        };
+    }
+  }
+
+  private async buildStatusActivityMessage(
+    appointment: Appointment,
+    status: string,
+  ): Promise<string> {
+    const { verb } = this.getStatusLabel(status);
+
+    const customerName = await this.resolveUserName(appointment.customerId);
+    const serviceName = await this.resolveServiceName(appointment.serviceId);
+    const dateStr = appointment.startDateTime
+      ? appointment.startDateTime.toLocaleString('tr-TR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : '';
+
+    const details = [customerName, serviceName, dateStr]
+      .filter(Boolean)
+      .join(' \u2022 ');
+
+    return details ? `Randevu ${verb}: ${details}` : `Randevu ${verb}`;
   }
 }
