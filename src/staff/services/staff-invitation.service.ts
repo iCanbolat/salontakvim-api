@@ -68,6 +68,7 @@ export class StaffInvitationService {
       email: invitation.email,
       storeId: invitation.storeId,
       storeName: store?.name ?? null,
+      role: invitation.role,
       locationId: invitation.locationId ?? null,
       locationName,
       title: invitation.title ?? null,
@@ -77,6 +78,8 @@ export class StaffInvitationService {
   }
 
   async inviteStaff(storeId: string, dto: InviteStaffDto, invitedBy: string) {
+    const role = dto.role ?? 'staff';
+
     // Check if user with email already exists
     const existingUser = await this.userRepository.findByEmail(dto.email);
     if (existingUser) {
@@ -113,6 +116,7 @@ export class StaffInvitationService {
     const invitation = await this.staffInvitationRepository.create({
       storeId,
       email: dto.email,
+      role,
       token: invitationToken,
       expiresAt,
       invitedBy,
@@ -148,7 +152,7 @@ export class StaffInvitationService {
       staffName,
       storeName: store.name,
       storeEmail: store.email || '',
-      role: 'staff',
+      role,
       invitationLink: this.buildInvitationLink(invitationToken),
       locationName,
       title: dto.title ?? null,
@@ -228,7 +232,7 @@ export class StaffInvitationService {
         lastName: dto.lastName,
         phone: dto.phone,
         password: hashedPassword,
-        role: 'staff',
+        role: invitation.role,
       });
     } else {
       const updates: {
@@ -236,12 +240,14 @@ export class StaffInvitationService {
         lastName?: string;
         phone?: string;
         password?: string;
+        role?: 'admin' | 'manager' | 'staff' | 'customer';
       } = {};
 
       if (dto.firstName) updates.firstName = dto.firstName;
       if (dto.lastName) updates.lastName = dto.lastName;
       if (dto.phone) updates.phone = dto.phone;
       if (dto.password) updates.password = await bcrypt.hash(dto.password, 10);
+      if (user.role !== invitation.role) updates.role = invitation.role;
 
       if (Object.keys(updates).length) {
         user = await this.userRepository.update(user.id, updates);

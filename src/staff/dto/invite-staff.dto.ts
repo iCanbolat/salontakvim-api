@@ -4,6 +4,7 @@ import {
   MaxLength,
   IsOptional,
   IsUUID,
+  IsIn,
 } from 'class-validator';
 
 export class InviteStaffDto {
@@ -11,6 +12,10 @@ export class InviteStaffDto {
   @IsNotEmpty()
   @MaxLength(255)
   email: string;
+
+  @IsOptional()
+  @IsIn(['admin', 'manager', 'staff'])
+  role?: 'admin' | 'manager' | 'staff';
 
   @IsOptional()
   @MaxLength(255)

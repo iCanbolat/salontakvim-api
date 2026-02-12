@@ -293,6 +293,7 @@ export const staffInvitations = pgTable(
       .references(() => stores.id, { onDelete: 'cascade' })
       .notNull(),
     email: varchar('email', { length: 255 }).notNull(),
+    role: userRoleEnum('role').default('staff').notNull(),
     token: varchar('token', { length: 255 }).notNull().unique(),
     status: invitationStatusEnum('status').default('pending').notNull(),
     invitedBy: uuid('invited_by').references(() => users.id, {

@@ -79,11 +79,11 @@ export class StaffController {
     @Body() dto: InviteStaffDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    // For manager role, force the invitation to their location
+    // For manager role, force invitation to their location and staff role only
     const inviteDto =
       user.role === 'manager' && user.locationId
-        ? { ...dto, locationId: user.locationId }
-        : dto;
+        ? { ...dto, locationId: user.locationId, role: 'staff' as const }
+        : { ...dto, role: dto.role ?? 'staff' };
 
     return await this.staffInvitationService.inviteStaff(
       storeId,
