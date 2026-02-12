@@ -11,11 +11,14 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { DrizzleModule } from '../db/drizzle.module';
 import { StoreModule } from '../stores/store.module';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { PasswordResetRepository } from './repositories/password-reset.repository';
 
 @Module({
   imports: [
     DrizzleModule,
     forwardRef(() => StoreModule),
+    forwardRef(() => NotificationsModule),
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -36,6 +39,7 @@ import { StoreModule } from '../stores/store.module';
     AuthService,
     UserRepository,
     RefreshTokenRepository,
+    PasswordResetRepository,
     LocalStrategy,
     JwtStrategy,
     GoogleStrategy,

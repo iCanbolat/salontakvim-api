@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { NotificationRepository } from '../repositories/notification.repository';
 import { TemplateService } from './template.service';
 import { EmailService } from './email.service';
@@ -21,6 +22,7 @@ export class NotificationService {
     private readonly emailService: EmailService,
     private readonly smsService: SmsService,
     private readonly notificationsGateway: NotificationsGateway,
+    private readonly configService: ConfigService,
   ) {}
 
   /**
@@ -329,6 +331,66 @@ export class NotificationService {
       null,
       variables,
     );
+  }
+
+  /**
+   * Send password reset email (store optional)
+   */
+  async sendPasswordReset(
+    recipientEmail: string,
+    variables: TemplateVariables,
+    storeId?: string | null,
+  ) {
+    const storeName = variables.storeName || 'SalonTakvim';
+    const storeEmail =
+      variables.storeEmail ||
+      this.configService.get<string>('EMAIL_FROM', 'onboarding@resend.dev');
+    const mergedVariables = {
+      ...variables,
+      storeName,
+      storeEmail,
+    };
+
+    const rendered = storeId
+      ? await this.templateService.renderTemplate(
+          storeId,
+          'password_reset',
+          mergedVariables,
+        )
+      : this.templateService.renderDefaultTemplate(
+          'password_reset',
+          mergedVariables,
+        );
+
+    if (!this.emailService.isValidEmail(recipientEmail)) {
+      this.logger.warn(`Invalid email address: ${recipientEmail}`);
+      return { sent: false, reason: 'Invalid email' };
+    }
+
+    const fromEmail = this.configService.get<string>(
+      'EMAIL_FROM',
+      'onboarding@resend.dev',
+    );
+    const fromName = this.configService.get<string>(
+      'EMAIL_FROM_NAME',
+      'SalonTakvim',
+    );
+    const from = fromName ? `${fromName} <${fromEmail}>` : fromEmail;
+
+    const emailSent = await this.emailService.sendEmail({
+      to: recipientEmail,
+      subject: rendered.subject,
+      html: rendered.htmlContent,
+      text: rendered.textContent,
+      from,
+      template: 'password_reset',
+    });
+
+    return {
+      sent: emailSent,
+      emailSent,
+      smsSent: false,
+    };
   }
 
   /**

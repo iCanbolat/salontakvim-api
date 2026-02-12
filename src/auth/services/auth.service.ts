@@ -2,8 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+import { createHash, randomBytes } from 'crypto';
 import { UserRepository } from '../repositories/user.repository';
 import { RefreshTokenRepository } from '../repositories/refresh-token.repository';
+import { PasswordResetRepository } from '../repositories/password-reset.repository';
 import { RegisterDto, LoginDto, SocialAuthDto } from '../dto/auth.dto';
 import {
   AuthResponse,
@@ -17,20 +19,24 @@ import {
   InvalidRefreshTokenException,
   InactiveAccountException,
   InvalidSocialAuthException,
+  InvalidPasswordResetTokenException,
 } from '../exceptions';
 import { StoreService } from '../../stores/services/store.service';
 import { StoreSlugAlreadyExistsException } from '../../stores/exceptions';
 import { StaffMemberRepository } from '../../staff/repositories/staff-member.repository';
+import { NotificationService } from '../../notifications/services/notification.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private userRepository: UserRepository,
     private refreshTokenRepository: RefreshTokenRepository,
+    private passwordResetRepository: PasswordResetRepository,
     private jwtService: JwtService,
     private configService: ConfigService,
     private storeService: StoreService,
     private staffMemberRepository: StaffMemberRepository,
+    private notificationService: NotificationService,
   ) {}
 
   async register(registerDto: RegisterDto): Promise<AuthResponse> {
@@ -264,6 +270,132 @@ export class AuthService {
       },
       hasStore: !!store,
     };
+  }
+
+  async requestPasswordReset(email: string): Promise<void> {
+    const user = await this.userRepository.findByEmail(email);
+
+    if (!user || !user.isActive || !user.password) {
+      return;
+    }
+
+    const latestToken = await this.passwordResetRepository.findLatestByUserId(
+      user.id,
+    );
+    if (latestToken) {
+      const cooldownSeconds = this.getPasswordResetCooldownSeconds();
+      const ageSeconds = Math.floor(
+        (Date.now() - latestToken.createdAt.getTime()) / 1000,
+      );
+
+      if (ageSeconds < cooldownSeconds) {
+        return;
+      }
+    }
+
+    const token = randomBytes(32).toString('hex');
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+    const expiresAt = this.getPasswordResetExpiry();
+
+    await this.passwordResetRepository.deleteByUserId(user.id);
+    await this.passwordResetRepository.create({
+      userId: user.id,
+      tokenHash,
+      expiresAt,
+    });
+
+    const frontendUrl = this.configService.get<string>(
+      'FRONTEND_URL',
+      'http://localhost:3000',
+    );
+    const resetLink = `${frontendUrl}/reset-password?token=${token}`;
+    const userName = [user.firstName, user.lastName].filter(Boolean).join(' ');
+    const storeId = await this.resolveUserStoreId(user.id, user.role);
+
+    await this.notificationService.sendPasswordReset(
+      user.email,
+      {
+        userName: userName || user.email,
+        resetLink,
+      },
+      storeId,
+    );
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+    const record =
+      await this.passwordResetRepository.findByTokenHash(tokenHash);
+
+    if (!record || record.usedAt || record.expiresAt < new Date()) {
+      throw new InvalidPasswordResetTokenException();
+    }
+
+    const user = await this.userRepository.findById(record.userId);
+    if (!user || !user.isActive) {
+      throw new InvalidPasswordResetTokenException();
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await this.userRepository.update(user.id, { password: hashedPassword });
+    await this.passwordResetRepository.markUsed(record.id);
+    await this.refreshTokenRepository.deleteAllByUserId(user.id);
+  }
+
+  async verifyPasswordResetToken(token: string): Promise<{
+    valid: boolean;
+    expiresAt?: string;
+  }> {
+    if (!token) {
+      return { valid: false };
+    }
+
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+    const record =
+      await this.passwordResetRepository.findByTokenHash(tokenHash);
+
+    if (!record || record.usedAt || record.expiresAt < new Date()) {
+      return { valid: false };
+    }
+
+    return {
+      valid: true,
+      expiresAt: record.expiresAt.toISOString(),
+    };
+  }
+
+  private getPasswordResetExpiry() {
+    const minutes = Number(
+      this.configService.get<string>(
+        'PASSWORD_RESET_TOKEN_EXPIRATION_MINUTES',
+        '60',
+      ),
+    );
+
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + Math.max(1, minutes));
+    return expiresAt;
+  }
+
+  private getPasswordResetCooldownSeconds() {
+    const seconds = Number(
+      this.configService.get<string>('PASSWORD_RESET_COOLDOWN_SECONDS', '60'),
+    );
+    return Math.max(10, seconds || 60);
+  }
+
+  private async resolveUserStoreId(userId: string, role?: string) {
+    if (role === 'admin') {
+      const store = await this.storeService.findByOwnerIdSafe(userId);
+      return store?.id || null;
+    }
+
+    if (role === 'manager' || role === 'staff') {
+      const staffMember = await this.staffMemberRepository.findByUserId(userId);
+      return staffMember?.storeId || null;
+    }
+
+    return null;
   }
 
   async validateUser(email: string, password: string): Promise<any> {

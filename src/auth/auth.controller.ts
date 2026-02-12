@@ -8,6 +8,7 @@ import {
   Get,
   Req,
   Res,
+  Query,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
@@ -17,6 +18,8 @@ import {
   LoginDto,
   RefreshTokenDto,
   SocialAuthDto,
+  ForgotPasswordDto,
+  ResetPasswordDto,
 } from './dto/auth.dto';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -101,6 +104,31 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async refresh(@Body() refreshTokenDto: RefreshTokenDto) {
     return this.authService.refreshTokens(refreshTokenDto.refreshToken);
+  }
+
+  @Public()
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    await this.authService.requestPasswordReset(dto.email);
+    return {
+      message: 'If the account exists, a reset link will be sent shortly.',
+    };
+  }
+
+  @Public()
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    await this.authService.resetPassword(dto.token, dto.password);
+    return { message: 'Password updated successfully' };
+  }
+
+  @Public()
+  @Get('reset-password/verify')
+  async verifyResetToken(@Query('token') token?: string) {
+    const status = await this.authService.verifyPasswordResetToken(token || '');
+    return status;
   }
 
   @UseGuards(JwtAuthGuard)

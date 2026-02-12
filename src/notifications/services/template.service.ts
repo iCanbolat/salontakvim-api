@@ -506,7 +506,8 @@ Bu link 7 gün içinde geçerliliğini yitirecektir.
             <p style="color: #ff5722; font-weight: bold;">Eğer bu talebi siz yapmadıysanız, bu e-postayı görmezden gelin.</p>
             
             <p style="color: #666; font-size: 14px; margin-top: 30px;">
-              SalonTakvim
+              {{storeName}}<br />
+              {{storeEmail}}
             </p>
           </div>
         `,
@@ -521,9 +522,15 @@ Bu link 1 saat içinde geçerliliğini yitirecektir.
 
 Eğer bu talebi siz yapmadıysanız, bu e-postayı görmezden gelin.
 
-SalonTakvim`,
+{{storeName}}
+{{storeEmail}}`,
         smsContent: 'Şifre sıfırlama linki: {{resetLink}} (1 saat geçerli)',
-        availableVariables: ['userName', 'resetLink'],
+        availableVariables: [
+          'userName',
+          'resetLink',
+          'storeName',
+          'storeEmail',
+        ],
       },
     };
   }
@@ -584,6 +591,33 @@ SalonTakvim`,
     variables: TemplateVariables,
   ) {
     const template = await this.getTemplate(storeId, templateType);
+
+    return {
+      subject: this.replaceVariables(template.subject, variables),
+      htmlContent: template.htmlContent
+        ? this.replaceVariables(template.htmlContent, variables)
+        : undefined,
+      textContent: template.textContent
+        ? this.replaceVariables(template.textContent, variables)
+        : undefined,
+      smsContent: template.smsContent
+        ? this.replaceVariables(template.smsContent, variables)
+        : undefined,
+    };
+  }
+
+  /**
+   * Render default template without store context
+   */
+  renderDefaultTemplate(templateType: string, variables: TemplateVariables) {
+    const defaultTemplates = this.getDefaultTemplates();
+    const template = defaultTemplates[templateType];
+
+    if (!template) {
+      throw new NotFoundException(
+        `Template not found for type: ${templateType}`,
+      );
+    }
 
     return {
       subject: this.replaceVariables(template.subject, variables),
