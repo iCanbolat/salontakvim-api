@@ -144,6 +144,22 @@ export class StaffMemberRepository {
     return rows.map((row) => row.userId);
   }
 
+  async findManagerUserIdsByStore(storeId: string): Promise<string[]> {
+    const rows = await this.db
+      .select({ userId: schema.users.id })
+      .from(schema.staffMembers)
+      .innerJoin(schema.users, eq(schema.staffMembers.userId, schema.users.id))
+      .where(
+        and(
+          eq(schema.staffMembers.storeId, storeId),
+          eq(schema.users.role, 'manager'),
+          eq(schema.users.isActive, true),
+        ),
+      );
+
+    return rows.map((row) => row.userId);
+  }
+
   async update(id: string, data: Partial<StaffMember>): Promise<StaffMember> {
     const [updatedStaffMember] = await this.db
       .update(schema.staffMembers)

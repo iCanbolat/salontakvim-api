@@ -343,7 +343,8 @@ export class WidgetService {
 
     const baseUrl =
       this.configService.get<string>('APP_URL') || 'http://localhost:3000';
-    const embedEndpoint = `${baseUrl}/public/embed/${store.slug}/script.js`;
+    const normalizedBaseUrl = baseUrl.replace(/\/$/, '');
+    const embedEndpoint = `${normalizedBaseUrl}/api/public/embed/${store.slug}/script.js`;
     const embedCode = `<!-- SalonTakvim Widget (signed embed) -->\n<script src="${embedEndpoint}"></script>`;
 
     return new WidgetEmbedCodeResponseDto({

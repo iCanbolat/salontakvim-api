@@ -12,6 +12,7 @@ import { StaffMemberRepository } from '../../staff/repositories/staff-member.rep
 import { ServiceRepository } from '../../services/repositories/service.repository';
 import { ActivitiesService } from '../../activities/services/activities.service';
 import { UserRepository } from '../../auth/repositories/user.repository';
+import { NotificationService } from '../../notifications/services/notification.service';
 import type {
   CreateFeedbackDto,
   UpdateFeedbackDto,
@@ -38,7 +39,66 @@ export class FeedbackService {
     private readonly serviceRepository: ServiceRepository,
     private readonly activitiesService: ActivitiesService,
     private readonly userRepository: UserRepository,
+    private readonly notificationService: NotificationService,
   ) {}
+
+  private async notifyFeedbackSubmitted(
+    storeId: string,
+    appointment: any,
+    feedback: FeedbackResponseDto,
+    customerName: string,
+  ) {
+    const recipients = new Set<string>();
+    let staffUserId: string | null = null;
+
+    if (appointment.staffId) {
+      const staff = await this.staffMemberRepository.findById(
+        appointment.staffId,
+      );
+      if (staff?.userId) {
+        staffUserId = staff.userId;
+        recipients.add(staff.userId);
+      }
+    }
+
+    const store = await this.storeRepository.findById(storeId);
+    if (store?.ownerId) {
+      recipients.add(store.ownerId);
+    }
+
+    const managerUserIds = appointment.locationId
+      ? await this.staffMemberRepository.findManagerUserIdsByStoreAndLocation(
+          storeId,
+          appointment.locationId,
+        )
+      : await this.staffMemberRepository.findManagerUserIdsByStore(storeId);
+
+    managerUserIds.forEach((managerId) => recipients.add(managerId));
+
+    const message = `${customerName} ${feedback.overallRating} yıldız değerlendirme bıraktı`;
+    const metadata = {
+      feedbackId: feedback.id,
+      appointmentId: appointment.id,
+      staffId: appointment.staffId,
+      rating: feedback.overallRating,
+      locationId: appointment.locationId || null,
+      publicNumber: appointment.publicNumber || null,
+      url: '/feedback',
+    };
+
+    await Promise.all(
+      Array.from(recipients).map((userId) =>
+        this.notificationService.createInAppNotification(
+          userId,
+          storeId,
+          'Yeni değerlendirme',
+          message,
+          'appointment_feedback',
+          metadata,
+        ),
+      ),
+    );
+  }
 
   private async getCustomerName(appointment: any): Promise<string> {
     if (appointment.customerId) {
@@ -224,7 +284,15 @@ export class FeedbackService {
         feedbackId: feedback.id,
         appointmentId: appointment.id,
         rating: dto.overallRating,
+        locationId: appointment.locationId || null,
       },
+    );
+
+    await this.notifyFeedbackSubmitted(
+      storeId,
+      appointment,
+      feedback as FeedbackResponseDto,
+      customerName,
     );
 
     return feedback as FeedbackResponseDto;
@@ -499,7 +567,15 @@ export class FeedbackService {
         feedbackId: feedback.id,
         appointmentId: appointment.id,
         rating: dto.overallRating,
+        locationId: appointment.locationId || null,
       },
+    );
+
+    await this.notifyFeedbackSubmitted(
+      storeId,
+      appointment,
+      feedback as FeedbackResponseDto,
+      customerName,
     );
 
     return feedback as FeedbackResponseDto;

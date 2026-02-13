@@ -8,9 +8,10 @@ import { StaffMemberRepository } from '../staff/repositories/staff-member.reposi
 import { ServiceRepository } from '../services/repositories/service.repository';
 import { ActivitiesModule } from '../activities/activities.module';
 import { UserRepository } from '../auth/repositories/user.repository';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  imports: [ActivitiesModule],
+  imports: [ActivitiesModule, NotificationsModule],
   controllers: [FeedbackController],
   providers: [
     FeedbackService,
