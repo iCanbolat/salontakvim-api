@@ -57,6 +57,6 @@ import { LocationRepository } from '../locations/repositories/location.repositor
     LocationRepository,
     AppointmentReminderWorker,
   ],
-  exports: [NotificationService, NotificationsGateway],
+  exports: [NotificationService, NotificationsGateway, SmsService],
 })
 export class NotificationsModule {}

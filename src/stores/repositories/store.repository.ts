@@ -1,5 +1,5 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { eq, sql, and } from 'drizzle-orm';
+import { eq, sql, and, inArray } from 'drizzle-orm';
 import { DRIZZLE_ORM } from '../../db/drizzle.module';
 import * as schema from '../../db/schema';
 import {
@@ -299,6 +299,62 @@ export class StoreRepository
     };
 
     return this.executePaginatedQuery(pagination, queryFactory, countFactory);
+  }
+
+  async getCustomerContactsByIds(
+    storeId: string,
+    customerIds: string[],
+    options?: {
+      staffId?: string;
+      locationId?: string;
+    },
+  ): Promise<
+    Array<{
+      id: string;
+      firstName: string | null;
+      lastName: string | null;
+      email: string | null;
+      phone: string | null;
+    }>
+  > {
+    const uniqueIds = Array.from(new Set(customerIds));
+    if (uniqueIds.length === 0) return [];
+
+    const appointmentConditions = [
+      eq(schema.appointments.customerId, schema.users.id),
+      eq(schema.appointments.storeId, storeId),
+    ];
+
+    if (options?.staffId) {
+      appointmentConditions.push(
+        eq(schema.appointments.staffId, options.staffId),
+      );
+    }
+
+    if (options?.locationId) {
+      appointmentConditions.push(
+        eq(schema.appointments.locationId, options.locationId),
+      );
+    }
+
+    return this.db
+      .select({
+        id: schema.users.id,
+        firstName: schema.users.firstName,
+        lastName: schema.users.lastName,
+        email: schema.users.email,
+        phone: schema.users.phone,
+      })
+      .from(schema.users)
+      .innerJoin(schema.appointments, and(...appointmentConditions))
+      .where(inArray(schema.users.id, uniqueIds))
+      .groupBy(
+        schema.users.id,
+        schema.users.firstName,
+        schema.users.lastName,
+        schema.users.email,
+        schema.users.phone,
+      );
   }
 
   async getCustomerProfile(

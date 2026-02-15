@@ -389,7 +389,7 @@ async function seed() {
       .values({
         userId: staff1User.id,
         storeId: store.id,
-        locationId: location1.id,
+        locationId: location2.id,
         bio: '10 yıllık deneyimli kuaför. Saç kesimi ve boyama uzmanı.',
         title: 'Kuaför',
         isVisible: true,
@@ -431,7 +431,7 @@ async function seed() {
         lastName: 'Şahin',
         phone: '+90 555 444 5566',
         password: await bcrypt.hash('staff123', 10),
-        role: 'staff',
+        role: 'manager',
         authProvider: 'local',
         isActive: true,
         emailVerified: true,
@@ -487,7 +487,10 @@ async function seed() {
       { serviceId: pedicure.id, locationId: location1.id },
       { serviceId: gelNails.id, locationId: location1.id },
 
-      // Nişantaşı Şube - Sadece tırnak bakımı
+      // Nişantaşı Şube - Tırnak bakımı + Saç hizmetleri
+      { serviceId: haircut.id, locationId: location2.id },
+      { serviceId: hairColor.id, locationId: location2.id },
+      { serviceId: hairTreatment.id, locationId: location2.id },
       { serviceId: manicure.id, locationId: location2.id },
       { serviceId: pedicure.id, locationId: location2.id },
       { serviceId: gelNails.id, locationId: location2.id },
@@ -612,17 +615,556 @@ async function seed() {
 
     console.log('✓ Notification settings created');
 
+    // 13. Create Customer User
+    console.log('Creating customer user...');
+    const [customerUser] = await db
+      .insert(schema.users)
+      .values({
+        email: 'fmc_canbolat@hotmail.com',
+        firstName: 'Fatih',
+        lastName: 'Canbolat',
+        phone: '+90 532 123 4567',
+        password: null,
+        role: 'customer',
+        authProvider: 'local',
+        isActive: true,
+        emailVerified: true,
+      })
+      .returning();
+
+    console.log('✓ Customer user created:', customerUser.email);
+
+    // Register customer to store
+    await db.insert(schema.storeCustomers).values({
+      storeId: store.id,
+      customerId: customerUser.id,
+      publicNumber: 'MÜŞ-001',
+      publicNumberCounter: 1,
+    });
+
+    console.log('✓ Store customer registered');
+
+    // 14. Create Appointments
+    console.log('Creating appointments...');
+
+    const now = new Date();
+
+    // Helper to create dates relative to now
+    const daysAgo = (days: number, hour: number = 10, minute: number = 0) => {
+      const d = new Date(now);
+      d.setDate(d.getDate() - days);
+      d.setHours(hour, minute, 0, 0);
+      return d;
+    };
+
+    const daysFromNow = (
+      days: number,
+      hour: number = 10,
+      minute: number = 0,
+    ) => {
+      const d = new Date(now);
+      d.setDate(d.getDate() + days);
+      d.setHours(hour, minute, 0, 0);
+      return d;
+    };
+
+    const addMinutes = (date: Date, minutes: number) => {
+      return new Date(date.getTime() + minutes * 60000);
+    };
+
+    // Appointment 1: Completed haircut with Ayşe, 14 days ago
+    const apt1Start = daysAgo(14, 10, 0);
+    const [appointment1] = (await db
+      .insert(schema.appointments)
+      .values({
+        publicNumber: 'RV-001',
+        publicNumberCounter: 1,
+        storeId: store.id,
+        customerId: customerUser.id,
+        serviceId: haircut.id,
+        staffId: staff1.id,
+        locationId: location2.id,
+        startDateTime: apt1Start,
+        endDateTime: addMinutes(apt1Start, 45),
+        status: 'completed',
+        totalPrice: '250.00',
+        paymentMethod: 'cash',
+        isPaid: true,
+        paidAt: addMinutes(apt1Start, 45),
+        customerNotes: 'Kısa kesim istiyorum',
+        feedbackSentAt: daysAgo(13, 9, 0),
+      })
+      .returning()) as any[];
+
+    // Appointment 2: Completed facial with Mehmet, 7 days ago
+    const apt2Start = daysAgo(7, 14, 0);
+    const [appointment2] = (await db
+      .insert(schema.appointments)
+      .values({
+        publicNumber: 'RV-002',
+        publicNumberCounter: 2,
+        storeId: store.id,
+        customerId: customerUser.id,
+        serviceId: facial.id,
+        staffId: staff2.id,
+        locationId: location1.id,
+        startDateTime: apt2Start,
+        endDateTime: addMinutes(apt2Start, 60),
+        status: 'completed',
+        totalPrice: '750.00',
+        paymentMethod: 'card',
+        isPaid: true,
+        paidAt: addMinutes(apt2Start, 60),
+        customerNotes:
+          'Hassas cildim var, dikkatli olunması rica ederim',
+        feedbackSentAt: daysAgo(6, 10, 0),
+      })
+      .returning()) as any[];
+
+    // Appointment 3: Completed manicure with Zeynep, 3 days ago
+    const apt3Start = daysAgo(3, 11, 30);
+    const [appointment3] = (await db
+      .insert(schema.appointments)
+      .values({
+        publicNumber: 'RV-003',
+        publicNumberCounter: 3,
+        storeId: store.id,
+        customerId: customerUser.id,
+        serviceId: manicure.id,
+        staffId: staff3.id,
+        locationId: location2.id,
+        startDateTime: apt3Start,
+        endDateTime: addMinutes(apt3Start, 45),
+        status: 'completed',
+        totalPrice: '200.00',
+        paymentMethod: 'cash',
+        isPaid: true,
+        paidAt: addMinutes(apt3Start, 45),
+        feedbackSentAt: daysAgo(2, 12, 0),
+      })
+      .returning()) as any[];
+
+    // Appointment 4: Cancelled haircut, was supposed to be 5 days ago
+    const apt4Start = daysAgo(5, 15, 0);
+    const [appointment4] = (await db
+      .insert(schema.appointments)
+      .values({
+        publicNumber: 'RV-004',
+        publicNumberCounter: 4,
+        storeId: store.id,
+        customerId: customerUser.id,
+        serviceId: haircut.id,
+        staffId: staff1.id,
+        locationId: location2.id,
+        startDateTime: apt4Start,
+        endDateTime: addMinutes(apt4Start, 45),
+        status: 'cancelled',
+        totalPrice: '250.00',
+        isPaid: false,
+        cancelledAt: daysAgo(7, 18, 30),
+        cancellationReason:
+          'Acil bir işim çıktı, iptal etmek zorundayım. Başka bir zamana erteleyebilir miyiz?',
+        customerNotes: 'Saç boyama da yaptırmak istiyordum',
+      })
+      .returning()) as any[];
+
+    // Appointment 5: Cancelled massage, was supposed to be 3 days ago
+    const apt5Start = daysAgo(3, 16, 0);
+    const [appointment5] = (await db
+      .insert(schema.appointments)
+      .values({
+        publicNumber: 'RV-005',
+        publicNumberCounter: 5,
+        storeId: store.id,
+        customerId: customerUser.id,
+        serviceId: massage.id,
+        staffId: staff2.id,
+        locationId: location1.id,
+        startDateTime: apt5Start,
+        endDateTime: addMinutes(apt5Start, 75),
+        status: 'cancelled',
+        totalPrice: '550.00',
+        isPaid: false,
+        cancelledAt: daysAgo(4, 10, 0),
+        cancellationReason:
+          'Sağlık sorunları nedeniyle gelemiyorum, en kısa sürede yeni randevu alacağım.',
+      })
+      .returning()) as any[];
+
+    // Appointment 6: Confirmed appointment, 3 days from now
+    const apt6Start = daysFromNow(3, 10, 0);
+    const [appointment6] = (await db
+      .insert(schema.appointments)
+      .values({
+        publicNumber: 'RV-006',
+        publicNumberCounter: 6,
+        storeId: store.id,
+        customerId: customerUser.id,
+        serviceId: hairColor.id,
+        staffId: staff1.id,
+        locationId: location2.id,
+        startDateTime: apt6Start,
+        endDateTime: addMinutes(apt6Start, 120),
+        status: 'confirmed',
+        totalPrice: '850.00',
+        isPaid: false,
+        customerNotes: 'Açık kahverengi tonlarda boyatmak istiyorum',
+      })
+      .returning()) as any[];
+
+    // Appointment 7: Pending appointment, 10 days from now
+    const apt7Start = daysFromNow(10, 14, 0);
+    const [appointment7] = (await db
+      .insert(schema.appointments)
+      .values({
+        publicNumber: 'RV-007',
+        publicNumberCounter: 7,
+        storeId: store.id,
+        customerId: customerUser.id,
+        serviceId: gelNails.id,
+        staffId: staff3.id,
+        locationId: location2.id,
+        startDateTime: apt7Start,
+        endDateTime: addMinutes(apt7Start, 50),
+        status: 'pending',
+        totalPrice: '300.00',
+        isPaid: false,
+        customerNotes: 'French manikür tarzında olsun lütfen',
+      })
+      .returning()) as any[];
+
+    console.log(
+      '✓ Appointments created: 7 (3 completed, 2 cancelled, 1 confirmed, 1 pending)',
+    );
+
+    // 15. Create Appointment Feedback
+    console.log('Creating feedback...');
+
+    await db.insert(schema.appointmentFeedback).values([
+      {
+        appointmentId: appointment1.id,
+        storeId: store.id,
+        customerId: customerUser.id,
+        staffId: staff1.id,
+        serviceId: haircut.id,
+        overallRating: 5,
+        serviceRating: 5,
+        staffRating: 5,
+        cleanlinessRating: 5,
+        valueRating: 4,
+        comment:
+          'Harika bir deneyimdi! Ayşe Hanım çok profesyonel, saçlarım tam istediğim gibi oldu. Kesinlikle tekrar geleceğim.',
+        isVerified: true,
+      },
+      {
+        appointmentId: appointment2.id,
+        storeId: store.id,
+        customerId: customerUser.id,
+        staffId: staff2.id,
+        serviceId: facial.id,
+        overallRating: 4,
+        serviceRating: 4,
+        staffRating: 5,
+        cleanlinessRating: 4,
+        valueRating: 3,
+        comment:
+          'Cilt bakımı gayet iyiydi, Mehmet Bey çok ilgili. Fiyat biraz yüksek ama kalite iyi.',
+        isVerified: true,
+      },
+      {
+        appointmentId: appointment3.id,
+        storeId: store.id,
+        customerId: customerUser.id,
+        staffId: staff3.id,
+        serviceId: manicure.id,
+        overallRating: 3,
+        serviceRating: 3,
+        staffRating: 4,
+        cleanlinessRating: 3,
+        valueRating: 3,
+        comment:
+          'Manikür fena değildi ama beklediğim kadar uzun sürmedi. Zeynep Hanım ilgiliydi fakat salon biraz kalabalıktı.',
+        isVerified: true,
+      },
+    ]);
+
+    console.log('✓ Feedback created: 3');
+
+    // 16. Create Notifications
+    console.log('Creating notifications...');
+
+    await db.insert(schema.notifications).values([
+      // Appointment confirmation notifications (read - past)
+      {
+        userId: customerUser.id,
+        storeId: store.id,
+        title: 'Randevu Onaylandı',
+        message: `Saç Kesimi randevunuz ${apt1Start.toLocaleDateString('tr-TR')} tarihinde onaylanmıştır.`,
+        type: 'appointment_confirmation',
+        metadata: { appointmentId: appointment1.id },
+        isRead: true,
+      },
+      {
+        userId: customerUser.id,
+        storeId: store.id,
+        title: 'Randevu Onaylandı',
+        message: `Cilt Bakımı (Hydrafacial) randevunuz ${apt2Start.toLocaleDateString('tr-TR')} tarihinde onaylanmıştır.`,
+        type: 'appointment_confirmation',
+        metadata: { appointmentId: appointment2.id },
+        isRead: true,
+      },
+      {
+        userId: customerUser.id,
+        storeId: store.id,
+        title: 'Randevu Onaylandı',
+        message: `Manikür randevunuz ${apt3Start.toLocaleDateString('tr-TR')} tarihinde onaylanmıştır.`,
+        type: 'appointment_confirmation',
+        metadata: { appointmentId: appointment3.id },
+        isRead: true,
+      },
+      // Cancellation notifications
+      {
+        userId: customerUser.id,
+        storeId: store.id,
+        title: 'Randevu İptal Edildi',
+        message: `${apt4Start.toLocaleDateString('tr-TR')} tarihli Saç Kesimi randevunuz iptal edilmiştir. Sebep: Acil bir işim çıktı.`,
+        type: 'appointment_cancelled',
+        metadata: { appointmentId: appointment4.id },
+        isRead: true,
+      },
+      {
+        userId: customerUser.id,
+        storeId: store.id,
+        title: 'Randevu İptal Edildi',
+        message: `${apt5Start.toLocaleDateString('tr-TR')} tarihli Rahatlatıcı Masaj randevunuz iptal edilmiştir. Sebep: Sağlık sorunları.`,
+        type: 'appointment_cancelled',
+        metadata: { appointmentId: appointment5.id },
+        isRead: true,
+      },
+      // Feedback request notifications
+      {
+        userId: customerUser.id,
+        storeId: store.id,
+        title: 'Deneyiminizi Paylaşın',
+        message:
+          'Saç Kesimi hizmetimizi değerlendirmek ister misiniz? Geri bildiriminiz bizim için çok değerli!',
+        type: 'appointment_feedback',
+        metadata: { appointmentId: appointment1.id },
+        isRead: true,
+      },
+      {
+        userId: customerUser.id,
+        storeId: store.id,
+        title: 'Deneyiminizi Paylaşın',
+        message:
+          'Cilt Bakımı (Hydrafacial) hizmetimizi değerlendirmek ister misiniz? Geri bildiriminiz bizim için çok değerli!',
+        type: 'appointment_feedback',
+        metadata: { appointmentId: appointment2.id },
+        isRead: true,
+      },
+      // Upcoming appointment confirmations + reminder (unread)
+      {
+        userId: customerUser.id,
+        storeId: store.id,
+        title: 'Randevu Onaylandı',
+        message: `Saç Boyama randevunuz ${apt6Start.toLocaleDateString('tr-TR')} tarihinde onaylanmıştır. Ayşe Demir sizi bekliyor!`,
+        type: 'appointment_confirmation',
+        metadata: { appointmentId: appointment6.id },
+        isRead: false,
+      },
+      {
+        userId: customerUser.id,
+        storeId: store.id,
+        title: 'Randevu Hatırlatması',
+        message: `Saç Boyama randevunuz ${apt6Start.toLocaleDateString('tr-TR')} tarihinde saat ${apt6Start.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}'de. Unutmayın!`,
+        type: 'appointment_reminder',
+        metadata: { appointmentId: appointment6.id },
+        isRead: false,
+      },
+      // Staff/Admin notifications
+      {
+        userId: adminUser.id,
+        storeId: store.id,
+        title: 'Yeni Randevu',
+        message: `Fatih Canbolat ${apt6Start.toLocaleDateString('tr-TR')} tarihinde Saç Boyama için randevu aldı.`,
+        type: 'new_appointment',
+        metadata: {
+          appointmentId: appointment6.id,
+          customerId: customerUser.id,
+        },
+        isRead: false,
+      },
+      {
+        userId: adminUser.id,
+        storeId: store.id,
+        title: 'Yeni Randevu',
+        message: `Fatih Canbolat ${apt7Start.toLocaleDateString('tr-TR')} tarihinde Kalıcı Oje (Gel) için randevu aldı.`,
+        type: 'new_appointment',
+        metadata: {
+          appointmentId: appointment7.id,
+          customerId: customerUser.id,
+        },
+        isRead: false,
+      },
+    ]);
+
+    console.log('✓ Notifications created: 11');
+
+    // 17. Create Activity Records
+    console.log('Creating activity records...');
+
+    await db.insert(schema.activities).values([
+      {
+        storeId: store.id,
+        type: 'staff' as const,
+        message: 'Zeynep Şahin yönetici olarak atandı (Nişantaşı Şube)',
+        metadata: {
+          userId: staff3User.id,
+          role: 'manager',
+          locationId: location2.id,
+        },
+        createdAt: daysAgo(20),
+      },
+      {
+        storeId: store.id,
+        type: 'staff' as const,
+        message: "Ayşe Demir Nişantaşı Şube'ye transfer edildi",
+        metadata: { userId: staff1User.id, locationId: location2.id },
+        createdAt: daysAgo(18),
+      },
+      {
+        storeId: store.id,
+        type: 'customer' as const,
+        message:
+          'Yeni müşteri kaydı: Fatih Canbolat (fmc_canbolat@hotmail.com)',
+        metadata: {
+          userId: customerUser.id,
+          email: 'fmc_canbolat@hotmail.com',
+        },
+        createdAt: daysAgo(15),
+      },
+      {
+        storeId: store.id,
+        type: 'appointment' as const,
+        message: 'Yeni randevu: Fatih Canbolat - Saç Kesimi (Ayşe Demir)',
+        metadata: {
+          appointmentId: appointment1.id,
+          serviceId: haircut.id,
+          staffId: staff1.id,
+        },
+        createdAt: daysAgo(14, 8, 0),
+      },
+      {
+        storeId: store.id,
+        type: 'appointment' as const,
+        message: 'Randevu tamamlandı: Fatih Canbolat - Saç Kesimi',
+        metadata: { appointmentId: appointment1.id, status: 'completed' },
+        createdAt: daysAgo(14, 10, 45),
+      },
+      {
+        storeId: store.id,
+        type: 'appointment' as const,
+        message:
+          'Yeni randevu: Fatih Canbolat - Cilt Bakımı (Mehmet Kaya)',
+        metadata: {
+          appointmentId: appointment2.id,
+          serviceId: facial.id,
+          staffId: staff2.id,
+        },
+        createdAt: daysAgo(8, 9, 0),
+      },
+      {
+        storeId: store.id,
+        type: 'appointment' as const,
+        message:
+          'Randevu iptal edildi: Fatih Canbolat - Saç Kesimi. Sebep: Acil bir işim çıktı.',
+        metadata: {
+          appointmentId: appointment4.id,
+          status: 'cancelled',
+          reason: 'Acil bir işim çıktı',
+        },
+        createdAt: daysAgo(7, 18, 30),
+      },
+      {
+        storeId: store.id,
+        type: 'appointment' as const,
+        message: 'Randevu tamamlandı: Fatih Canbolat - Cilt Bakımı',
+        metadata: { appointmentId: appointment2.id, status: 'completed' },
+        createdAt: daysAgo(7, 15, 0),
+      },
+      {
+        storeId: store.id,
+        type: 'appointment' as const,
+        message:
+          'Randevu iptal edildi: Fatih Canbolat - Rahatlatıcı Masaj. Sebep: Sağlık sorunları.',
+        metadata: {
+          appointmentId: appointment5.id,
+          status: 'cancelled',
+          reason: 'Sağlık sorunları',
+        },
+        createdAt: daysAgo(4, 10, 0),
+      },
+      {
+        storeId: store.id,
+        type: 'appointment' as const,
+        message: 'Yeni randevu: Fatih Canbolat - Manikür (Zeynep Şahin)',
+        metadata: {
+          appointmentId: appointment3.id,
+          serviceId: manicure.id,
+          staffId: staff3.id,
+        },
+        createdAt: daysAgo(4, 9, 0),
+      },
+      {
+        storeId: store.id,
+        type: 'appointment' as const,
+        message: 'Randevu tamamlandı: Fatih Canbolat - Manikür',
+        metadata: { appointmentId: appointment3.id, status: 'completed' },
+        createdAt: daysAgo(3, 12, 15),
+      },
+      {
+        storeId: store.id,
+        type: 'appointment' as const,
+        message:
+          'Yeni randevu: Fatih Canbolat - Saç Boyama (Ayşe Demir)',
+        metadata: {
+          appointmentId: appointment6.id,
+          serviceId: hairColor.id,
+          staffId: staff1.id,
+        },
+        createdAt: daysAgo(1, 20, 0),
+      },
+      {
+        storeId: store.id,
+        type: 'appointment' as const,
+        message:
+          'Yeni randevu: Fatih Canbolat - Kalıcı Oje (Zeynep Şahin)',
+        metadata: {
+          appointmentId: appointment7.id,
+          serviceId: gelNails.id,
+          staffId: staff3.id,
+        },
+        createdAt: daysAgo(0, 8, 0),
+      },
+    ]);
+
+    console.log('✓ Activity records created: 13');
+
     console.log('\n✅ Database seeded successfully!');
     console.log('\n📋 Summary:');
     console.log('   - 1 Admin User (admin@salontakvim.com / admin123)');
-    console.log('   - 3 Staff Users');
+    console.log('   - 3 Staff Users (Ayşe: staff, Mehmet: staff, Zeynep: manager)');
+    console.log('   - 1 Customer (fmc_canbolat@hotmail.com - Fatih Canbolat)');
     console.log('   - 1 Store (Güzellik Salonu)');
     console.log('   - 3 Categories');
     console.log('   - 2 Locations');
     console.log('   - 9 Services');
     console.log('   - 5 Service Extras');
+    console.log('   - 7 Appointments (3 completed, 2 cancelled, 1 confirmed, 1 pending)');
+    console.log('   - 3 Feedback Records');
+    console.log('   - 11 Notifications');
+    console.log('   - 13 Activity Records');
     console.log('   - Widget Key: demo-widget-key');
-    console.log('   - Public Token: demo-public-token');
     console.log('   - Allowed Domains: localhost');
     console.log('\n🚀 You can now test the widget at:');
     console.log('   http://localhost:5173?key=demo-widget-key');

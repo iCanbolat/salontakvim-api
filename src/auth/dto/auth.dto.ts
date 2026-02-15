@@ -9,6 +9,7 @@ import {
   Matches,
   IsBoolean,
 } from 'class-validator';
+import { Expose, Transform } from 'class-transformer';
 
 export class RegisterDto {
   @IsEmail()
@@ -87,6 +88,12 @@ export class LoginDto {
   @IsString()
   @IsNotEmpty()
   password: string;
+
+  @IsOptional()
+  @IsBoolean()
+  @Expose({ name: 'remember_me' })
+  @Transform(({ value, obj }) => value ?? obj.rememberMe ?? obj.remember_me)
+  rememberMe?: boolean;
 }
 
 export class RefreshTokenDto {

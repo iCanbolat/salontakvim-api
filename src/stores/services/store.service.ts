@@ -1,10 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { StoreRepository } from '../repositories/store.repository';
 import { StaffMemberRepository } from '../../staff/repositories/staff-member.repository';
 import { CreateStoreDto, UpdateStoreDto, StoreResponseDto } from '../dto';
 import { plainToInstance } from 'class-transformer';
 import { Store } from '../interfaces/repository.interface';
 import type { JwtPayload } from '../../auth/interfaces/auth.interface';
+import { SmsService } from '../../notifications/services/sms.service';
 import {
   StoreNotFoundException,
   StoreSlugAlreadyExistsException,
@@ -17,6 +18,7 @@ export class StoreService {
   constructor(
     private readonly storeRepository: StoreRepository,
     private readonly staffMemberRepository: StaffMemberRepository,
+    private readonly smsService: SmsService,
   ) {}
 
   async create(
@@ -334,5 +336,106 @@ export class StoreService {
     }
 
     return null;
+  }
+
+  async sendBulkSms(
+    storeId: string,
+    user: JwtPayload,
+    customerIds: string[],
+    message: string,
+  ) {
+    const trimmedMessage = message.trim();
+    if (!trimmedMessage) {
+      throw new BadRequestException('Message is required');
+    }
+
+    if (trimmedMessage.length > 160) {
+      throw new BadRequestException('Message cannot exceed 160 characters');
+    }
+
+    await this.verifyStoreOwnership(storeId, user.sub);
+
+    const uniqueCustomerIds = Array.from(new Set(customerIds));
+    if (uniqueCustomerIds.length === 0) {
+      throw new BadRequestException('At least one customer must be selected');
+    }
+
+    let customers: Array<{
+      id: string;
+      firstName: string | null;
+      lastName: string | null;
+      email: string | null;
+      phone: string | null;
+    }> = [];
+
+    if (user.role === 'admin') {
+      customers = await this.storeRepository.getCustomerContactsByIds(
+        storeId,
+        uniqueCustomerIds,
+      );
+    } else if (user.role === 'manager') {
+      if (!user.locationId) {
+        customers = [];
+      } else {
+        customers = await this.storeRepository.getCustomerContactsByIds(
+          storeId,
+          uniqueCustomerIds,
+          { locationId: user.locationId },
+        );
+      }
+    } else if (user.role === 'staff') {
+      const staffMember =
+        await this.staffMemberRepository.findByUserIdAndStoreId(
+          user.sub,
+          storeId,
+        );
+
+      if (!staffMember) {
+        customers = [];
+      } else {
+        customers = await this.storeRepository.getCustomerContactsByIds(
+          storeId,
+          uniqueCustomerIds,
+          { staffId: staffMember.id },
+        );
+      }
+    }
+
+    let sentCount = 0;
+    let failedCount = 0;
+    let noPhoneCount = 0;
+
+    for (const customer of customers) {
+      if (!customer.phone) {
+        noPhoneCount += 1;
+        continue;
+      }
+
+      const formattedPhone = this.smsService.formatPhoneNumber(customer.phone);
+      if (!this.smsService.isValidPhoneNumber(formattedPhone)) {
+        failedCount += 1;
+        continue;
+      }
+
+      const sent = await this.smsService.sendSMS({
+        to: formattedPhone,
+        message: trimmedMessage,
+      });
+
+      if (sent) {
+        sentCount += 1;
+      } else {
+        failedCount += 1;
+      }
+    }
+
+    return {
+      requested: uniqueCustomerIds.length,
+      eligible: customers.length,
+      sent: sentCount,
+      failed: failedCount,
+      noPhone: noPhoneCount,
+      message: 'Bulk SMS operation completed',
+    };
   }
 }

@@ -12,7 +12,12 @@ import {
   Query,
 } from '@nestjs/common';
 import { StoreService } from './services/store.service';
-import { CreateStoreDto, UpdateStoreDto, StoreResponseDto } from './dto';
+import {
+  CreateStoreDto,
+  UpdateStoreDto,
+  StoreResponseDto,
+  SendBulkSmsDto,
+} from './dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import type { JwtPayload } from '../auth/interfaces/auth.interface';
@@ -118,5 +123,20 @@ export class StoreController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.storeService.getCustomerProfile(storeId, customerId, user);
+  }
+
+  @Post(':storeId/customers/sms')
+  @Roles('admin', 'manager', 'staff')
+  async sendBulkSms(
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: SendBulkSmsDto,
+  ) {
+    return this.storeService.sendBulkSms(
+      storeId,
+      user,
+      dto.customerIds,
+      dto.message,
+    );
   }
 }

@@ -13,6 +13,7 @@ async function dropDatabase() {
   }
 
   const pool = new Pool({ connectionString });
+  const dbUser = process.env.POSTGRES_USER;
 
   try {
     console.log('🧨 Dropping public schema (cascade)...');
@@ -21,7 +22,11 @@ async function dropDatabase() {
     console.log('🛠️ Recreating public schema...');
     await pool.query('CREATE SCHEMA public');
     await pool.query('GRANT ALL ON SCHEMA public TO public');
-    await pool.query('GRANT ALL ON SCHEMA public TO postgres');
+    if (dbUser) {
+      await pool.query('GRANT ALL ON SCHEMA public TO ' + dbUser);
+    } else {
+      await pool.query('GRANT ALL ON SCHEMA public TO CURRENT_USER');
+    }
 
     console.log('✅ Database schema reset complete.');
   } catch (error) {
