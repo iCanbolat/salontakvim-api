@@ -404,6 +404,7 @@ export class StoreService {
     let sentCount = 0;
     let failedCount = 0;
     let noPhoneCount = 0;
+    const deliverablePhones: string[] = [];
 
     for (const customer of customers) {
       if (!customer.phone) {
@@ -417,16 +418,17 @@ export class StoreService {
         continue;
       }
 
-      const sent = await this.smsService.sendSMS({
-        to: formattedPhone,
+      deliverablePhones.push(formattedPhone);
+    }
+
+    if (deliverablePhones.length > 0) {
+      const bulkResult = await this.smsService.sendBulkSMS({
+        to: deliverablePhones,
         message: trimmedMessage,
       });
 
-      if (sent) {
-        sentCount += 1;
-      } else {
-        failedCount += 1;
-      }
+      sentCount = bulkResult.sent;
+      failedCount += bulkResult.failed;
     }
 
     return {

@@ -1,95 +1,149 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import Netgsm, { ApiErrorCode } from '@netgsm/sms';
 import { SMSOptions } from '../interfaces/notification.interface';
+import {
+  SmsBulkOptions,
+  SmsBulkSendResult,
+  SmsRegion,
+  SmsSendResult,
+} from '../interfaces/sms-provider.interface';
+import { SmsProviderFactory } from './providers/sms-provider.factory';
 
+interface SmsOrchestratorBulkResult {
+  total: number;
+  sent: number;
+  failed: number;
+  providers: Record<string, { sent: number; failed: number }>;
+}
+
+/**
+ * High-level SMS orchestrator.
+ *
+ * All existing callers keep using `sendSMS()`, `isValidPhoneNumber()` and
+ * `formatPhoneNumber()` unchanged.  Internally, the service delegates to the
+ * correct provider (Netgsm for +90, Plivo for everything else) via the
+ * `SmsProviderFactory`.
+ */
 @Injectable()
 export class SmsService {
   private readonly logger = new Logger(SmsService.name);
-  private client: Netgsm | null = null;
-  private readonly defaultHeader: string | undefined;
-  private readonly encoding: string;
 
-  constructor(private readonly configService: ConfigService) {
-    this.defaultHeader =
-      this.configService.get<string>('NETGSM_HEADER') ||
-      this.configService.get<string>('NETGSM_SENDER') ||
-      this.configService.get<string>('NETGSM_MSGHEADER');
+  constructor(private readonly providerFactory: SmsProviderFactory) {}
 
-    this.encoding = this.configService.get<string>('NETGSM_ENCODING', 'TR');
-  }
+  /* ------------------------------------------------------------------ */
+  /*  Public API  – kept backwards-compatible                            */
+  /* ------------------------------------------------------------------ */
 
   /**
-   * Send SMS using Netgsm provider
+   * Send an SMS.  The provider is selected automatically based on the
+   * destination number, or you can force a region.
    */
-  async sendSMS(options: SMSOptions): Promise<boolean> {
-    try {
-      const recipient = this.normalizeForNetgsm(options.to);
+  async sendSMS(options: SMSOptions, region?: SmsRegion): Promise<boolean> {
+    const e164 = this.formatPhoneNumber(options.to);
+    const provider = this.providerFactory.resolve(e164, region);
 
-      if (!recipient) {
-        this.logger.warn(`Invalid phone number for Netgsm: ${options.to}`);
-        return false;
-      }
+    this.logger.debug(`Sending SMS to ${e164} via ${provider.name}`);
 
-      const header = options.from || this.defaultHeader;
-
-      if (!header) {
-        this.logger.error('Netgsm msgheader (sender ID) is not configured');
-        return false;
-      }
-
-      const client = this.getClient();
-
-      const response = await client.sendRestSms({
-        msgheader: header,
-        encoding: this.encoding,
-        messages: [
-          {
-            msg: options.message,
-            no: recipient,
-          },
-        ],
-      });
-
-      if (response?.code && response.code !== ApiErrorCode.SUCCESS && response.code !== '00') {
-        this.logger.warn(
-          `Netgsm send failed code=${response.code} description=${response.description}`,
-        );
-        return false;
-      }
-
-      this.logger.log(`Netgsm SMS queued (jobid=${response?.jobid || 'unknown'})`);
-      return true;
-    } catch (error) {
-      this.logger.error('Failed to send SMS via Netgsm:', error);
-      return false;
-    }
-  }
-  
-  private getClient(): Netgsm {
-    if (this.client) {
-      return this.client;
-    }
-
-    const username = this.configService.get<string>('NETGSM_USERNAME');
-    const password = this.configService.get<string>('NETGSM_PASSWORD');
-    const appname = this.configService.get<string>('NETGSM_APPNAME');
-
-    if (!username || !password) {
-      throw new Error('Netgsm credentials are not configured');
-    }
-
-    this.client = new Netgsm({
-      username,
-      password,
-      ...(appname ? { appname } : {}),
+    const result: SmsSendResult = await provider.send({
+      ...options,
+      to: e164,
     });
 
-    return this.client;
+    if (!result.success) {
+      this.logger.warn(`SMS send failed via ${provider.name}: ${result.error}`);
+    }
+
+    return result.success;
   }
 
   /**
-   * Validate phone number format
+   * Send SMS and return the full result object (provider, messageId, etc.).
+   */
+  async sendSMSDetailed(
+    options: SMSOptions,
+    region?: SmsRegion,
+  ): Promise<SmsSendResult> {
+    const e164 = this.formatPhoneNumber(options.to);
+    const provider = this.providerFactory.resolve(e164, region);
+
+    return provider.send({ ...options, to: e164 });
+  }
+
+  async sendBulkSMS(
+    options: SmsBulkOptions,
+    region?: SmsRegion,
+  ): Promise<SmsOrchestratorBulkResult> {
+    const groupedByProvider = new Map<
+      string,
+      { providerName: string; recipients: string[] }
+    >();
+    let invalidCount = 0;
+
+    for (const phone of options.to) {
+      const e164Phone = this.formatPhoneNumber(phone);
+
+      if (!this.isValidPhoneNumber(e164Phone)) {
+        invalidCount += 1;
+        continue;
+      }
+
+      const provider = this.providerFactory.resolve(e164Phone, region);
+      const existing = groupedByProvider.get(provider.name);
+
+      if (existing) {
+        existing.recipients.push(e164Phone);
+      } else {
+        groupedByProvider.set(provider.name, {
+          providerName: provider.name,
+          recipients: [e164Phone],
+        });
+      }
+    }
+
+    const providerResults: SmsBulkSendResult[] = [];
+
+    for (const group of groupedByProvider.values()) {
+      const provider = this.providerFactory.resolve(
+        group.recipients[0],
+        region,
+      );
+
+      const result = await provider.sendBulk({
+        to: group.recipients,
+        message: options.message,
+        from: options.from,
+      });
+
+      providerResults.push(result);
+    }
+
+    const providers: Record<string, { sent: number; failed: number }> = {};
+
+    for (const result of providerResults) {
+      providers[result.provider] = {
+        sent: result.sent,
+        failed: result.failed,
+      };
+    }
+
+    const sent = providerResults.reduce((sum, result) => sum + result.sent, 0);
+    const failedByProviders = providerResults.reduce(
+      (sum, result) => sum + result.failed,
+      0,
+    );
+
+    const total = options.to.length;
+    const failed = failedByProviders + invalidCount;
+
+    return {
+      total,
+      sent,
+      failed,
+      providers,
+    };
+  }
+
+  /**
+   * Validate phone number format (E.164 or TR mobile shorthand).
    */
   isValidPhoneNumber(phone: string): boolean {
     const e164Regex = /^\+[1-9]\d{1,14}$/;
@@ -99,10 +153,9 @@ export class SmsService {
   }
 
   /**
-   * Format phone number to E.164 format
+   * Format phone number to E.164 format.
    */
   formatPhoneNumber(phone: string, defaultCountryCode = '+90'): string {
-    // Remove all non-digit characters
     const cleaned = phone.replace(/\D/g, '');
 
     const countryCode = defaultCountryCode.startsWith('+')
@@ -124,33 +177,5 @@ export class SmsService {
     }
 
     return '+' + cleaned;
-  }
-
-  private normalizeForNetgsm(phone: string): string | null {
-    const digits = phone.replace(/\D/g, '');
-
-    if (!digits) {
-      return null;
-    }
-
-    if (digits.length === 10 && digits.startsWith('5')) {
-      return digits;
-    }
-
-    if (digits.length === 11 && digits.startsWith('05')) {
-      return digits.substring(1);
-    }
-
-    if (digits.length === 12 && digits.startsWith('905')) {
-      return digits.substring(2);
-    }
-
-    const lastTen = digits.slice(-10);
-
-    if (lastTen.length === 10 && lastTen.startsWith('5')) {
-      return lastTen;
-    }
-
-    return null;
   }
 }

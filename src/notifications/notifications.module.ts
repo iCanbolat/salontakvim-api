@@ -20,6 +20,11 @@ import { ServiceRepository } from '../services/repositories/service.repository';
 import { UserRepository } from '../auth/repositories/user.repository';
 import { AppointmentReminderWorker } from './services/appointment-reminder.worker';
 import { LocationRepository } from '../locations/repositories/location.repository';
+import {
+  NetgsmProvider,
+  PlivoProvider,
+  SmsProviderFactory,
+} from './services/providers';
 
 @Module({
   imports: [
@@ -46,6 +51,9 @@ import { LocationRepository } from '../locations/repositories/location.repositor
     NotificationService,
     EmailService,
     SmsService,
+    NetgsmProvider,
+    PlivoProvider,
+    SmsProviderFactory,
     TemplateService,
     NotificationRepository,
     NotificationsGateway,

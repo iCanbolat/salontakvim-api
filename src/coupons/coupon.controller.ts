@@ -22,7 +22,7 @@ export class CouponController {
   constructor(private readonly couponService: CouponService) {}
 
   @Post()
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager')
   @HttpCode(HttpStatus.CREATED)
   async create(
     @Param('storeId', ParseUUIDPipe) storeId: string,
@@ -33,7 +33,7 @@ export class CouponController {
   }
 
   @Get()
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager')
   async findAll(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @CurrentUser() user: JwtPayload,
@@ -49,7 +49,7 @@ export class CouponController {
   }
 
   @Get(':couponId')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager')
   async findById(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('couponId', ParseUUIDPipe) couponId: string,
@@ -59,7 +59,7 @@ export class CouponController {
   }
 
   @Patch(':couponId')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager')
   async update(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('couponId', ParseUUIDPipe) couponId: string,
@@ -70,7 +70,7 @@ export class CouponController {
   }
 
   @Delete(':couponId')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager')
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(
     @Param('storeId', ParseUUIDPipe) storeId: string,
@@ -82,7 +82,7 @@ export class CouponController {
 
   // Assign coupon to customers
   @Post(':couponId/assign')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager')
   @HttpCode(HttpStatus.CREATED)
   async assignToCustomers(
     @Param('storeId', ParseUUIDPipe) storeId: string,
@@ -101,7 +101,7 @@ export class CouponController {
 
   // Get coupon assignments
   @Get(':couponId/assignments')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager')
   async getCouponAssignments(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('couponId', ParseUUIDPipe) couponId: string,
@@ -112,7 +112,7 @@ export class CouponController {
 
   // Remove customer from coupon
   @Delete(':couponId/assignments/:customerId')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager')
   @HttpCode(HttpStatus.NO_CONTENT)
   async removeCustomerCoupon(
     @Param('storeId', ParseUUIDPipe) storeId: string,
@@ -130,7 +130,7 @@ export class CouponController {
 
   // Get customer's coupons
   @Get('customer/:customerId')
-  @Roles('admin', 'staff')
+  @Roles('admin', 'manager')
   async getCustomerCoupons(
     @Param('storeId', ParseUUIDPipe) storeId: string,
     @Param('customerId', ParseUUIDPipe) customerId: string,
