@@ -60,6 +60,17 @@ export class WidgetConfigResponseDto {
   };
 
   @Expose()
+  payment: {
+    enabled: boolean;
+    canProcessPayments: boolean;
+    provider: 'stripe_connect' | null;
+    allowPartial: boolean;
+    defaultDepositPercentage: number;
+    fixedDepositAmount: number;
+    publishableKey?: string;
+  };
+
+  @Expose()
   styling: {
     primaryColor: string;
     secondaryColor: string;

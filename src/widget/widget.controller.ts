@@ -19,6 +19,7 @@ import { PublicRateLimitGuard } from '../common/guards/public-rate-limit.guard';
 import { WidgetService } from './services/widget.service';
 import { UpdateWidgetSettingsDto } from './dto';
 import { CreateGuestAppointmentDto } from '../appointments/dto';
+import { CreateWidgetCheckoutDto } from '../payments/dto';
 
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -391,6 +392,25 @@ export class WidgetController {
     );
   }
 
+  @Post('public/widget/:widgetKey/payments/checkout-session')
+  @Public()
+  @UseGuards(PublicRateLimitGuard)
+  async createWidgetPaymentCheckoutSession(
+    @Param('widgetKey') widgetKey: string,
+    @Body() dto: CreateWidgetCheckoutDto,
+    @Query('token') token?: string,
+    @Headers('origin') origin?: string,
+    @Headers('referer') referer?: string,
+  ) {
+    const requestOrigin = origin || referer;
+    return await this.widgetService.createWidgetPaymentCheckoutSession(
+      widgetKey,
+      dto,
+      token,
+      requestOrigin,
+    );
+  }
+
   @Post('public/store/:slug/appointments')
   @Public()
   @UseGuards(PublicRateLimitGuard)
@@ -430,6 +450,25 @@ export class WidgetController {
     return await this.widgetService.validateWidgetCouponBySlug(
       slug,
       body,
+      token,
+      requestOrigin,
+    );
+  }
+
+  @Post('public/store/:slug/payments/checkout-session')
+  @Public()
+  @UseGuards(PublicRateLimitGuard)
+  async createWidgetPaymentCheckoutSessionBySlug(
+    @Param('slug') slug: string,
+    @Body() dto: CreateWidgetCheckoutDto,
+    @Query('token') token?: string,
+    @Headers('origin') origin?: string,
+    @Headers('referer') referer?: string,
+  ) {
+    const requestOrigin = origin || referer;
+    return await this.widgetService.createWidgetPaymentCheckoutSessionBySlug(
+      slug,
+      dto,
       token,
       requestOrigin,
     );

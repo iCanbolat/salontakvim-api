@@ -53,8 +53,9 @@ async function seed() {
         description: 'Premium güzellik ve bakım hizmetleri',
         email: 'info@guzelliklsalonu.com',
         phone: '+90 555 987 6543',
+        country: 'TR',
         currency: 'TRY',
-        paymentStatus: 'paid',
+        paymentStatus: 'freemium',
         isActive: true,
       })
       .returning();
@@ -715,8 +716,7 @@ async function seed() {
         paymentMethod: 'card',
         isPaid: true,
         paidAt: addMinutes(apt2Start, 60),
-        customerNotes:
-          'Hassas cildim var, dikkatli olunması rica ederim',
+        customerNotes: 'Hassas cildim var, dikkatli olunması rica ederim',
         feedbackSentAt: daysAgo(6, 10, 0),
       })
       .returning()) as any[];
@@ -1064,8 +1064,7 @@ async function seed() {
       {
         storeId: store.id,
         type: 'appointment' as const,
-        message:
-          'Yeni randevu: Fatih Canbolat - Cilt Bakımı (Mehmet Kaya)',
+        message: 'Yeni randevu: Fatih Canbolat - Cilt Bakımı (Mehmet Kaya)',
         metadata: {
           appointmentId: appointment2.id,
           serviceId: facial.id,
@@ -1125,8 +1124,7 @@ async function seed() {
       {
         storeId: store.id,
         type: 'appointment' as const,
-        message:
-          'Yeni randevu: Fatih Canbolat - Saç Boyama (Ayşe Demir)',
+        message: 'Yeni randevu: Fatih Canbolat - Saç Boyama (Ayşe Demir)',
         metadata: {
           appointmentId: appointment6.id,
           serviceId: hairColor.id,
@@ -1137,8 +1135,7 @@ async function seed() {
       {
         storeId: store.id,
         type: 'appointment' as const,
-        message:
-          'Yeni randevu: Fatih Canbolat - Kalıcı Oje (Zeynep Şahin)',
+        message: 'Yeni randevu: Fatih Canbolat - Kalıcı Oje (Zeynep Şahin)',
         metadata: {
           appointmentId: appointment7.id,
           serviceId: gelNails.id,
@@ -1150,24 +1147,385 @@ async function seed() {
 
     console.log('✓ Activity records created: 13');
 
+    // 18. Create UK Stripe-ready dental clinic demo store
+    console.log('Creating UK Stripe-ready dental clinic demo store...');
+
+    const [ukAdminUser] = await db
+      .insert(schema.users)
+      .values({
+        email: 'admin.uk@salontakvim.com',
+        firstName: 'Oliver',
+        lastName: 'Brown',
+        phone: '+44 7700 900123',
+        password: await bcrypt.hash('admin123', 10),
+        role: 'admin',
+        authProvider: 'local',
+        isActive: true,
+        emailVerified: true,
+      })
+      .returning();
+
+    const [ukStore] = await db
+      .insert(schema.stores)
+      .values({
+        ownerId: ukAdminUser.id,
+        name: 'London Dental Clinic',
+        slug: 'london-dental-clinic',
+        description:
+          'UK dental clinic demo store with Stripe billing and Connect enabled',
+        email: 'hello@londondentalclinic.co.uk',
+        phone: '+44 20 7946 1200',
+        country: 'GB',
+        currency: 'GBP',
+        paymentStatus: 'freemium',
+        stripeConnectOnboarded: false,
+        isActive: true,
+      })
+      .returning();
+
+    const [ukLocation1] = await db
+      .insert(schema.locations)
+      .values({
+        storeId: ukStore.id,
+        name: 'Marylebone Branch',
+        address: '22 Harley Street, Marylebone',
+        city: 'London',
+        state: 'England',
+        zipCode: 'W1G 9PL',
+        country: 'United Kingdom',
+        phone: '+44 20 7946 1200',
+        email: 'marylebone@londondentalclinic.co.uk',
+        isVisible: true,
+      })
+      .returning();
+
+    const [ukLocation2] = await db
+      .insert(schema.locations)
+      .values({
+        storeId: ukStore.id,
+        name: 'Chelsea Branch',
+        address: "15 King's Road, Chelsea",
+        city: 'London',
+        state: 'England',
+        zipCode: 'SW3 4TR',
+        country: 'United Kingdom',
+        phone: '+44 20 7946 1300',
+        email: 'chelsea@londondentalclinic.co.uk',
+        isVisible: true,
+      })
+      .returning();
+
+    const [ukGeneralCategory] = await db
+      .insert(schema.categories)
+      .values({
+        storeId: ukStore.id,
+        name: 'General Dentistry',
+        description: 'Routine dental care and hygiene services',
+        color: '#4F46E5',
+        icon: 'Tooth',
+        position: 0,
+        isVisible: true,
+      })
+      .returning();
+
+    const [ukCosmeticCategory] = await db
+      .insert(schema.categories)
+      .values({
+        storeId: ukStore.id,
+        name: 'Cosmetic Dentistry',
+        description: 'Transform your smile with our aesthetic treatments',
+        color: '#EC4899',
+        icon: 'Sparkles',
+        position: 1,
+        isVisible: true,
+      })
+      .returning();
+
+    const [ukOrthodonticCategory] = await db
+      .insert(schema.categories)
+      .values({
+        storeId: ukStore.id,
+        name: 'Orthodontics',
+        description: 'Straighten your teeth with modern solutions',
+        color: '#10B981',
+        icon: 'Shield-check',
+        position: 2,
+        isVisible: true,
+      })
+      .returning();
+
+    const [ukCheckupService] = await db
+      .insert(schema.services)
+      .values({
+        storeId: ukStore.id,
+        categoryId: ukGeneralCategory.id,
+        name: 'Dental Check-up & Cleaning',
+        description:
+          'Comprehensive dental examination with professional cleaning',
+        duration: 45,
+        price: '95.00',
+        capacity: 1,
+        bufferTimeBefore: 10,
+        bufferTimeAfter: 10,
+        isVisible: true,
+        showBringingAnyoneOption: false,
+        allowRecurring: true,
+        position: 0,
+      })
+      .returning();
+
+    const [ukEmergencyService] = await db
+      .insert(schema.services)
+      .values({
+        storeId: ukStore.id,
+        categoryId: ukGeneralCategory.id,
+        name: 'Emergency Appointment',
+        description: 'Immediate care for dental pain or injury',
+        duration: 30,
+        price: '120.00',
+        capacity: 1,
+        bufferTimeBefore: 0,
+        bufferTimeAfter: 15,
+        isVisible: true,
+        showBringingAnyoneOption: false,
+        allowRecurring: false,
+        position: 1,
+      })
+      .returning();
+
+    const [ukWhiteningService] = await db
+      .insert(schema.services)
+      .values({
+        storeId: ukStore.id,
+        categoryId: ukCosmeticCategory.id,
+        name: 'Professional Teeth Whitening',
+        description: 'Bring back the brightness of your smile',
+        duration: 60,
+        price: '250.00',
+        capacity: 1,
+        bufferTimeBefore: 5,
+        bufferTimeAfter: 5,
+        isVisible: true,
+        showBringingAnyoneOption: false,
+        allowRecurring: false,
+        position: 0,
+      })
+      .returning();
+
+    const [ukInvisalignService] = await db
+      .insert(schema.services)
+      .values({
+        storeId: ukStore.id,
+        categoryId: ukOrthodonticCategory.id,
+        name: 'Invisalign Consultation',
+        description: 'Find out if clear aligners are right for you',
+        duration: 30,
+        price: '50.00',
+        capacity: 1,
+        bufferTimeBefore: 10,
+        bufferTimeAfter: 5,
+        isVisible: true,
+        showBringingAnyoneOption: false,
+        allowRecurring: false,
+        position: 0,
+      })
+      .returning();
+
+    // Staff creation
+    const [ukStaff1User] = await db
+      .insert(schema.users)
+      .values({
+        email: 'dr.smith@londondentalclinic.co.uk',
+        firstName: 'Emma',
+        lastName: 'Smith',
+        phone: '+44 7700 900456',
+        password: await bcrypt.hash('staff123', 10),
+        role: 'staff',
+        authProvider: 'local',
+        isActive: true,
+        emailVerified: true,
+      })
+      .returning();
+
+    const [ukStaff1] = await db
+      .insert(schema.staffMembers)
+      .values({
+        userId: ukStaff1User.id,
+        storeId: ukStore.id,
+        locationId: ukLocation1.id,
+        bio: 'General dentist focused on preventive care and oral hygiene.',
+        title: 'General Dentist',
+        isVisible: true,
+      })
+      .returning();
+
+    const [ukStaff2User] = await db
+      .insert(schema.users)
+      .values({
+        email: 'dr.wilson@londondentalclinic.co.uk',
+        firstName: 'James',
+        lastName: 'Wilson',
+        phone: '+44 7700 900789',
+        password: await bcrypt.hash('staff123', 10),
+        role: 'staff',
+        authProvider: 'local',
+        isActive: true,
+        emailVerified: true,
+      })
+      .returning();
+
+    const [ukStaff2] = await db
+      .insert(schema.staffMembers)
+      .values({
+        userId: ukStaff2User.id,
+        storeId: ukStore.id,
+        locationId: ukLocation2.id,
+        bio: 'Specialist orthodontist with 15 years experience in smile transformations.',
+        title: 'Specialist Orthodontist',
+        isVisible: true,
+      })
+      .returning();
+
+    const [ukManagerUser] = await db
+      .insert(schema.users)
+      .values({
+        email: 'sarah.manager@londondentalclinic.co.uk',
+        firstName: 'Sarah',
+        lastName: 'Jenkins',
+        phone: '+44 7700 900999',
+        password: await bcrypt.hash('staff123', 10),
+        role: 'manager',
+        authProvider: 'local',
+        isActive: true,
+        emailVerified: true,
+      })
+      .returning();
+
+    const [ukManager] = await db
+      .insert(schema.staffMembers)
+      .values({
+        userId: ukManagerUser.id,
+        storeId: ukStore.id,
+        locationId: ukLocation1.id,
+        bio: 'Clinic manager ensuring the highest standards of patient care.',
+        title: 'Clinic Manager',
+        isVisible: true,
+      })
+      .returning();
+
+    // Assign Services to Staff & Locations
+    await db.insert(schema.serviceStaff).values([
+      { serviceId: ukCheckupService.id, staffId: ukStaff1.id },
+      { serviceId: ukEmergencyService.id, staffId: ukStaff1.id },
+      { serviceId: ukWhiteningService.id, staffId: ukStaff1.id },
+      { serviceId: ukInvisalignService.id, staffId: ukStaff2.id },
+    ]);
+
+    await db.insert(schema.serviceLocations).values([
+      { serviceId: ukCheckupService.id, locationId: ukLocation1.id },
+      { serviceId: ukEmergencyService.id, locationId: ukLocation1.id },
+      { serviceId: ukWhiteningService.id, locationId: ukLocation1.id },
+      { serviceId: ukInvisalignService.id, locationId: ukLocation2.id },
+      { serviceId: ukCheckupService.id, locationId: ukLocation2.id },
+    ]);
+
+    // Working Hours for all staff
+    const ukStaffList = [ukStaff1.id, ukStaff2.id, ukManager.id];
+    for (const staffId of ukStaffList) {
+      for (const day of [
+        'monday',
+        'tuesday',
+        'wednesday',
+        'thursday',
+        'friday',
+      ]) {
+        await db.insert(schema.staffWorkingHours).values({
+          staffId,
+          dayOfWeek: day as any,
+          startTime: '09:00:00',
+          endTime: '17:30:00',
+          isActive: true,
+        });
+      }
+    }
+
+    const [ukWidgetSettings] = await db
+      .insert(schema.widgetSettings)
+      .values({
+        storeId: ukStore.id,
+        layout: 'list',
+        showCompanyEmail: true,
+        companyEmail: 'hello@londondentalclinic.co.uk',
+        sidebarMenuItems: {
+          service: true,
+          employee: true,
+          location: true,
+          extras: true,
+          dateTime: true,
+          customerInfo: true,
+          payment: true,
+        },
+        primaryColor: '#4F46E5',
+        secondaryColor: '#ffffff',
+        sidebarBackgroundColor: '#F5F7FA',
+        contentBackgroundColor: '#ffffff',
+        textColor: '#333333',
+        headingColor: '#1A1A1A',
+        fontFamily: 'Inter, sans-serif',
+        fontSize: 14,
+        buttonBorderRadius: 8,
+        showProgressBar: true,
+        allowGuestBooking: true,
+        redirectUrlAfterBooking: null,
+        widgetKey: 'demo-widget-key-uk',
+        allowedDomains: ['localhost'],
+      })
+      .returning();
+
+    await db.insert(schema.notificationSettings).values({
+      storeId: ukStore.id,
+      appointmentConfirmationEnabled: true,
+      appointmentConfirmationChannel: 'email',
+      appointmentReminderEnabled: true,
+      appointmentReminderChannel: 'email',
+      reminder24hEnabled: true,
+      reminder1hEnabled: false,
+      appointmentCancellationEnabled: true,
+      appointmentCancellationChannel: 'email',
+      appointmentRescheduledEnabled: true,
+      appointmentRescheduledChannel: 'email',
+      feedbackRequestSmsEnabled: false,
+      staffInvitationEnabled: true,
+      senderEmail: 'noreply@londondentalclinic.co.uk',
+      senderName: 'London Dental Clinic',
+      replyToEmail: 'hello@londondentalclinic.co.uk',
+      emailProvider: 'smtp',
+    });
+
+    console.log('✓ UK Stripe-ready dental clinic store created:', ukStore.name);
+    console.log('🔑 UK Widget Key:', ukWidgetSettings.widgetKey);
+
     console.log('\n✅ Database seeded successfully!');
     console.log('\n📋 Summary:');
-    console.log('   - 1 Admin User (admin@salontakvim.com / admin123)');
-    console.log('   - 3 Staff Users (Ayşe: staff, Mehmet: staff, Zeynep: manager)');
+    console.log('   - 2 Admin Users (TR + UK demo owners, password: admin123)');
+    console.log('   - 6 Staff Users (3 TR + 3 UK)');
     console.log('   - 1 Customer (fmc_canbolat@hotmail.com - Fatih Canbolat)');
-    console.log('   - 1 Store (Güzellik Salonu)');
-    console.log('   - 3 Categories');
-    console.log('   - 2 Locations');
-    console.log('   - 9 Services');
-    console.log('   - 5 Service Extras');
-    console.log('   - 7 Appointments (3 completed, 2 cancelled, 1 confirmed, 1 pending)');
+    console.log('   - 2 Stores (Güzellik Salonu + London Dental Clinic)');
+    console.log('   - 6 Categories (3 TR + 3 UK)');
+    console.log('   - 4 Locations (2 TR + 2 UK)');
+    console.log('   - 12 Services (8 TR + 4 UK)');
+    console.log('   - 5 Service Extras (TR only)');
+    console.log(
+      '   - 7 Appointments (3 completed, 2 cancelled, 1 confirmed, 1 pending)',
+    );
     console.log('   - 3 Feedback Records');
     console.log('   - 11 Notifications');
     console.log('   - 13 Activity Records');
-    console.log('   - Widget Key: demo-widget-key');
+    console.log('   - Widget Keys: demo-widget-key, demo-widget-key-uk');
     console.log('   - Allowed Domains: localhost');
     console.log('\n🚀 You can now test the widget at:');
     console.log('   http://localhost:5173?key=demo-widget-key');
+    console.log('   http://localhost:5173?key=demo-widget-key-uk');
   } catch (error) {
     console.error('❌ Seed failed:', error);
     throw error;

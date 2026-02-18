@@ -44,6 +44,11 @@ export class CreateStoreDto {
 
   @IsString()
   @IsOptional()
+  @MaxLength(2)
+  country?: string;
+
+  @IsString()
+  @IsOptional()
   @MaxLength(3)
   currency?: string;
 

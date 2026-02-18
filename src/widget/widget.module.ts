@@ -16,6 +16,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PublicRateLimitGuard } from '../common/guards/public-rate-limit.guard';
 import { EmbedTokenService } from './utils/embed-token';
 import { RedisModule } from '../redis/redis.module';
+import { PaymentsModule } from '../payments/payments.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { RedisModule } from '../redis/redis.module';
     AppointmentsModule,
     CouponModule,
     NotificationsModule,
+    PaymentsModule,
     ConfigModule,
     RedisModule,
   ],

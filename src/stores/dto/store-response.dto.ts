@@ -27,7 +27,28 @@ export class StoreResponseDto {
   phone?: string;
 
   @Expose()
+  country: string;
+
+  @Expose()
   currency: string;
+
+  @Expose()
+  paymentStatus: 'freemium' | 'pro' | 'business';
+
+  @Expose()
+  stripeCustomerId?: string;
+
+  @Expose()
+  stripeSubscriptionId?: string;
+
+  @Expose()
+  stripeSubscriptionStatus?: string;
+
+  @Expose()
+  stripeConnectAccountId?: string;
+
+  @Expose()
+  stripeConnectOnboarded?: boolean;
 
   @Expose()
   storeImages: string[];

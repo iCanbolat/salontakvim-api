@@ -19,6 +19,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { ActivitiesModule } from './activities/activities.module';
 import { CouponModule } from './coupons/coupon.module';
 import { FeedbackModule } from './feedback/feedback.module';
+import { PaymentsModule } from './payments/payments.module';
 import { QueueModule } from './queue/queue.module';
 import { FeedbackProcessor } from './queue/processors/feedback.processor';
 import { CouponNotificationProcessor } from './queue/processors/coupon-notification.processor';
@@ -46,6 +47,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
     ActivitiesModule,
     CouponModule,
     FeedbackModule,
+    PaymentsModule,
     QueueModule,
   ],
   controllers: [AppController],

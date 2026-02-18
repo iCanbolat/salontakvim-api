@@ -23,6 +23,7 @@ import {
   CreateGuestAppointmentDto,
   UpdateAppointmentDto,
   UpdateAppointmentStatusDto,
+  SettleAppointmentPaymentDto,
   GetAvailabilityDto,
   GetStoreAppointmentsDto,
 } from './dto';
@@ -181,6 +182,20 @@ export class AppointmentsController {
     @Body() dto: UpdateAppointmentStatusDto,
   ) {
     return await this.appointmentsService.updateAppointmentStatus(
+      id,
+      storeId,
+      dto,
+    );
+  }
+
+  @Patch('stores/:storeId/appointments/:id/settle-payment')
+  @Roles('admin', 'manager', 'staff')
+  async settleAppointmentPayment(
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SettleAppointmentPaymentDto,
+  ) {
+    return await this.appointmentsService.settleAppointmentPayment(
       id,
       storeId,
       dto,

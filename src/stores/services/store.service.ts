@@ -46,7 +46,8 @@ export class StoreService {
       logo: createStoreDto.logo,
       email: createStoreDto.email,
       phone: createStoreDto.phone,
-      currency: createStoreDto.currency,
+      country: (createStoreDto.country || 'TR').toUpperCase(),
+      currency: (createStoreDto.currency || 'TRY').toUpperCase(),
       sendFeedbackViaSms: createStoreDto.sendFeedbackViaSms,
       ownerId,
     });

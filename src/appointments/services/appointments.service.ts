@@ -34,6 +34,7 @@ import {
   CreateGuestAppointmentDto,
   UpdateAppointmentDto,
   UpdateAppointmentStatusDto,
+  SettleAppointmentPaymentDto,
   AppointmentResponseDto,
   GetStoreAppointmentsDto,
 } from '../dto';
@@ -620,6 +621,59 @@ export class AppointmentsService {
     }
 
     return await this.getAppointmentById(updated.id, storeId);
+  }
+
+  async settleAppointmentPayment(
+    id: string,
+    storeId: string,
+    dto: SettleAppointmentPaymentDto,
+  ): Promise<AppointmentResponseDto> {
+    const appointment = await this.appointmentRepository.findByIdAndStoreId(
+      id,
+      storeId,
+    );
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found');
+    }
+
+    if (['cancelled', 'expired'].includes(appointment.status)) {
+      throw new BadRequestException(
+        `Cannot settle payment for appointment with status: ${appointment.status}`,
+      );
+    }
+
+    const depositAmount = Number(appointment.depositAmount || 0);
+    const finalTotalPrice = Math.max(0, Number(dto.finalTotalPrice || 0));
+    const remainingAmount = Math.max(0, finalTotalPrice - depositAmount);
+    const markAsPaid = dto.markAsPaid ?? true;
+
+    const updated = await this.appointmentRepository.update(id, {
+      totalPrice: finalTotalPrice.toFixed(2),
+      paymentMethod: dto.paymentMethod || appointment.paymentMethod,
+      isPaid: markAsPaid,
+      paidAt: markAsPaid ? new Date() : null,
+      internalNotes: dto.internalNotes ?? appointment.internalNotes,
+    });
+
+    await this.activitiesService.recordActivity(
+      storeId,
+      'appointment',
+      markAsPaid
+        ? 'Randevu ödemesi güncellendi ve kapatıldı'
+        : 'Randevu ödemesi güncellendi',
+      {
+        appointmentId: id,
+        finalTotalPrice: finalTotalPrice.toFixed(2),
+        depositAmount: depositAmount.toFixed(2),
+        remainingAmount: remainingAmount.toFixed(2),
+        paymentMethod: dto.paymentMethod || appointment.paymentMethod || null,
+        isPaid: markAsPaid,
+        locationId: updated.locationId || appointment.locationId || null,
+      },
+    );
+
+    return this.getAppointmentById(id, storeId);
   }
 
   async cancelAppointment(
@@ -1324,6 +1378,11 @@ export class AppointmentsService {
 
     return new AppointmentResponseDto({
       ...appointment,
+      remainingAmount: Math.max(
+        0,
+        Number(appointment.totalPrice || 0) -
+          Number(appointment.depositAmount || 0),
+      ).toFixed(2),
       extras,
       customerName,
       serviceName,

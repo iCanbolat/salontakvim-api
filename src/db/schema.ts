@@ -28,7 +28,7 @@ export const userRoleEnum = pgEnum('user_role', [
 ]);
 export const paymentStatusEnum = pgEnum('payment_status', [
   'freemium',
-  'paid',
+  'pro',
   'business',
 ]);
 export const authProviderEnum = pgEnum('auth_provider', [
@@ -161,9 +161,23 @@ export const stores = pgTable(
     email: varchar('email', { length: 255 }),
     phone: varchar('phone', { length: 50 }),
 
-    currency: varchar('currency', { length: 3 }).default('TRY'),
+    country: varchar('country', { length: 2 }).default('TR').notNull(),
+    currency: varchar('currency', { length: 3 }).default('TRY').notNull(),
     paymentStatus: paymentStatusEnum('payment_status')
       .default('freemium')
+      .notNull(),
+
+    // Stripe billing / connect
+    stripeCustomerId: varchar('stripe_customer_id', { length: 255 }),
+    stripeSubscriptionId: varchar('stripe_subscription_id', { length: 255 }),
+    stripeSubscriptionStatus: varchar('stripe_subscription_status', {
+      length: 50,
+    }),
+    stripeConnectAccountId: varchar('stripe_connect_account_id', {
+      length: 255,
+    }),
+    stripeConnectOnboarded: boolean('stripe_connect_onboarded')
+      .default(false)
       .notNull(),
 
     // Store images for hosted widget page
@@ -559,6 +573,10 @@ export const appointments = pgTable(
 
     // Payment
     totalPrice: decimal('total_price', { precision: 10, scale: 2 }).notNull(),
+    depositAmount: decimal('deposit_amount', {
+      precision: 10,
+      scale: 2,
+    }).default('0.00'),
     paymentMethod: paymentMethodEnum('payment_method'),
     isPaid: boolean('is_paid').default(false).notNull(),
     paidAt: timestamp('paid_at'),

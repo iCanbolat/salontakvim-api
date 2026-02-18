@@ -8,6 +8,10 @@ export interface IStoreRepository {
   findById(id: string): Promise<Store | null>;
   findBySlug(slug: string): Promise<Store | null>;
   findByOwnerId(ownerId: string): Promise<Store | null>;
+  findByStripeCustomerId(stripeCustomerId: string): Promise<Store | null>;
+  findByStripeSubscriptionId(
+    stripeSubscriptionId: string,
+  ): Promise<Store | null>;
   update(id: string, data: Partial<Store>): Promise<Store>;
   delete(id: string): Promise<void>;
   incrementAppointments(id: string): Promise<void>;

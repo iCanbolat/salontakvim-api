@@ -24,6 +24,9 @@ import { CreateGuestAppointmentDto } from '../../appointments/dto';
 import { EmbedTokenService, EmbedTokenPayload } from '../utils/embed-token';
 import { NotificationService } from '../../notifications/services/notification.service';
 import { REDIS_CLIENT } from '../../redis/redis.constants';
+import { PaymentsService } from '../../payments/payments.service';
+import { AppointmentRepository } from '../../appointments/repositories/appointment.repository';
+import { CreateWidgetCheckoutDto } from '../../payments/dto';
 
 @Injectable()
 export class WidgetService {
@@ -41,7 +44,9 @@ export class WidgetService {
     private readonly configService: ConfigService,
     private readonly userRepository: UserRepository,
     private readonly appointmentsService: AppointmentsService,
+    private readonly appointmentRepository: AppointmentRepository,
     private readonly couponService: CouponService,
+    private readonly paymentsService: PaymentsService,
     private readonly embedTokenService: EmbedTokenService,
     private readonly notificationService: NotificationService,
     @Inject(REDIS_CLIENT) private readonly redis?: Redis,
@@ -601,7 +606,55 @@ export class WidgetService {
       token,
       origin,
     );
-    return this.appointmentsService.createGuestAppointment(store.id, dto);
+    const requiresStripePayment =
+      (store.country || 'TR').toUpperCase() !== 'TR';
+
+    let stripePaid = false;
+    let paidDepositAmount = 0;
+    if (requiresStripePayment) {
+      if (!dto.paymentSessionId) {
+        throw new ForbiddenException(
+          'Payment is required before booking this appointment',
+        );
+      }
+
+      const verification = await this.paymentsService.verifyCheckoutSessionPaid(
+        dto.paymentSessionId,
+      );
+
+      if (!verification.paid) {
+        throw new ForbiddenException('Payment has not been completed yet');
+      }
+
+      stripePaid = true;
+      paidDepositAmount = Number(verification.paidAmount || 0);
+    }
+
+    const appointment = await this.appointmentsService.createGuestAppointment(
+      store.id,
+      dto,
+    );
+
+    if (stripePaid) {
+      const appointmentTotal = Number(appointment.totalPrice || 0);
+      const isFullyPaid = paidDepositAmount >= appointmentTotal;
+
+      await this.appointmentRepository.update(appointment.id, {
+        paymentMethod: 'stripe' as any,
+        depositAmount: paidDepositAmount.toFixed(2),
+        isPaid: isFullyPaid,
+        paidAt: isFullyPaid ? new Date() : null,
+      });
+      return {
+        ...appointment,
+        paymentMethod: 'stripe',
+        depositAmount: paidDepositAmount.toFixed(2),
+        isPaid: isFullyPaid,
+        paidAt: isFullyPaid ? new Date() : undefined,
+      };
+    }
+
+    return appointment;
   }
 
   async validateWidgetCoupon(
@@ -656,7 +709,101 @@ export class WidgetService {
     origin?: string,
   ) {
     const { store } = await this.resolveContextBySlug(slug, token, origin);
-    return this.appointmentsService.createGuestAppointment(store.id, dto);
+    const requiresStripePayment =
+      (store.country || 'TR').toUpperCase() !== 'TR';
+
+    let stripePaid = false;
+    let paidDepositAmount = 0;
+    if (requiresStripePayment) {
+      if (!dto.paymentSessionId) {
+        throw new ForbiddenException(
+          'Payment is required before booking this appointment',
+        );
+      }
+
+      const verification = await this.paymentsService.verifyCheckoutSessionPaid(
+        dto.paymentSessionId,
+      );
+
+      if (!verification.paid) {
+        throw new ForbiddenException('Payment has not been completed yet');
+      }
+
+      stripePaid = true;
+      paidDepositAmount = Number(verification.paidAmount || 0);
+    }
+
+    const appointment = await this.appointmentsService.createGuestAppointment(
+      store.id,
+      dto,
+    );
+
+    if (stripePaid) {
+      const appointmentTotal = Number(appointment.totalPrice || 0);
+      const isFullyPaid = paidDepositAmount >= appointmentTotal;
+
+      await this.appointmentRepository.update(appointment.id, {
+        paymentMethod: 'stripe' as any,
+        depositAmount: paidDepositAmount.toFixed(2),
+        isPaid: isFullyPaid,
+        paidAt: isFullyPaid ? new Date() : null,
+      });
+      return {
+        ...appointment,
+        paymentMethod: 'stripe',
+        depositAmount: paidDepositAmount.toFixed(2),
+        isPaid: isFullyPaid,
+        paidAt: isFullyPaid ? new Date() : undefined,
+      };
+    }
+
+    return appointment;
+  }
+
+  async createWidgetPaymentCheckoutSession(
+    widgetKey: string,
+    dto: CreateWidgetCheckoutDto,
+    token?: string,
+    origin?: string,
+  ) {
+    const { store } = await this.resolveContextByWidgetKey(
+      widgetKey,
+      token,
+      origin,
+    );
+
+    return this.paymentsService.createWidgetCheckoutSession({
+      storeId: store.id,
+      serviceId: dto.serviceId,
+      extrasData: dto.extrasData,
+      couponCode: dto.couponCode,
+      guestEmail: dto.guestEmail,
+      amountType: dto.amountType,
+      depositPercentage: dto.depositPercentage,
+      successUrl: dto.successUrl,
+      cancelUrl: dto.cancelUrl,
+    });
+  }
+
+  async createWidgetPaymentCheckoutSessionBySlug(
+    slug: string,
+    dto: CreateWidgetCheckoutDto,
+    token?: string,
+    origin?: string,
+  ) {
+    const { store } = await this.resolveContextBySlug(slug, token, origin);
+
+    return this.paymentsService.createWidgetCheckoutSession({
+      storeId: store.id,
+      serviceId: dto.serviceId,
+      extrasData: dto.extrasData,
+      couponCode: dto.couponCode,
+      guestEmail: dto.guestEmail,
+      amountType: dto.amountType,
+      depositPercentage: dto.depositPercentage,
+      successUrl: dto.successUrl,
+      cancelUrl: dto.cancelUrl,
+    });
   }
 
   async validateWidgetCouponBySlug(
@@ -990,6 +1137,19 @@ export class WidgetService {
   }
 
   private buildWidgetConfig(widgetSettings: any, store: any) {
+    const fixedDepositAmount = Number(
+      this.configService.get<string>('STRIPE_WIDGET_FIXED_DEPOSIT_AMOUNT') ||
+        '20',
+    );
+    const isNonTurkishStore = (store.country || 'TR').toUpperCase() !== 'TR';
+    const stripeConnectReady =
+      Boolean(store.stripeConnectAccountId) &&
+      Boolean(store.stripeConnectOnboarded);
+
+    const normalizedSidebar = this.normalizeSidebarMenuItems(
+      widgetSettings.sidebarMenuItems,
+    );
+
     return new WidgetConfigResponseDto({
       widgetKey: widgetSettings.widgetKey,
       store: {
@@ -1006,9 +1166,20 @@ export class WidgetService {
       layout: widgetSettings.layout,
       showCompanyEmail: widgetSettings.showCompanyEmail ?? true,
       companyEmail: widgetSettings.companyEmail || undefined,
-      sidebarMenuItems: this.normalizeSidebarMenuItems(
-        widgetSettings.sidebarMenuItems,
-      ),
+      sidebarMenuItems: {
+        ...normalizedSidebar,
+        payment: normalizedSidebar.payment && isNonTurkishStore,
+      },
+      payment: {
+        enabled: normalizedSidebar.payment && isNonTurkishStore,
+        canProcessPayments: stripeConnectReady,
+        provider: isNonTurkishStore ? 'stripe_connect' : null,
+        allowPartial: false,
+        defaultDepositPercentage: 0,
+        fixedDepositAmount,
+        publishableKey:
+          this.configService.get<string>('STRIPE_PUBLISHABLE_KEY') || undefined,
+      },
       styling: {
         primaryColor: widgetSettings.primaryColor ?? '#1A84EE',
         secondaryColor: widgetSettings.secondaryColor ?? '#ffffff',

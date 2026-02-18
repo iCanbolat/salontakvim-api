@@ -6,3 +6,4 @@ export * from './get-availability.dto';
 export * from './appointment-response.dto';
 export * from './availability-response.dto';
 export * from './get-store-appointments.dto';
+export * from './settle-appointment-payment.dto';

@@ -76,4 +76,8 @@ export class CreateAppointmentDto {
   @IsString()
   @IsOptional()
   couponCode?: string;
+
+  @IsString()
+  @IsOptional()
+  paymentSessionId?: string;
 }

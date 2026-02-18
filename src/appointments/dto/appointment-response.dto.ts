@@ -91,6 +91,12 @@ export class AppointmentResponseDto {
   totalPrice: string;
 
   @Expose()
+  depositAmount?: string;
+
+  @Expose()
+  remainingAmount?: string;
+
+  @Expose()
   paymentMethod?: string;
 
   @Expose()

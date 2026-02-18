@@ -59,6 +59,28 @@ export class StoreRepository
     return store || null;
   }
 
+  async findByStripeCustomerId(
+    stripeCustomerId: string,
+  ): Promise<Store | null> {
+    const [store] = await this.db
+      .select()
+      .from(schema.stores)
+      .where(eq(schema.stores.stripeCustomerId, stripeCustomerId))
+      .limit(1);
+    return store || null;
+  }
+
+  async findByStripeSubscriptionId(
+    stripeSubscriptionId: string,
+  ): Promise<Store | null> {
+    const [store] = await this.db
+      .select()
+      .from(schema.stores)
+      .where(eq(schema.stores.stripeSubscriptionId, stripeSubscriptionId))
+      .limit(1);
+    return store || null;
+  }
+
   async update(id: string, data: Partial<Store>): Promise<Store> {
     const [updatedStore] = await this.db
       .update(schema.stores)
