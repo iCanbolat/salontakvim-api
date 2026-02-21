@@ -27,6 +27,7 @@ export class ActivitiesController {
     @Query('type') type?: string,
     @Query('status') status?: string,
     @Query('locationId') locationId?: string,
+    @Query('appointmentId') appointmentId?: string,
     @CurrentUser() user?: JwtPayload,
   ) {
     const parsedLimitRaw = Number.parseInt(limit ?? '', 10);
@@ -50,6 +51,7 @@ export class ActivitiesController {
         parsedLimit,
         resolvedType,
         resolvedLocationId,
+        appointmentId,
       );
     }
 
@@ -57,6 +59,7 @@ export class ActivitiesController {
       storeId,
       parsedLimit,
       resolvedLocationId,
+      appointmentId,
     );
   }
 }

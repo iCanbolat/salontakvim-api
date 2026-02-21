@@ -64,6 +64,15 @@ export class AppointmentResponseDto {
   customerName?: string;
 
   @Expose()
+  customerLastName?: string;
+
+  @Expose()
+  email?: string;
+
+  @Expose()
+  phone?: string;
+
+  @Expose()
   serviceName?: string;
 
   @Expose()
@@ -138,6 +147,9 @@ export class AppointmentResponseDto {
 
   @Expose()
   files?: any[];
+
+  @Expose()
+  activities?: any[];
 
   @Exclude()
   guestFirstName?: string;

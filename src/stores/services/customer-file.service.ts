@@ -97,47 +97,70 @@ export class CustomerFileService {
       storeId,
     );
 
-    if (staffMember) {
-      const staffUser = await this.userRepository.findById(staffMember.userId);
+    let appointmentSummary: {
+      id: string;
+      status: string;
+      staffId: string | null;
+      publicNumber: string | null;
+      startDateTime: Date | null;
+    } | null = null;
 
-      const staffName = [staffUser?.firstName, staffUser?.lastName]
-        .filter(Boolean)
-        .join(' ')
-        .trim();
-
-      const fileCount = 1;
-      const sizeLabel = this.fileUploadService.formatFileSize(file.size);
-
-      await this.activitiesService.recordActivity(
-        storeId,
-        'staff',
-        `${staffName || 'Personel'} ${resolvedCustomerName} için ${fileCount} dosya yükledi (${sizeLabel})`,
-        {
-          staffId: staffMember.id,
-          staffUserId: staffMember.userId,
-          staffName: staffName || staffUser?.email || null,
-          customerId,
-          customerName: resolvedCustomerName,
-          fileId: customerFile.id,
-          fileName: customerFile.originalName,
-          fileCount,
-          fileSize: file.size,
-          fileSizeLabel: sizeLabel,
-          locationId: staffMember.locationId || null,
-        },
-      );
-    }
-
-    if (
-      metadata?.appointmentId &&
-      (userRole === 'admin' || userRole === 'manager')
-    ) {
-      const appointment =
+    if (metadata?.appointmentId) {
+      appointmentSummary =
         await this.customerFileRepository.findAppointmentSummary(
           storeId,
           metadata.appointmentId,
           customerId,
         );
+    }
+
+    const actorUser = await this.userRepository.findById(userId);
+    const actorName = [actorUser?.firstName, actorUser?.lastName]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+    const roleLabelByUserRole: Record<string, string> = {
+      admin: 'Admin',
+      manager: 'Yönetici',
+      staff: 'Personel',
+    };
+
+    const fileCount = 1;
+    const sizeLabel = this.fileUploadService.formatFileSize(file.size);
+    const resolvedActorName =
+      actorName ||
+      actorUser?.email ||
+      roleLabelByUserRole[userRole] ||
+      'Personel';
+
+    await this.activitiesService.recordActivity(
+      storeId,
+      'staff',
+      `${resolvedActorName} ${resolvedCustomerName} için dosya yükledi: ${customerFile.originalName} (${sizeLabel})`,
+      {
+        actorUserId: userId,
+        actorRole: userRole,
+        staffId: staffMember?.id || null,
+        staffUserId: staffMember?.userId || null,
+        staffName: resolvedActorName,
+        appointmentId: appointmentSummary?.id || null,
+        publicNumber: appointmentSummary?.publicNumber || null,
+        customerId,
+        customerName: resolvedCustomerName,
+        fileId: customerFile.id,
+        fileName: customerFile.originalName,
+        fileCount,
+        fileSize: file.size,
+        fileSizeLabel: sizeLabel,
+        locationId: staffMember?.locationId || null,
+      },
+    );
+
+    if (
+      appointmentSummary &&
+      (userRole === 'admin' || userRole === 'manager')
+    ) {
+      const appointment = appointmentSummary;
 
       if (appointment?.status === 'confirmed' && appointment.staffId) {
         const appointmentStaff = await this.staffMemberRepository.findById(
@@ -439,6 +462,7 @@ export class CustomerFileService {
     customerId: string,
     fileId: string,
     userId: string,
+    userRole: string,
   ): Promise<void> {
     // Verify store ownership/access
     await this.storeService.verifyStoreOwnership(storeId, userId);
@@ -452,6 +476,70 @@ export class CustomerFileService {
     if (!file) {
       throw new NotFoundException('File not found');
     }
+
+    const customerUser = await this.userRepository.findById(customerId);
+    const customerName = [customerUser?.firstName, customerUser?.lastName]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+    const resolvedCustomerName =
+      customerName || customerUser?.email || customerUser?.phone || 'Müşteri';
+
+    const staffMember = await this.staffMemberRepository.findByUserIdAndStoreId(
+      userId,
+      storeId,
+    );
+
+    const actorUser = await this.userRepository.findById(userId);
+    const actorName = [actorUser?.firstName, actorUser?.lastName]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+    const roleLabelByUserRole: Record<string, string> = {
+      admin: 'Admin',
+      manager: 'Yönetici',
+      staff: 'Personel',
+    };
+
+    const resolvedActorName =
+      actorName ||
+      actorUser?.email ||
+      roleLabelByUserRole[userRole] ||
+      'Personel';
+
+    let appointmentSummary: any = null;
+    if (file.appointmentId) {
+      appointmentSummary =
+        await this.customerFileRepository.findAppointmentSummary(
+          storeId,
+          file.appointmentId,
+          customerId,
+        );
+    }
+
+    const sizeLabel = this.fileUploadService.formatFileSize(file.fileSize);
+
+    await this.activitiesService.recordActivity(
+      storeId,
+      'staff',
+      `${resolvedActorName} ${resolvedCustomerName} için dosya sildi: ${file.originalName} (${sizeLabel})`,
+      {
+        actorUserId: userId,
+        actorRole: userRole,
+        staffId: staffMember?.id || null,
+        staffUserId: staffMember?.userId || null,
+        staffName: resolvedActorName,
+        appointmentId: appointmentSummary?.id || null,
+        publicNumber: appointmentSummary?.publicNumber || null,
+        customerId,
+        customerName: resolvedCustomerName,
+        fileId: file.id,
+        fileName: file.originalName,
+        fileSize: file.fileSize,
+        fileSizeLabel: sizeLabel,
+        locationId: staffMember?.locationId || null,
+      },
+    );
 
     // Delete file from disk
     try {
@@ -471,11 +559,42 @@ export class CustomerFileService {
     customerId: string,
     fileIds: string[],
     userId: string,
+    userRole: string,
   ): Promise<{ deleted: number }> {
     // Verify store ownership/access
     await this.storeService.verifyStoreOwnership(storeId, userId);
 
     const verifiedFileIds: string[] = [];
+
+    const customerUser = await this.userRepository.findById(customerId);
+    const customerName = [customerUser?.firstName, customerUser?.lastName]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+    const resolvedCustomerName =
+      customerName || customerUser?.email || customerUser?.phone || 'Müşteri';
+
+    const staffMember = await this.staffMemberRepository.findByUserIdAndStoreId(
+      userId,
+      storeId,
+    );
+
+    const actorUser = await this.userRepository.findById(userId);
+    const actorName = [actorUser?.firstName, actorUser?.lastName]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+    const roleLabelByUserRole: Record<string, string> = {
+      admin: 'Admin',
+      manager: 'Yönetici',
+      staff: 'Personel',
+    };
+
+    const resolvedActorName =
+      actorName ||
+      actorUser?.email ||
+      roleLabelByUserRole[userRole] ||
+      'Personel';
 
     for (const fileId of fileIds) {
       const file = await this.customerFileRepository.findByStoreAndId(
@@ -485,6 +604,40 @@ export class CustomerFileService {
       );
 
       if (file) {
+        let appointmentSummary: any = null;
+        if (file.appointmentId) {
+          appointmentSummary =
+            await this.customerFileRepository.findAppointmentSummary(
+              storeId,
+              file.appointmentId,
+              customerId,
+            );
+        }
+
+        const sizeLabel = this.fileUploadService.formatFileSize(file.fileSize);
+
+        await this.activitiesService.recordActivity(
+          storeId,
+          'staff',
+          `${resolvedActorName} ${resolvedCustomerName} için dosya sildi: ${file.originalName} (${sizeLabel})`,
+          {
+            actorUserId: userId,
+            actorRole: userRole,
+            staffId: staffMember?.id || null,
+            staffUserId: staffMember?.userId || null,
+            staffName: resolvedActorName,
+            appointmentId: appointmentSummary?.id || null,
+            publicNumber: appointmentSummary?.publicNumber || null,
+            customerId,
+            customerName: resolvedCustomerName,
+            fileId: file.id,
+            fileName: file.originalName,
+            fileSize: file.fileSize,
+            fileSizeLabel: sizeLabel,
+            locationId: staffMember?.locationId || null,
+          },
+        );
+
         // Delete file from disk
         try {
           if (fs.existsSync(file.storagePath)) {

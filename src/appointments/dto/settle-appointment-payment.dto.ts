@@ -1,12 +1,5 @@
 import { Type } from 'class-transformer';
-import {
-  IsBoolean,
-  IsIn,
-  IsNumber,
-  IsOptional,
-  IsString,
-  Min,
-} from 'class-validator';
+import { IsBoolean, IsNumber, IsOptional, Min } from 'class-validator';
 
 export class SettleAppointmentPaymentDto {
   @Type(() => Number)
@@ -15,14 +8,6 @@ export class SettleAppointmentPaymentDto {
   finalTotalPrice: number;
 
   @IsOptional()
-  @IsIn(['cash', 'card', 'online', 'stripe', 'paypal'])
-  paymentMethod?: 'cash' | 'card' | 'online' | 'stripe' | 'paypal';
-
-  @IsOptional()
   @IsBoolean()
   markAsPaid?: boolean;
-
-  @IsOptional()
-  @IsString()
-  internalNotes?: string;
 }

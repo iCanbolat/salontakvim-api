@@ -153,6 +153,7 @@ export class CustomerFileController {
       customerId,
       fileId,
       user.sub,
+      user.role,
     );
   }
 
@@ -170,6 +171,7 @@ export class CustomerFileController {
       customerId,
       fileIds,
       user.sub,
+      user.role,
     );
   }
 }

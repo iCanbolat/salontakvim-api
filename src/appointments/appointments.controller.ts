@@ -42,7 +42,9 @@ export class AppointmentsController {
     @Body() dto: CreateAppointmentDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    const hasGuestPayload = Boolean(dto.guestEmail);
+    const guestEmail = dto.guestEmail || dto.email;
+    const guestFirstName = dto.guestFirstName || dto.customerName;
+    const hasGuestPayload = Boolean(guestEmail);
 
     // Customers can only create appointments for themselves.
     if (user.role === 'customer' && hasGuestPayload) {
@@ -58,9 +60,9 @@ export class AppointmentsController {
         user.role === 'staff') &&
       hasGuestPayload
     ) {
-      if (!dto.guestFirstName || !dto.guestEmail) {
+      if (!guestFirstName || !guestEmail) {
         throw new BadRequestException(
-          'guestFirstName and guestEmail are required when creating a guest appointment',
+          'customerName and email are required when creating a guest appointment',
         );
       }
 

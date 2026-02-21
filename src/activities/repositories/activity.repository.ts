@@ -24,6 +24,7 @@ export class ActivityRepository {
     storeId: string,
     limit = 20,
     locationId?: string,
+    appointmentId?: string,
   ): Promise<Activity[]> {
     const conditions = [eq(schema.activities.storeId, storeId)];
 
@@ -32,6 +33,15 @@ export class ActivityRepository {
         eq(
           sql<string>`${schema.activities.metadata} ->> 'locationId'`,
           locationId,
+        ),
+      );
+    }
+
+    if (appointmentId) {
+      conditions.push(
+        eq(
+          sql<string>`${schema.activities.metadata} ->> 'appointmentId'`,
+          appointmentId,
         ),
       );
     }
@@ -52,6 +62,7 @@ export class ActivityRepository {
     limit = 20,
     type?: string,
     locationId?: string,
+    appointmentId?: string,
   ) {
     const offset = (page - 1) * limit;
     const conditions = [eq(schema.activities.storeId, storeId)];
@@ -65,6 +76,15 @@ export class ActivityRepository {
         eq(
           sql<string>`${schema.activities.metadata} ->> 'locationId'`,
           locationId,
+        ),
+      );
+    }
+
+    if (appointmentId) {
+      conditions.push(
+        eq(
+          sql<string>`${schema.activities.metadata} ->> 'appointmentId'`,
+          appointmentId,
         ),
       );
     }

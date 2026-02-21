@@ -55,6 +55,11 @@ export class WidgetService {
   // ============= Admin Widget Settings Management =============
 
   async getWidgetSettings(storeId: string): Promise<WidgetSettingsResponseDto> {
+    const store = await this.storeRepository.findById(storeId);
+    if (!store) {
+      throw new StoreNotFoundException(storeId.toString());
+    }
+
     let widgetSettings =
       await this.widgetSettingsRepository.findByStoreId(storeId);
 
@@ -73,9 +78,14 @@ export class WidgetService {
       widgetSettings.sidebarMenuItems,
     );
 
+    const paymentFeatureEnabled = this.isPaymentFeatureEnabled(store);
+
     return new WidgetSettingsResponseDto({
       ...widgetSettings,
-      sidebarMenuItems: normalizedSidebar,
+      sidebarMenuItems: {
+        ...normalizedSidebar,
+        payment: normalizedSidebar.payment && paymentFeatureEnabled,
+      },
     } as any);
   }
 
@@ -291,6 +301,11 @@ export class WidgetService {
     storeId: string,
     dto: UpdateWidgetSettingsDto,
   ): Promise<WidgetSettingsResponseDto> {
+    const store = await this.storeRepository.findById(storeId);
+    if (!store) {
+      throw new StoreNotFoundException(storeId.toString());
+    }
+
     let widgetSettings =
       await this.widgetSettingsRepository.findByStoreId(storeId);
 
@@ -298,13 +313,18 @@ export class WidgetService {
       widgetSettings = await this.createDefaultWidgetSettings(storeId);
     }
 
+    const paymentFeatureEnabled = this.isPaymentFeatureEnabled(store);
+
     const normalizedDto = {
       ...dto,
       ...(dto.sidebarMenuItems
         ? {
-            sidebarMenuItems: this.normalizeSidebarMenuItems(
-              dto.sidebarMenuItems,
-            ),
+            sidebarMenuItems: {
+              ...this.normalizeSidebarMenuItems(dto.sidebarMenuItems),
+              payment:
+                this.normalizeSidebarMenuItems(dto.sidebarMenuItems).payment &&
+                paymentFeatureEnabled,
+            },
           }
         : {}),
     };
@@ -313,11 +333,16 @@ export class WidgetService {
       storeId,
       normalizedDto,
     );
+    const normalizedSidebar = this.normalizeSidebarMenuItems(
+      updated.sidebarMenuItems,
+    );
+
     return new WidgetSettingsResponseDto({
       ...updated,
-      sidebarMenuItems: this.normalizeSidebarMenuItems(
-        updated.sidebarMenuItems,
-      ),
+      sidebarMenuItems: {
+        ...normalizedSidebar,
+        payment: normalizedSidebar.payment && paymentFeatureEnabled,
+      },
     } as any);
   }
 
@@ -1141,7 +1166,7 @@ export class WidgetService {
       this.configService.get<string>('STRIPE_WIDGET_FIXED_DEPOSIT_AMOUNT') ||
         '20',
     );
-    const isNonTurkishStore = (store.country || 'TR').toUpperCase() !== 'TR';
+    const paymentFeatureEnabled = this.isPaymentFeatureEnabled(store);
     const stripeConnectReady =
       Boolean(store.stripeConnectAccountId) &&
       Boolean(store.stripeConnectOnboarded);
@@ -1168,12 +1193,12 @@ export class WidgetService {
       companyEmail: widgetSettings.companyEmail || undefined,
       sidebarMenuItems: {
         ...normalizedSidebar,
-        payment: normalizedSidebar.payment && isNonTurkishStore,
+        payment: normalizedSidebar.payment && paymentFeatureEnabled,
       },
       payment: {
-        enabled: normalizedSidebar.payment && isNonTurkishStore,
+        enabled: normalizedSidebar.payment && paymentFeatureEnabled,
         canProcessPayments: stripeConnectReady,
-        provider: isNonTurkishStore ? 'stripe_connect' : null,
+        provider: paymentFeatureEnabled ? 'stripe_connect' : null,
         allowPartial: false,
         defaultDepositPercentage: 0,
         fixedDepositAmount,
@@ -1200,6 +1225,13 @@ export class WidgetService {
           widgetSettings.redirectUrlAfterBooking || undefined,
       },
     });
+  }
+
+  private isPaymentFeatureEnabled(store: any): boolean {
+    const isNonTurkishStore = (store.country || 'TR').toUpperCase() !== 'TR';
+    const hasPaidPlan =
+      store.paymentStatus === 'pro' || store.paymentStatus === 'business';
+    return isNonTurkishStore && hasPaidPlan;
   }
 
   private normalizeSidebarMenuItems(

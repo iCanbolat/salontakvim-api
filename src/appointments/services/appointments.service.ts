@@ -324,13 +324,17 @@ export class AppointmentsService {
     storeId: string,
     dto: CreateGuestAppointmentDto,
   ): Promise<AppointmentResponseDto> {
-    if (!dto.guestEmail || !dto.guestFirstName) {
+    const guestEmail = dto.guestEmail || dto.email;
+    const guestFirstName = dto.guestFirstName || dto.customerName;
+    const guestLastName = dto.guestLastName || dto.customerLastName;
+    const guestPhone = dto.guestPhone || dto.phone;
+
+    if (!guestEmail || !guestFirstName) {
       throw new BadRequestException(
-        'guestEmail and guestFirstName are required for guest appointment creation',
+        'email and customerName are required for guest appointment creation',
       );
     }
 
-    const guestEmail = dto.guestEmail;
     // Check if user exists with this email
     let customer = await this.userRepository.findByEmail(guestEmail);
     let createdNewCustomer = false;
@@ -342,9 +346,9 @@ export class AppointmentsService {
 
       customer = await this.userRepository.create({
         email: guestEmail,
-        firstName: dto.guestFirstName,
-        lastName: dto.guestLastName,
-        phone: dto.guestPhone,
+        firstName: guestFirstName,
+        lastName: guestLastName,
+        phone: guestPhone,
         password: hashedPassword,
         role: 'customer',
       });
@@ -356,7 +360,7 @@ export class AppointmentsService {
       await this.activitiesService.recordActivity(
         storeId,
         'customer',
-        `${dto.guestFirstName} ${dto.guestLastName || ''} adlı yeni müşteri oluşturuldu`,
+        `${guestFirstName} ${guestLastName || ''} adlı yeni müşteri oluşturuldu`,
         {
           customerId: customer.id,
           email: guestEmail,
@@ -434,6 +438,18 @@ export class AppointmentsService {
           // Ignore file fetch errors
         }
       }
+
+      // 3. Activities (recent 20)
+      try {
+        result.activities = await this.activitiesService.getRecentActivities(
+          storeId,
+          20,
+          undefined,
+          id,
+        );
+      } catch (error) {
+        // Ignore activity fetch errors
+      }
     }
 
     return result;
@@ -460,49 +476,71 @@ export class AppointmentsService {
       );
     }
 
-    // If updating date/time or staff, check for conflicts
-    if (dto.startDateTime || dto.staffId) {
-      const service = await this.serviceRepository.findById(
-        appointment.serviceId!,
+    const effectiveServiceId = dto.serviceId || appointment.serviceId;
+    if (!effectiveServiceId) {
+      throw new BadRequestException('Service is required');
+    }
+
+    const service = await this.serviceRepository.findByIdAndStoreId(
+      effectiveServiceId,
+      storeId,
+    );
+    if (!service) {
+      throw new NotFoundException('Service not found');
+    }
+
+    // Get existing extras duration and price for this appointment
+    const appointmentExtras =
+      await this.appointmentExtraRepository.findByAppointmentId(id);
+    let extrasDurationMinutes = 0;
+    let extrasTotalPrice = 0;
+
+    for (const extra of appointmentExtras) {
+      const serviceExtra = await this.serviceExtraRepository.findById(
+        extra.extraId,
       );
-      if (!service) {
-        throw new NotFoundException('Service not found');
+
+      if (serviceExtra) {
+        extrasDurationMinutes += (serviceExtra.duration || 0) * extra.quantity;
       }
 
-      // Get existing extras duration for this appointment
-      const appointmentExtras =
-        await this.appointmentExtraRepository.findByAppointmentId(id);
-      let extrasDurationMinutes = 0;
-      for (const extra of appointmentExtras) {
-        const serviceExtra = await this.serviceExtraRepository.findById(
-          extra.extraId,
+      extrasTotalPrice += parseFloat(extra.price || '0') * extra.quantity;
+    }
+
+    const startDateTime = dto.startDateTime
+      ? new Date(dto.startDateTime)
+      : appointment.startDateTime;
+    const totalDurationMinutes = service.duration + extrasDurationMinutes;
+    const endDateTime = new Date(
+      startDateTime.getTime() + totalDurationMinutes * 60 * 1000,
+    );
+
+    // If updating date/time, staff or service, check for conflicts using updated duration
+    if (dto.startDateTime || dto.staffId || dto.serviceId) {
+      const staffId = dto.staffId || appointment.staffId;
+
+      if (staffId) {
+        await this.checkAppointmentConflicts(
+          staffId,
+          startDateTime,
+          endDateTime,
+          id,
         );
-        if (serviceExtra) {
-          extrasDurationMinutes +=
-            (serviceExtra.duration || 0) * extra.quantity;
-        }
       }
-
-      const startDateTime = dto.startDateTime
-        ? new Date(dto.startDateTime)
-        : appointment.startDateTime;
-      const totalDurationMinutes = service.duration + extrasDurationMinutes;
-      const endDateTime = new Date(
-        startDateTime.getTime() + totalDurationMinutes * 60 * 1000,
-      );
-      const staffId = dto.staffId || appointment.staffId!;
-
-      await this.checkAppointmentConflicts(
-        staffId,
-        startDateTime,
-        endDateTime,
-        id,
-      );
     }
 
     const updateData: any = { ...dto };
     if (dto.startDateTime) {
       updateData.startDateTime = new Date(dto.startDateTime);
+    }
+
+    if (dto.startDateTime || dto.serviceId) {
+      updateData.endDateTime = endDateTime;
+    }
+
+    if (dto.serviceId) {
+      const totalPrice = parseFloat(service.price) + extrasTotalPrice;
+      updateData.totalPrice = totalPrice.toFixed(2);
     }
 
     const updated = await this.appointmentRepository.update(id, updateData);
@@ -644,30 +682,35 @@ export class AppointmentsService {
     }
 
     const depositAmount = Number(appointment.depositAmount || 0);
+    const previousTotalPrice = Number(appointment.totalPrice || 0);
     const finalTotalPrice = Math.max(0, Number(dto.finalTotalPrice || 0));
     const remainingAmount = Math.max(0, finalTotalPrice - depositAmount);
     const markAsPaid = dto.markAsPaid ?? true;
+    const isPriceChanged =
+      previousTotalPrice.toFixed(2) !== finalTotalPrice.toFixed(2);
 
     const updated = await this.appointmentRepository.update(id, {
       totalPrice: finalTotalPrice.toFixed(2),
-      paymentMethod: dto.paymentMethod || appointment.paymentMethod,
       isPaid: markAsPaid,
       paidAt: markAsPaid ? new Date() : null,
-      internalNotes: dto.internalNotes ?? appointment.internalNotes,
     });
+
+    const activityMessage = markAsPaid
+      ? 'Randevu ödendi olarak işaretlendi.'
+      : isPriceChanged
+        ? 'Randevu fiyatı güncellendi.'
+        : 'Randevu ödeme bilgisi güncellendi.';
 
     await this.activitiesService.recordActivity(
       storeId,
       'appointment',
-      markAsPaid
-        ? 'Randevu ödemesi güncellendi ve kapatıldı'
-        : 'Randevu ödemesi güncellendi',
+      activityMessage,
       {
         appointmentId: id,
+        previousTotalPrice: previousTotalPrice.toFixed(2),
         finalTotalPrice: finalTotalPrice.toFixed(2),
         depositAmount: depositAmount.toFixed(2),
         remainingAmount: remainingAmount.toFixed(2),
-        paymentMethod: dto.paymentMethod || appointment.paymentMethod || null,
         isPaid: markAsPaid,
         locationId: updated.locationId || appointment.locationId || null,
       },
@@ -1375,6 +1418,9 @@ export class AppointmentsService {
       appointment.storeId,
       bundle.storeNames,
     );
+    const customer = appointment.customerId
+      ? await this.userRepository.findById(appointment.customerId)
+      : null;
 
     return new AppointmentResponseDto({
       ...appointment,
@@ -1385,6 +1431,9 @@ export class AppointmentsService {
       ).toFixed(2),
       extras,
       customerName,
+      customerLastName: customer?.lastName || appointment.guestLastName,
+      email: customer?.email || appointment.guestEmail,
+      phone: customer?.phone || appointment.guestPhone,
       serviceName,
       staffName,
       locationName,

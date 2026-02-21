@@ -192,9 +192,9 @@ export class PaymentsService {
       throw new BadRequestException('Missing raw body for Stripe webhook');
     }
 
-    const webhookSecret =
-      this.configService.get<string>('STRIPE_WEBHOOK_SECRET') ||
-      'whsec_c07b595c5d619795ce7e4934c21c587d9e350dac625516e488fc39c0bab4b795';
+    const webhookSecret = this.configService.get<string>(
+      'STRIPE_WEBHOOK_SECRET',
+    );
     if (!webhookSecret) {
       throw new BadRequestException('STRIPE_WEBHOOK_SECRET is not configured');
     }
@@ -335,6 +335,12 @@ export class PaymentsService {
 
     if (store.ownerId !== userId) {
       throw new ForbiddenException('You do not own this store');
+    }
+
+    if (store.paymentStatus === 'freemium') {
+      throw new ForbiddenException(
+        'Stripe Connect is available only for paid plans',
+      );
     }
 
     this.ensureNonTurkishStore(store);
@@ -574,6 +580,7 @@ export class PaymentsService {
     const session = await this.stripe.checkout.sessions.create({
       mode: 'payment',
       ui_mode: 'embedded',
+      redirect_on_completion: 'if_required',
       return_url: returnUrl,
       line_items: [
         {

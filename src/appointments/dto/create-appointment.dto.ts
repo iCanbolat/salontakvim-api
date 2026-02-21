@@ -63,15 +63,31 @@ export class CreateAppointmentDto {
 
   @IsString()
   @IsOptional()
+  customerName?: string;
+
+  @IsString()
+  @IsOptional()
   guestLastName?: string;
+
+  @IsString()
+  @IsOptional()
+  customerLastName?: string;
 
   @IsEmail()
   @IsOptional()
   guestEmail?: string;
 
+  @IsEmail()
+  @IsOptional()
+  email?: string;
+
   @IsString()
   @IsOptional()
   guestPhone?: string;
+
+  @IsString()
+  @IsOptional()
+  phone?: string;
 
   @IsString()
   @IsOptional()
