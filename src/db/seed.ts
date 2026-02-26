@@ -678,7 +678,7 @@ async function seed() {
     const [appointment1] = (await db
       .insert(schema.appointments)
       .values({
-        publicNumber: 'RV-001',
+        publicNumber: '001',
         publicNumberCounter: 1,
         storeId: store.id,
         customerId: customerUser.id,
@@ -702,7 +702,7 @@ async function seed() {
     const [appointment2] = (await db
       .insert(schema.appointments)
       .values({
-        publicNumber: 'RV-002',
+        publicNumber: '002',
         publicNumberCounter: 2,
         storeId: store.id,
         customerId: customerUser.id,
@@ -726,7 +726,7 @@ async function seed() {
     const [appointment3] = (await db
       .insert(schema.appointments)
       .values({
-        publicNumber: 'RV-003',
+        publicNumber: '003',
         publicNumberCounter: 3,
         storeId: store.id,
         customerId: customerUser.id,
@@ -749,7 +749,7 @@ async function seed() {
     const [appointment4] = (await db
       .insert(schema.appointments)
       .values({
-        publicNumber: 'RV-004',
+        publicNumber: '004',
         publicNumberCounter: 4,
         storeId: store.id,
         customerId: customerUser.id,
@@ -773,7 +773,7 @@ async function seed() {
     const [appointment5] = (await db
       .insert(schema.appointments)
       .values({
-        publicNumber: 'RV-005',
+        publicNumber: '005',
         publicNumberCounter: 5,
         storeId: store.id,
         customerId: customerUser.id,
@@ -796,7 +796,7 @@ async function seed() {
     const [appointment6] = (await db
       .insert(schema.appointments)
       .values({
-        publicNumber: 'RV-006',
+        publicNumber: '006',
         publicNumberCounter: 6,
         storeId: store.id,
         customerId: customerUser.id,
@@ -817,7 +817,7 @@ async function seed() {
     const [appointment7] = (await db
       .insert(schema.appointments)
       .values({
-        publicNumber: 'RV-007',
+        publicNumber: '007',
         publicNumberCounter: 7,
         storeId: store.id,
         customerId: customerUser.id,
@@ -1046,31 +1046,9 @@ async function seed() {
       {
         storeId: store.id,
         type: 'appointment' as const,
-        message: 'Yeni randevu: Fatih Canbolat - Saç Kesimi (Ayşe Demir)',
-        metadata: {
-          appointmentId: appointment1.id,
-          serviceId: haircut.id,
-          staffId: staff1.id,
-        },
-        createdAt: daysAgo(14, 8, 0),
-      },
-      {
-        storeId: store.id,
-        type: 'appointment' as const,
         message: 'Randevu tamamlandı: Fatih Canbolat - Saç Kesimi',
         metadata: { appointmentId: appointment1.id, status: 'completed' },
         createdAt: daysAgo(14, 10, 45),
-      },
-      {
-        storeId: store.id,
-        type: 'appointment' as const,
-        message: 'Yeni randevu: Fatih Canbolat - Cilt Bakımı (Mehmet Kaya)',
-        metadata: {
-          appointmentId: appointment2.id,
-          serviceId: facial.id,
-          staffId: staff2.id,
-        },
-        createdAt: daysAgo(8, 9, 0),
       },
       {
         storeId: store.id,
@@ -1106,46 +1084,13 @@ async function seed() {
       {
         storeId: store.id,
         type: 'appointment' as const,
-        message: 'Yeni randevu: Fatih Canbolat - Manikür (Zeynep Şahin)',
-        metadata: {
-          appointmentId: appointment3.id,
-          serviceId: manicure.id,
-          staffId: staff3.id,
-        },
-        createdAt: daysAgo(4, 9, 0),
-      },
-      {
-        storeId: store.id,
-        type: 'appointment' as const,
         message: 'Randevu tamamlandı: Fatih Canbolat - Manikür',
         metadata: { appointmentId: appointment3.id, status: 'completed' },
         createdAt: daysAgo(3, 12, 15),
       },
-      {
-        storeId: store.id,
-        type: 'appointment' as const,
-        message: 'Yeni randevu: Fatih Canbolat - Saç Boyama (Ayşe Demir)',
-        metadata: {
-          appointmentId: appointment6.id,
-          serviceId: hairColor.id,
-          staffId: staff1.id,
-        },
-        createdAt: daysAgo(1, 20, 0),
-      },
-      {
-        storeId: store.id,
-        type: 'appointment' as const,
-        message: 'Yeni randevu: Fatih Canbolat - Kalıcı Oje (Zeynep Şahin)',
-        metadata: {
-          appointmentId: appointment7.id,
-          serviceId: gelNails.id,
-          staffId: staff3.id,
-        },
-        createdAt: daysAgo(0, 8, 0),
-      },
     ]);
 
-    console.log('✓ Activity records created: 13');
+    console.log('✓ Activity records created: 8');
 
     // 18. Create UK Stripe-ready dental clinic demo store
     console.log('Creating UK Stripe-ready dental clinic demo store...');
@@ -1502,6 +1447,76 @@ async function seed() {
       emailProvider: 'smtp',
     });
 
+    console.log('✓ UK Notification settings created');
+
+    // 19. Create UK appointments
+    console.log('Creating UK appointments...');
+
+    const ukApt1Start = daysAgo(2, 10, 0); // Past, completed
+    await db.insert(schema.appointments).values({
+      publicNumber: '001',
+      publicNumberCounter: 1,
+      storeId: ukStore.id,
+      customerId: customerUser.id,
+      serviceId: ukCheckupService.id,
+      staffId: ukStaff1.id,
+      locationId: ukLocation1.id,
+      startDateTime: ukApt1Start,
+      endDateTime: addMinutes(ukApt1Start, 45),
+      status: 'completed',
+      totalPrice: '95.00',
+      paymentMethod: 'card',
+      isPaid: true,
+      paidAt: addMinutes(ukApt1Start, 45),
+      customerNotes: 'First time visiting!',
+    });
+
+    const ukApt2Start = daysFromNow(2, 14, 0); // Future, confirmed
+    await db.insert(schema.appointments).values({
+      publicNumber: '002',
+      publicNumberCounter: 2,
+      storeId: ukStore.id,
+      customerId: customerUser.id,
+      serviceId: ukWhiteningService.id,
+      staffId: ukStaff1.id,
+      locationId: ukLocation1.id,
+      startDateTime: ukApt2Start,
+      endDateTime: addMinutes(ukApt2Start, 60),
+      status: 'confirmed',
+      totalPrice: '250.00',
+      isPaid: false,
+      customerNotes: 'Wants extra whitening gel',
+    });
+
+    const ukApt3Start = daysFromNow(5, 11, 0); // Future, pending
+    await db.insert(schema.appointments).values({
+      publicNumber: '003',
+      publicNumberCounter: 3,
+      storeId: ukStore.id,
+      customerId: customerUser.id,
+      serviceId: ukInvisalignService.id,
+      staffId: ukStaff2.id,
+      locationId: ukLocation2.id,
+      startDateTime: ukApt3Start,
+      endDateTime: addMinutes(ukApt3Start, 30),
+      status: 'pending',
+      totalPrice: '50.00',
+      isPaid: false,
+    });
+
+    console.log(
+      '✓ UK Appointments created: 3 (1 completed, 1 confirmed, 1 pending)',
+    );
+
+    // Register customer to UK store
+    await db.insert(schema.storeCustomers).values({
+      storeId: ukStore.id,
+      customerId: customerUser.id,
+      publicNumber: 'CUST-001',
+      publicNumberCounter: 1,
+    });
+    console.log('✓ Customer registered to UK store');
+
     console.log('✓ UK Stripe-ready dental clinic store created:', ukStore.name);
     console.log('🔑 UK Widget Key:', ukWidgetSettings.widgetKey);
 
@@ -1516,7 +1531,7 @@ async function seed() {
     console.log('   - 12 Services (8 TR + 4 UK)');
     console.log('   - 5 Service Extras (TR only)');
     console.log(
-      '   - 7 Appointments (3 completed, 2 cancelled, 1 confirmed, 1 pending)',
+      '   - 10 Appointments (4 completed, 2 cancelled, 2 confirmed, 2 pending)',
     );
     console.log('   - 3 Feedback Records');
     console.log('   - 11 Notifications');

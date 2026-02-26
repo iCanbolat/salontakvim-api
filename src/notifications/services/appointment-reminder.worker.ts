@@ -99,10 +99,8 @@ export class AppointmentReminderWorker {
           ? await this.userRepository.findById(appointment.customerId)
           : null;
 
-        const recipientEmail =
-          customerUser?.email || appointment.guestEmail || '';
-        const recipientPhone =
-          appointment.guestPhone || customerUser?.phone || null;
+        const recipientEmail = customerUser?.email || '';
+        const recipientPhone = customerUser?.phone || null;
 
         if (!recipientEmail && !recipientPhone) {
           this.logger.warn(
@@ -192,8 +190,7 @@ export class AppointmentReminderWorker {
         )
       : '';
 
-    const customerName =
-      customerUser?.firstName || appointment.guestFirstName || 'Müşteri';
+    const customerName = customerUser?.firstName || 'Müşteri';
 
     const appointmentDateTime = new Date(
       appointment.startDateTime,

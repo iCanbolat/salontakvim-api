@@ -1,7 +1,7 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { eq, and, desc, sql, ilike, or, inArray, exists } from 'drizzle-orm';
 import { DRIZZLE_ORM } from '../../db/drizzle.module';
-import { customerFiles, appointments } from '../../db/schema';
+import { customerFiles, appointments, services } from '../../db/schema';
 import {
   BaseRepository,
   PaginatedResult,
@@ -128,6 +128,7 @@ export class CustomerFileRepository extends BaseRepository<CustomerFile> {
   ): Promise<{
     id: string;
     status: string;
+    serviceId: string | null;
     staffId: string | null;
     publicNumber: string | null;
     startDateTime: Date | null;
@@ -136,6 +137,7 @@ export class CustomerFileRepository extends BaseRepository<CustomerFile> {
       .select({
         id: appointments.id,
         status: appointments.status,
+        serviceId: appointments.serviceId,
         staffId: appointments.staffId,
         publicNumber: appointments.publicNumber,
         startDateTime: appointments.startDateTime,
@@ -151,6 +153,16 @@ export class CustomerFileRepository extends BaseRepository<CustomerFile> {
       .limit(1);
 
     return appointment || null;
+  }
+
+  async findServiceNameById(serviceId: string): Promise<string | null> {
+    const [service] = await this.db
+      .select({ name: services.name })
+      .from(services)
+      .where(eq(services.id, serviceId))
+      .limit(1);
+
+    return service?.name || null;
   }
 
   async findByCustomer(

@@ -170,7 +170,7 @@ export class FeedbackController {
   }
 
   @Delete(':feedbackId')
-  @Roles('admin', 'manager', 'staff', 'customer')
+  @Roles('admin')
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(
     @Param('storeId', ParseUUIDPipe) storeId: string,

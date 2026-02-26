@@ -56,18 +56,10 @@ export class CreateAppointmentDto {
   @IsOptional()
   customerNotes?: string;
 
-  // Guest fields (used by admin/staff to create appointments for non-authenticated customers)
+  // Customer fields (used by admin/staff/public widget to create appointments for customers)
   @IsString()
   @IsOptional()
-  guestFirstName?: string;
-
-  @IsString()
-  @IsOptional()
-  customerName?: string;
-
-  @IsString()
-  @IsOptional()
-  guestLastName?: string;
+  customerFirstName?: string;
 
   @IsString()
   @IsOptional()
@@ -75,19 +67,11 @@ export class CreateAppointmentDto {
 
   @IsEmail()
   @IsOptional()
-  guestEmail?: string;
-
-  @IsEmail()
-  @IsOptional()
-  email?: string;
+  customerEmail?: string;
 
   @IsString()
   @IsOptional()
-  guestPhone?: string;
-
-  @IsString()
-  @IsOptional()
-  phone?: string;
+  customerPhone?: string;
 
   @IsString()
   @IsOptional()

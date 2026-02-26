@@ -89,4 +89,16 @@ export class GetStoreAppointmentsDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @IsOptional()
+  @IsEnum(['createdAt', 'startDateTime'])
+  sortBy?: 'createdAt' | 'startDateTime';
+
+  @IsOptional()
+  @IsEnum(['asc', 'desc'])
+  sortOrder?: 'asc' | 'desc';
+
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  prioritizePending?: boolean;
 }

@@ -428,7 +428,7 @@ export class PaymentsService {
     serviceId: string;
     extrasData?: Array<{ extraId: string; quantity: number }>;
     couponCode?: string;
-    guestEmail?: string;
+    customerEmail?: string;
   }) {
     const service = await this.serviceRepository.findByIdAndStoreId(
       params.serviceId,
@@ -452,8 +452,8 @@ export class PaymentsService {
     }
 
     if (params.couponCode) {
-      const customer = params.guestEmail
-        ? await this.userRepository.findByEmail(params.guestEmail)
+      const customer = params.customerEmail
+        ? await this.userRepository.findByEmail(params.customerEmail)
         : null;
 
       const coupon = await this.couponService.validateCoupon(
@@ -478,7 +478,7 @@ export class PaymentsService {
     serviceId: string;
     extrasData?: Array<{ extraId: string; quantity: number }>;
     couponCode?: string;
-    guestEmail?: string;
+    customerEmail?: string;
     amountType?: 'full' | 'deposit';
     depositPercentage?: number;
     successUrl: string;
@@ -521,7 +521,7 @@ export class PaymentsService {
       serviceId: params.serviceId,
       extrasData: params.extrasData,
       couponCode: params.couponCode,
-      guestEmail: params.guestEmail,
+      customerEmail: params.customerEmail,
     });
 
     if (total <= 0) {

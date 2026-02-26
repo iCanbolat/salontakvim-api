@@ -31,7 +31,7 @@ import { FEEDBACK_QUEUE } from '../../queue/queue.module';
 import type { FeedbackJobData } from '../../queue/processors/feedback.processor';
 import {
   CreateAppointmentDto,
-  CreateGuestAppointmentDto,
+  CreateCustomerAppointmentDto,
   UpdateAppointmentDto,
   UpdateAppointmentStatusDto,
   SettleAppointmentPaymentDto,
@@ -102,6 +102,7 @@ export class AppointmentsService {
 
     // Validate staff exists and belongs to store (if provided)
     let assignedStaffId = dto.staffId;
+    let resolvedLocationId = dto.locationId;
 
     if (dto.staffId) {
       const staff = await this.staffMemberRepository.findByIdAndStoreId(
@@ -110,6 +111,10 @@ export class AppointmentsService {
       );
       if (!staff) {
         throw new NotFoundException('Staff member not found');
+      }
+
+      if (!resolvedLocationId && staff.locationId) {
+        resolvedLocationId = staff.locationId;
       }
     }
 
@@ -226,6 +231,9 @@ export class AppointmentsService {
 
           if (isAvailable) {
             assignedStaffId = member.id;
+            if (!resolvedLocationId && member.locationId) {
+              resolvedLocationId = member.locationId;
+            }
             break;
           }
         }
@@ -245,6 +253,15 @@ export class AppointmentsService {
         startDateTime,
         endDateTime,
       );
+
+      if (!resolvedLocationId) {
+        const assignedStaff =
+          await this.staffMemberRepository.findByIdAndStoreId(
+            assignedStaffId,
+            storeId,
+          );
+        resolvedLocationId = assignedStaff?.locationId || undefined;
+      }
     }
 
     // Create appointment
@@ -253,7 +270,7 @@ export class AppointmentsService {
       customerId,
       serviceId: dto.serviceId,
       staffId: assignedStaffId,
-      locationId: dto.locationId,
+      locationId: resolvedLocationId,
       startDateTime,
       endDateTime,
       numberOfPeople: dto.numberOfPeople || 1,
@@ -320,35 +337,35 @@ export class AppointmentsService {
     return appointmentWithExtras;
   }
 
-  async createGuestAppointment(
+  async createCustomerAppointment(
     storeId: string,
-    dto: CreateGuestAppointmentDto,
+    dto: CreateCustomerAppointmentDto,
   ): Promise<AppointmentResponseDto> {
-    const guestEmail = dto.guestEmail || dto.email;
-    const guestFirstName = dto.guestFirstName || dto.customerName;
-    const guestLastName = dto.guestLastName || dto.customerLastName;
-    const guestPhone = dto.guestPhone || dto.phone;
+    const customerEmail = dto.customerEmail;
+    const customerFirstName = dto.customerFirstName;
+    const customerLastName = dto.customerLastName;
+    const customerPhone = dto.customerPhone;
 
-    if (!guestEmail || !guestFirstName) {
+    if (!customerEmail || !customerFirstName) {
       throw new BadRequestException(
-        'email and customerName are required for guest appointment creation',
+        'customerEmail and customerFirstName are required for customer appointment creation',
       );
     }
 
     // Check if user exists with this email
-    let customer = await this.userRepository.findByEmail(guestEmail);
+    let customer = await this.userRepository.findByEmail(customerEmail);
     let createdNewCustomer = false;
 
     if (!customer) {
-      // Create guest customer account
+      // Create customer account
       const temporaryPassword = randomBytes(16).toString('hex');
       const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
 
       customer = await this.userRepository.create({
-        email: guestEmail,
-        firstName: guestFirstName,
-        lastName: guestLastName,
-        phone: guestPhone,
+        email: customerEmail,
+        firstName: customerFirstName,
+        lastName: customerLastName,
+        phone: customerPhone,
         password: hashedPassword,
         role: 'customer',
       });
@@ -360,10 +377,10 @@ export class AppointmentsService {
       await this.activitiesService.recordActivity(
         storeId,
         'customer',
-        `${guestFirstName} ${guestLastName || ''} adlı yeni müşteri oluşturuldu`,
+        `${customerFirstName} ${customerLastName || ''} adlı yeni müşteri oluşturuldu`,
         {
           customerId: customer.id,
-          email: guestEmail,
+          email: customerEmail,
         },
       );
     }
@@ -616,6 +633,18 @@ export class AppointmentsService {
       throw new NotFoundException('Appointment not found');
     }
 
+    if (appointment.status === 'completed') {
+      throw new BadRequestException(
+        'Completed appointments cannot be changed manually',
+      );
+    }
+
+    if (dto.status === 'completed') {
+      throw new BadRequestException(
+        'Use settle payment with markAsPaid=true to complete an appointment',
+      );
+    }
+
     const previousStatus = appointment.status;
 
     const updateData: any = {
@@ -647,10 +676,6 @@ export class AppointmentsService {
             locationId: updated.locationId || appointment.locationId || null,
           },
         );
-      }
-
-      if (updated.status === 'completed') {
-        await this.sendFeedbackRequest(updated);
       }
 
       if (updated.status === 'confirmed') {
@@ -686,6 +711,7 @@ export class AppointmentsService {
     const finalTotalPrice = Math.max(0, Number(dto.finalTotalPrice || 0));
     const remainingAmount = Math.max(0, finalTotalPrice - depositAmount);
     const markAsPaid = dto.markAsPaid ?? true;
+    const shouldAutoComplete = markAsPaid && appointment.status !== 'completed';
     const isPriceChanged =
       previousTotalPrice.toFixed(2) !== finalTotalPrice.toFixed(2);
 
@@ -693,6 +719,7 @@ export class AppointmentsService {
       totalPrice: finalTotalPrice.toFixed(2),
       isPaid: markAsPaid,
       paidAt: markAsPaid ? new Date() : null,
+      ...(shouldAutoComplete ? { status: 'completed' } : {}),
     });
 
     const activityMessage = markAsPaid
@@ -715,6 +742,27 @@ export class AppointmentsService {
         locationId: updated.locationId || appointment.locationId || null,
       },
     );
+
+    if (shouldAutoComplete) {
+      const statusActivityMessage = await this.buildStatusActivityMessage(
+        updated,
+        'completed',
+      );
+
+      await this.activitiesService.recordActivity(
+        storeId,
+        'appointment',
+        statusActivityMessage,
+        {
+          appointmentId: id,
+          oldStatus: appointment.status,
+          newStatus: 'completed',
+          locationId: updated.locationId || appointment.locationId || null,
+        },
+      );
+
+      await this.sendFeedbackRequest(updated);
+    }
 
     return this.getAppointmentById(id, storeId);
   }
@@ -1285,18 +1333,13 @@ export class AppointmentsService {
         : null;
 
       const customerName =
-        appointment.guestFirstName || appointment.guestLastName
-          ? [appointment.guestFirstName, appointment.guestLastName]
-              .filter(Boolean)
-              .join(' ')
-              .trim()
-          : [customer?.firstName, customer?.lastName]
-              .filter(Boolean)
-              .join(' ')
-              .trim() ||
-            customer?.email ||
-            customer?.phone ||
-            'Müşteri';
+        [customer?.firstName, customer?.lastName]
+          .filter(Boolean)
+          .join(' ')
+          .trim() ||
+        customer?.email ||
+        customer?.phone ||
+        'Müşteri';
 
       const staffName = staffUser
         ? [staffUser.firstName, staffUser.lastName]
@@ -1319,8 +1362,8 @@ export class AppointmentsService {
             )
           : '';
 
-      const recipientEmail = appointment.guestEmail || customer?.email || '';
-      const recipientPhone = appointment.guestPhone || customer?.phone || null;
+      const recipientEmail = customer?.email || '';
+      const recipientPhone = customer?.phone || null;
 
       const now = new Date();
       const tokenValid =
@@ -1431,9 +1474,9 @@ export class AppointmentsService {
       ).toFixed(2),
       extras,
       customerName,
-      customerLastName: customer?.lastName || appointment.guestLastName,
-      email: customer?.email || appointment.guestEmail,
-      phone: customer?.phone || appointment.guestPhone,
+      customerLastName: customer?.lastName,
+      email: customer?.email,
+      phone: customer?.phone,
       serviceName,
       staffName,
       locationName,

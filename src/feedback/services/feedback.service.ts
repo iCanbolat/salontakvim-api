@@ -110,9 +110,7 @@ export class FeedbackService {
       }
     }
 
-    const guestName =
-      `${appointment.guestFirstName || ''} ${appointment.guestLastName || ''}`.trim();
-    return guestName || 'Misafir Müşteri';
+    return 'Müşteri';
   }
 
   private async validateStoreAccess(storeId: string, userId: string) {
@@ -451,8 +449,8 @@ export class FeedbackService {
       throw new NotFoundException('Feedback not found');
     }
 
-    // Only store owner or the customer who wrote it can delete
-    if (!isOwner && feedback.customerId !== userId) {
+    // Only store owner can delete
+    if (!isOwner) {
       throw new ForbiddenException(
         'You do not have permission to delete this feedback',
       );

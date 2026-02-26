@@ -20,7 +20,7 @@ import { StoreNotFoundException } from '../../stores/exceptions';
 import { UserRepository } from '../../auth/repositories/user.repository';
 import { AppointmentsService } from '../../appointments/services/appointments.service';
 import { CouponService } from '../../coupons/services/coupon.service';
-import { CreateGuestAppointmentDto } from '../../appointments/dto';
+import { CreateCustomerAppointmentDto } from '../../appointments/dto';
 import { EmbedTokenService, EmbedTokenPayload } from '../utils/embed-token';
 import { NotificationService } from '../../notifications/services/notification.service';
 import { REDIS_CLIENT } from '../../redis/redis.constants';
@@ -622,7 +622,7 @@ export class WidgetService {
 
   async createWidgetAppointment(
     widgetKey: string,
-    dto: CreateGuestAppointmentDto,
+    dto: CreateCustomerAppointmentDto,
     token?: string,
     origin?: string,
   ) {
@@ -655,7 +655,7 @@ export class WidgetService {
       paidDepositAmount = Number(verification.paidAmount || 0);
     }
 
-    const appointment = await this.appointmentsService.createGuestAppointment(
+    const appointment = await this.appointmentsService.createCustomerAppointment(
       store.id,
       dto,
     );
@@ -688,7 +688,7 @@ export class WidgetService {
       code: string;
       serviceId?: string;
       amount?: number;
-      guestEmail?: string;
+      customerEmail?: string;
     },
     token?: string,
     origin?: string,
@@ -699,8 +699,8 @@ export class WidgetService {
       origin,
     );
 
-    const customer = dto.guestEmail
-      ? await this.userRepository.findByEmail(dto.guestEmail)
+    const customer = dto.customerEmail
+      ? await this.userRepository.findByEmail(dto.customerEmail)
       : null;
 
     const validation = await this.couponService.validateCoupon(
@@ -729,7 +729,7 @@ export class WidgetService {
 
   async createWidgetAppointmentBySlug(
     slug: string,
-    dto: CreateGuestAppointmentDto,
+    dto: CreateCustomerAppointmentDto,
     token?: string,
     origin?: string,
   ) {
@@ -758,7 +758,7 @@ export class WidgetService {
       paidDepositAmount = Number(verification.paidAmount || 0);
     }
 
-    const appointment = await this.appointmentsService.createGuestAppointment(
+    const appointment = await this.appointmentsService.createCustomerAppointment(
       store.id,
       dto,
     );
@@ -802,7 +802,7 @@ export class WidgetService {
       serviceId: dto.serviceId,
       extrasData: dto.extrasData,
       couponCode: dto.couponCode,
-      guestEmail: dto.guestEmail,
+      customerEmail: dto.customerEmail,
       amountType: dto.amountType,
       depositPercentage: dto.depositPercentage,
       successUrl: dto.successUrl,
@@ -823,7 +823,7 @@ export class WidgetService {
       serviceId: dto.serviceId,
       extrasData: dto.extrasData,
       couponCode: dto.couponCode,
-      guestEmail: dto.guestEmail,
+      customerEmail: dto.customerEmail,
       amountType: dto.amountType,
       depositPercentage: dto.depositPercentage,
       successUrl: dto.successUrl,
@@ -837,15 +837,15 @@ export class WidgetService {
       code: string;
       serviceId?: string;
       amount?: number;
-      guestEmail?: string;
+      customerEmail?: string;
     },
     token?: string,
     origin?: string,
   ) {
     const { store } = await this.resolveContextBySlug(slug, token, origin);
 
-    const customer = dto.guestEmail
-      ? await this.userRepository.findByEmail(dto.guestEmail)
+    const customer = dto.customerEmail
+      ? await this.userRepository.findByEmail(dto.customerEmail)
       : null;
 
     const validation = await this.couponService.validateCoupon(

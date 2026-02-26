@@ -20,7 +20,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AppointmentsService } from './services/appointments.service';
 import {
   CreateAppointmentDto,
-  CreateGuestAppointmentDto,
+  CreateCustomerAppointmentDto,
   UpdateAppointmentDto,
   UpdateAppointmentStatusDto,
   SettleAppointmentPaymentDto,
@@ -33,8 +33,6 @@ import {
 export class AppointmentsController {
   constructor(private readonly appointmentsService: AppointmentsService) {}
 
-  // ============= Customer Endpoints =============
-
   @Post('stores/:storeId/appointments')
   @Roles('customer', 'admin', 'manager', 'staff')
   async createAppointment(
@@ -42,33 +40,31 @@ export class AppointmentsController {
     @Body() dto: CreateAppointmentDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    const guestEmail = dto.guestEmail || dto.email;
-    const guestFirstName = dto.guestFirstName || dto.customerName;
-    const hasGuestPayload = Boolean(guestEmail);
+    const hasCustomerPayload = Boolean(dto.customerEmail);
 
     // Customers can only create appointments for themselves.
-    if (user.role === 'customer' && hasGuestPayload) {
+    if (user.role === 'customer' && hasCustomerPayload) {
       throw new BadRequestException(
-        'Guest fields are not allowed for customer appointment creation',
+        'Customer fields are not allowed for customer appointment creation',
       );
     }
 
-    // Admin/staff/manager may create appointments for guests by providing guest details.
+    // Admin/staff/manager may create appointments for customers by providing customer details.
     if (
       (user.role === 'admin' ||
         user.role === 'manager' ||
         user.role === 'staff') &&
-      hasGuestPayload
+      hasCustomerPayload
     ) {
-      if (!guestFirstName || !guestEmail) {
+      if (!dto.customerFirstName || !dto.customerEmail) {
         throw new BadRequestException(
-          'customerName and email are required when creating a guest appointment',
+          'customerFirstName and customerEmail are required when creating a customer appointment',
         );
       }
 
-      return await this.appointmentsService.createGuestAppointment(
+      return await this.appointmentsService.createCustomerAppointment(
         storeId,
-        dto as CreateGuestAppointmentDto,
+        dto as CreateCustomerAppointmentDto,
       );
     }
 
@@ -258,13 +254,13 @@ export class AppointmentsController {
     );
   }
 
-  // ============= Guest Booking (Public) =============
+  // ============= Customer Booking (Public) =============
 
   @Post('public/stores/:slug/appointments')
   @Public()
-  async createGuestAppointment(
+  async createCustomerAppointment(
     @Param('slug') slug: string,
-    @Body() dto: CreateGuestAppointmentDto,
+    @Body() dto: CreateCustomerAppointmentDto,
   ) {
     // TODO: Get storeId from slug
     // For now, we'll need to implement slug lookup

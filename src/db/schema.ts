@@ -548,7 +548,7 @@ export const appointments = pgTable(
       .notNull(), // Store this appointment belongs to
     customerId: uuid('customer_id').references(() => users.id, {
       onDelete: 'set null',
-    }), // Can be null for guest bookings
+    }), // Can be null if customer user is removed
     serviceId: uuid('service_id').references(() => services.id, {
       onDelete: 'set null',
     }),
@@ -558,12 +558,6 @@ export const appointments = pgTable(
     locationId: uuid('location_id').references(() => locations.id, {
       onDelete: 'set null',
     }),
-
-    // Guest customer info (if customerId is null)
-    guestFirstName: varchar('guest_first_name', { length: 255 }),
-    guestLastName: varchar('guest_last_name', { length: 255 }),
-    guestEmail: varchar('guest_email', { length: 255 }),
-    guestPhone: varchar('guest_phone', { length: 50 }),
 
     // Appointment details
     startDateTime: timestamp('start_date_time').notNull(),

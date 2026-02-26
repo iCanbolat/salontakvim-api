@@ -161,3 +161,40 @@ export class FolderListResponseDto {
   @Expose()
   totalPages: number;
 }
+
+export class CustomerFilePreviewAppointmentDto {
+  @Expose()
+  id: string;
+
+  @Expose()
+  startDateTime: Date;
+
+  @Expose()
+  serviceName: string | null;
+
+  @Expose()
+  staffName: string | null;
+}
+
+export class CustomerFilePreviewContextDto {
+  @Expose()
+  @Type(() => CustomerFilePreviewAppointmentDto)
+  appointment: CustomerFilePreviewAppointmentDto | null;
+}
+
+export class CustomerFileCustomerSummaryDto {
+  @Expose()
+  id: string;
+
+  @Expose()
+  firstName: string | null;
+
+  @Expose()
+  lastName: string | null;
+
+  @Expose()
+  email: string | null;
+
+  @Expose()
+  fullName: string;
+}

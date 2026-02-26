@@ -24,6 +24,8 @@ import {
   CustomerFileListResponseDto,
   UpdateCustomerFileDto,
   UploadCustomerFileDto,
+  CustomerFilePreviewContextDto,
+  CustomerFileCustomerSummaryDto,
 } from './dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -78,6 +80,36 @@ export class CustomerFileController {
       limit: limit ? parseInt(limit, 10) : undefined,
       page: page ? parseInt(page, 10) : undefined,
     });
+  }
+
+  @Get('customer-summary')
+  @Roles('admin', 'manager', 'staff')
+  async getCustomerSummary(
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('customerId', ParseUUIDPipe) customerId: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<CustomerFileCustomerSummaryDto> {
+    return this.customerFileService.getCustomerSummary(
+      storeId,
+      customerId,
+      user.sub,
+    );
+  }
+
+  @Get(':fileId/preview-context')
+  @Roles('admin', 'manager', 'staff')
+  async getFilePreviewContext(
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('customerId', ParseUUIDPipe) customerId: string,
+    @Param('fileId', ParseUUIDPipe) fileId: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<CustomerFilePreviewContextDto> {
+    return this.customerFileService.getFilePreviewContext(
+      storeId,
+      customerId,
+      fileId,
+      user.sub,
+    );
   }
 
   @Get(':fileId')

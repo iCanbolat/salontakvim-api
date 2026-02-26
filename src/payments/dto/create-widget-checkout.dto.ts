@@ -35,7 +35,7 @@ export class CreateWidgetCheckoutDto {
 
   @IsOptional()
   @IsString()
-  guestEmail?: string;
+  customerEmail?: string;
 
   @IsOptional()
   @IsIn(['full', 'deposit'])

@@ -479,10 +479,6 @@ export class StoreRepository
         staffFirstName: schema.users.firstName,
         staffLastName: schema.users.lastName,
         locationId: schema.appointments.locationId,
-        guestFirstName: schema.appointments.guestFirstName,
-        guestLastName: schema.appointments.guestLastName,
-        guestEmail: schema.appointments.guestEmail,
-        guestPhone: schema.appointments.guestPhone,
         startDateTime: schema.appointments.startDateTime,
         endDateTime: schema.appointments.endDateTime,
         numberOfPeople: schema.appointments.numberOfPeople,
@@ -514,25 +510,7 @@ export class StoreRepository
       .orderBy(sql`${schema.appointments.startDateTime} DESC`);
 
     const formattedAppointments = appointments.map((appointment) => {
-      const {
-        guestFirstName,
-        guestLastName,
-        guestEmail,
-        guestPhone,
-        staffFirstName,
-        staffLastName,
-        ...rest
-      } = appointment;
-
-      const guestInfo =
-        guestFirstName || guestLastName || guestEmail
-          ? {
-              firstName: guestFirstName || '',
-              lastName: guestLastName || '',
-              email: guestEmail || '',
-              phone: guestPhone || undefined,
-            }
-          : undefined;
+      const { staffFirstName, staffLastName, ...rest } = appointment;
 
       const staffName =
         staffFirstName || staffLastName
@@ -542,7 +520,6 @@ export class StoreRepository
       return {
         ...rest,
         staffName,
-        guestInfo,
       };
     });
 

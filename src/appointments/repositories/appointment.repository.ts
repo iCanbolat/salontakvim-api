@@ -38,6 +38,9 @@ export interface AppointmentQueryFilters {
   search?: string;
   page?: number;
   limit?: number;
+  sortBy?: 'createdAt' | 'startDateTime';
+  sortOrder?: 'asc' | 'desc';
+  prioritizePending?: boolean;
 }
 
 export type AppointmentStatusCounts = Record<
@@ -66,7 +69,7 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
         .where(eq(schema.appointments.storeId, data.storeId));
 
       const publicNumberCounter = next?.nextNumber ?? 1;
-      const publicNumber = String(publicNumberCounter).padStart(2, '0');
+      const publicNumber = String(publicNumberCounter).padStart(3, '0');
 
       const [appointment] = await tx
         .insert(schema.appointments)
@@ -143,13 +146,26 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
     const whereCondition = this.buildWhereClause(storeId, filters);
 
     const queryFactory = (limit: number, offset: number) => {
+      const sortBy = filters.sortBy ?? 'startDateTime';
+      const sortOrder = filters.sortOrder ?? 'asc';
+      const prioritizePending = filters.prioritizePending ?? true;
+      const sortColumn =
+        sortBy === 'createdAt'
+          ? schema.appointments.createdAt
+          : schema.appointments.startDateTime;
+      const sortDirection = sortOrder === 'desc' ? sql`DESC` : sql`ASC`;
+
+      const orderByClauses = prioritizePending
+        ? [
+            sql`CASE WHEN ${schema.appointments.status} = 'pending' THEN 0 ELSE 1 END`,
+            sql`${sortColumn} ${sortDirection}`,
+          ]
+        : [sql`${sortColumn} ${sortDirection}`];
+
       let query = this.db
         .select()
         .from(schema.appointments)
-        .orderBy(
-          sql`CASE WHEN ${schema.appointments.status} = 'pending' THEN 0 ELSE 1 END`,
-          schema.appointments.startDateTime,
-        )
+        .orderBy(...orderByClauses)
         .limit(limit)
         .offset(offset);
 
@@ -564,10 +580,6 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
       (
         ${schema.appointments.publicNumber} ILIKE ${pattern}
         OR CAST(${schema.appointments.id} AS TEXT) ILIKE ${pattern}
-        OR ${schema.appointments.guestFirstName} ILIKE ${pattern}
-        OR ${schema.appointments.guestLastName} ILIKE ${pattern}
-        OR ${schema.appointments.guestEmail} ILIKE ${pattern}
-        OR ${schema.appointments.guestPhone} ILIKE ${pattern}
         OR ${schema.appointments.customerNotes} ILIKE ${pattern}
         OR ${schema.appointments.internalNotes} ILIKE ${pattern}
         OR EXISTS (

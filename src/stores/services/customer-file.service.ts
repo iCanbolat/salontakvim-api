@@ -18,6 +18,8 @@ import {
   CustomerFileResponseDto,
   CustomerFileListResponseDto,
   UpdateCustomerFileDto,
+  CustomerFilePreviewContextDto,
+  CustomerFileCustomerSummaryDto,
 } from '../dto';
 import { plainToInstance } from 'class-transformer';
 import * as fs from 'fs';
@@ -327,6 +329,100 @@ export class CustomerFileService {
     }
 
     return this.toResponseDto(file);
+  }
+
+  async getCustomerSummary(
+    storeId: string,
+    customerId: string,
+    userId: string,
+  ): Promise<CustomerFileCustomerSummaryDto> {
+    await this.storeService.verifyStoreOwnership(storeId, userId);
+
+    const customer = await this.userRepository.findById(customerId);
+
+    if (!customer) {
+      throw new NotFoundException('Customer not found');
+    }
+
+    const fullName = [customer.firstName, customer.lastName]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+
+    return {
+      id: customer.id,
+      firstName: customer.firstName || null,
+      lastName: customer.lastName || null,
+      email: customer.email || null,
+      fullName: fullName || customer.email || 'Customer',
+    };
+  }
+
+  async getFilePreviewContext(
+    storeId: string,
+    customerId: string,
+    fileId: string,
+    userId: string,
+  ): Promise<CustomerFilePreviewContextDto> {
+    await this.storeService.verifyStoreOwnership(storeId, userId);
+
+    const file = await this.customerFileRepository.findByStoreAndId(
+      storeId,
+      customerId,
+      fileId,
+    );
+
+    if (!file) {
+      throw new NotFoundException('File not found');
+    }
+
+    if (!file.appointmentId) {
+      return { appointment: null };
+    }
+
+    const appointmentSummary =
+      await this.customerFileRepository.findAppointmentSummary(
+        storeId,
+        file.appointmentId,
+        customerId,
+      );
+
+    if (!appointmentSummary?.id || !appointmentSummary.startDateTime) {
+      return { appointment: null };
+    }
+
+    let staffName: string | null = null;
+    if (appointmentSummary.staffId) {
+      const staffMember = await this.staffMemberRepository.findById(
+        appointmentSummary.staffId,
+      );
+
+      if (staffMember?.userId) {
+        const staffUser = await this.userRepository.findById(
+          staffMember.userId,
+        );
+        const resolved = [staffUser?.firstName, staffUser?.lastName]
+          .filter(Boolean)
+          .join(' ')
+          .trim();
+        staffName = resolved || staffUser?.email || null;
+      }
+    }
+
+    const serviceName = appointmentSummary.serviceId
+      ? await this.customerFileRepository.findServiceNameById(
+          appointmentSummary.serviceId,
+        )
+      : null;
+
+    return {
+      appointment: {
+        id: appointmentSummary.id,
+        startDateTime: appointmentSummary.startDateTime,
+        serviceName,
+        staffName,
+      },
+    };
   }
 
   async getFileForDownload(

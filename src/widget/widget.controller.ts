@@ -18,7 +18,7 @@ import { Public } from '../auth/decorators/public.decorator';
 import { PublicRateLimitGuard } from '../common/guards/public-rate-limit.guard';
 import { WidgetService } from './services/widget.service';
 import { UpdateWidgetSettingsDto } from './dto';
-import { CreateGuestAppointmentDto } from '../appointments/dto';
+import { CreateCustomerAppointmentDto } from '../appointments/dto';
 import { CreateWidgetCheckoutDto } from '../payments/dto';
 
 @Controller()
@@ -353,7 +353,7 @@ export class WidgetController {
   @UseGuards(PublicRateLimitGuard)
   async createWidgetAppointment(
     @Param('widgetKey') widgetKey: string,
-    @Body() dto: CreateGuestAppointmentDto,
+    @Body() dto: CreateCustomerAppointmentDto,
     @Query('token') token?: string,
     @Headers('origin') origin?: string,
     @Headers('referer') referer?: string,
@@ -377,7 +377,7 @@ export class WidgetController {
       code: string;
       serviceId?: string;
       amount?: number;
-      guestEmail?: string;
+      customerEmail?: string;
     },
     @Query('token') token?: string,
     @Headers('origin') origin?: string,
@@ -416,7 +416,7 @@ export class WidgetController {
   @UseGuards(PublicRateLimitGuard)
   async createWidgetAppointmentBySlug(
     @Param('slug') slug: string,
-    @Body() dto: CreateGuestAppointmentDto,
+    @Body() dto: CreateCustomerAppointmentDto,
     @Query('token') token?: string,
     @Headers('origin') origin?: string,
     @Headers('referer') referer?: string,
@@ -440,7 +440,7 @@ export class WidgetController {
       code: string;
       serviceId?: string;
       amount?: number;
-      guestEmail?: string;
+      customerEmail?: string;
     },
     @Query('token') token?: string,
     @Headers('origin') origin?: string,

@@ -1,4 +1,4 @@
-import { Exclude, Expose, Type } from 'class-transformer';
+import { Expose, Type } from 'class-transformer';
 
 class AppointmentExtraResponse {
   @Expose()
@@ -15,20 +15,6 @@ class AppointmentExtraResponse {
 
   @Expose()
   createdAt: Date;
-}
-
-class GuestInfo {
-  @Expose()
-  firstName: string;
-
-  @Expose()
-  lastName: string;
-
-  @Expose()
-  email: string;
-
-  @Expose()
-  phone?: string;
 }
 
 export class AppointmentResponseDto {
@@ -55,10 +41,6 @@ export class AppointmentResponseDto {
 
   @Expose()
   locationId?: string;
-
-  @Expose()
-  @Type(() => GuestInfo)
-  guestInfo?: GuestInfo;
 
   @Expose()
   customerName?: string;
@@ -151,29 +133,7 @@ export class AppointmentResponseDto {
   @Expose()
   activities?: any[];
 
-  @Exclude()
-  guestFirstName?: string;
-
-  @Exclude()
-  guestLastName?: string;
-
-  @Exclude()
-  guestEmail?: string;
-
-  @Exclude()
-  guestPhone?: string;
-
   constructor(partial: Partial<AppointmentResponseDto>) {
     Object.assign(this, partial);
-
-    // Transform guest fields into guestInfo object
-    if (this.guestFirstName || this.guestLastName || this.guestEmail) {
-      this.guestInfo = {
-        firstName: this.guestFirstName!,
-        lastName: this.guestLastName!,
-        email: this.guestEmail!,
-        phone: this.guestPhone,
-      };
-    }
   }
 }
