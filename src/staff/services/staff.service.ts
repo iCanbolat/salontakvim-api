@@ -289,11 +289,15 @@ export class StaffService {
     // Delete existing avatar if exists
     if (user.avatar?.includes(`/stores/${storeId}/avatars/`)) {
       const existingName = path.basename(user.avatar);
-      this.fileUploadService.deleteFileByPath(storeId, 'avatars', existingName);
+      await this.fileUploadService.deleteFileByPath(
+        storeId,
+        'avatars',
+        existingName,
+      );
     }
 
     // Save new avatar using common file upload service
-    const result = this.fileUploadService.saveFile(
+    const result = await this.fileUploadService.saveFile(
       file,
       storeId,
       'avatars',
@@ -307,7 +311,7 @@ export class StaffService {
   }
 
   async getAvatarFile(storeId: string, fileName: string) {
-    const fileInfo = this.fileUploadService.getFileInfo(
+    const fileInfo = await this.fileUploadService.getFileInfo(
       storeId,
       'avatars',
       fileName,

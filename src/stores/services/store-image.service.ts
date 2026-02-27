@@ -35,7 +35,7 @@ export class StoreImageService {
     }
 
     // Save the file using the common file upload service
-    const result = this.fileUploadService.saveFile(
+    const result = await this.fileUploadService.saveFile(
       file,
       storeId,
       'store-images',
@@ -71,7 +71,7 @@ export class StoreImageService {
     // Extract fileName from URL and delete the file
     const fileName = this.extractFileNameFromUrl(imageUrl);
     if (fileName) {
-      this.fileUploadService.deleteFileByPath(
+      await this.fileUploadService.deleteFileByPath(
         storeId,
         'store-images',
         fileName,
@@ -118,8 +118,8 @@ export class StoreImageService {
   /**
    * Get store image file for serving
    */
-  getStoreImageFile(storeId: string, fileName: string) {
-    const fileInfo = this.fileUploadService.getFileInfo(
+  async getStoreImageFile(storeId: string, fileName: string) {
+    const fileInfo = await this.fileUploadService.getFileInfo(
       storeId,
       'store-images',
       fileName,

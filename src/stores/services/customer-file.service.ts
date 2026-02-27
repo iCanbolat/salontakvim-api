@@ -23,6 +23,7 @@ import {
 import { plainToInstance } from 'class-transformer';
 import * as fs from 'fs';
 import { FileUploadService, FILE_TYPE_CONFIGS } from '../../common/file-upload';
+const fsp = fs.promises;
 
 @Injectable()
 export class CustomerFileService {
@@ -59,7 +60,7 @@ export class CustomerFileService {
 
     // Save file using the common file upload service
     // Path: uploads/{storeId}/customer-files/{customerId}/{fileName}
-    const result = this.fileUploadService.saveFile(
+    const result = await this.fileUploadService.saveFile(
       file,
       storeId,
       'customer-files',
@@ -335,7 +336,8 @@ export class CustomerFileService {
     }
 
     // Check if file exists on disk
-    if (!fs.existsSync(file.storagePath)) {
+    const fileExists = await this.pathExists(file.storagePath);
+    if (!fileExists) {
       throw new NotFoundException('File not found on disk');
     }
 
@@ -460,8 +462,9 @@ export class CustomerFileService {
 
     // Delete file from disk
     try {
-      if (fs.existsSync(file.storagePath)) {
-        fs.unlinkSync(file.storagePath);
+      const fileExists = await this.pathExists(file.storagePath);
+      if (fileExists) {
+        await fsp.unlink(file.storagePath);
       }
     } catch {
       console.error(`Failed to delete file from disk: ${file.storagePath}`);
@@ -482,6 +485,7 @@ export class CustomerFileService {
     await this.storeService.verifyStoreOwnership(storeId, userId);
 
     const verifiedFileIds: string[] = [];
+    const pathsToDelete: string[] = [];
 
     const customerUser = await this.userRepository.findById(customerId);
     const customerName = [customerUser?.firstName, customerUser?.lastName]
@@ -555,18 +559,21 @@ export class CustomerFileService {
           },
         );
 
-        // Delete file from disk
-        try {
-          if (fs.existsSync(file.storagePath)) {
-            fs.unlinkSync(file.storagePath);
-          }
-        } catch {
-          console.error(`Failed to delete file from disk: ${file.storagePath}`);
-        }
-
+        pathsToDelete.push(file.storagePath);
         verifiedFileIds.push(fileId);
       }
     }
+
+    await this.runWithConcurrency(pathsToDelete, 8, async (storagePath) => {
+      try {
+        const fileExists = await this.pathExists(storagePath);
+        if (fileExists) {
+          await fsp.unlink(storagePath);
+        }
+      } catch {
+        console.error(`Failed to delete file from disk: ${storagePath}`);
+      }
+    });
 
     // Delete records from database
     if (verifiedFileIds.length > 0) {
@@ -599,5 +606,42 @@ export class CustomerFileService {
     dto.downloadUrl = `${this.baseUrl}/api/stores/${file.storeId}/customers/${file.customerId}/files/${file.id}/download`;
 
     return dto;
+  }
+
+  private async pathExists(pathToCheck: string): Promise<boolean> {
+    try {
+      await fsp.access(pathToCheck, fs.constants.F_OK);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private async runWithConcurrency<T>(
+    items: T[],
+    concurrency: number,
+    task: (item: T) => Promise<void>,
+  ): Promise<void> {
+    if (!items.length) {
+      return;
+    }
+
+    const safeConcurrency = Math.max(1, Math.min(concurrency, items.length));
+    let index = 0;
+
+    const workers = Array.from({ length: safeConcurrency }, async () => {
+      while (true) {
+        const currentIndex = index;
+        index += 1;
+
+        if (currentIndex >= items.length) {
+          return;
+        }
+
+        await task(items[currentIndex]);
+      }
+    });
+
+    await Promise.all(workers);
   }
 }

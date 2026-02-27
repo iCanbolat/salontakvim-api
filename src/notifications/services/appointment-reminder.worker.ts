@@ -4,12 +4,26 @@ import { randomBytes } from 'crypto';
 import { NotificationService } from './notification.service';
 import { NotificationRepository } from '../repositories/notification.repository';
 import { AppointmentRepository } from '../../appointments/repositories/appointment.repository';
-import { StoreRepository } from '../../stores/repositories/store.repository';
 import { ServiceRepository } from '../../services/repositories/service.repository';
 import { StaffMemberRepository } from '../../staff/repositories/staff-member.repository';
 import { UserRepository } from '../../auth/repositories/user.repository';
 import { LocationRepository } from '../../locations/repositories/location.repository';
 import { TemplateVariables } from '../interfaces/notification.interface';
+
+interface ReminderStoreContext {
+  id: string;
+  slug: string | null;
+  name: string;
+  phone: string | null;
+  email: string | null;
+}
+
+interface ReminderPreload {
+  serviceById: Map<string, any>;
+  staffById: Map<string, any>;
+  locationById: Map<string, any>;
+  userById: Map<string, any>;
+}
 
 /**
  * Background worker that sends appointment reminders (24h / 1h) based on store settings.
@@ -17,12 +31,14 @@ import { TemplateVariables } from '../interfaces/notification.interface';
 @Injectable()
 export class AppointmentReminderWorker {
   private readonly logger = new Logger(AppointmentReminderWorker.name);
+  private readonly appointmentConcurrency = 10;
+  private readonly storeBatchSize = 10;
+  private readonly storeConcurrency = 3;
 
   constructor(
     private readonly notificationService: NotificationService,
     private readonly notificationRepository: NotificationRepository,
     private readonly appointmentRepository: AppointmentRepository,
-    private readonly storeRepository: StoreRepository,
     private readonly serviceRepository: ServiceRepository,
     private readonly staffMemberRepository: StaffMemberRepository,
     private readonly userRepository: UserRepository,
@@ -32,6 +48,7 @@ export class AppointmentReminderWorker {
   // Run every 5 minutes
   @Cron(CronExpression.EVERY_5_MINUTES)
   async handleReminders() {
+    this.logger.log('Starting appointment reminder worker...');
     const now = new Date();
 
     const window24Start = new Date(now.getTime() + 24 * 60 * 60 * 1000);
@@ -43,26 +60,48 @@ export class AppointmentReminderWorker {
     const settingsList =
       await this.notificationRepository.getReminderEnabledSettings();
 
-    for (const settings of settingsList) {
-      const storeId = settings.storeId;
-
-      const store = await this.storeRepository.findById(storeId);
-
-      if (!store) {
-        this.logger.warn(
-          `Skipping reminders for store ${storeId}: store not found`,
-        );
-        continue;
-      }
-
-      if (settings.reminder24hEnabled) {
-        await this.processWindow(store, '24h', window24Start, window24End);
-      }
-
-      if (settings.reminder1hEnabled) {
-        await this.processWindow(store, '1h', window1hStart, window1hEnd);
-      }
+    if (!settingsList.length) {
+      this.logger.log('No stores with reminders enabled found.');
+      return;
     }
+
+    this.logger.log(
+      `Processing reminders for ${settingsList.length} stores...`,
+    );
+
+    await this.runWithConcurrency(
+      settingsList,
+      this.storeConcurrency,
+      async (settings) => {
+        const store: ReminderStoreContext = {
+          id: settings.storeId,
+          slug: settings.storeSlug,
+          name: settings.storeName,
+          phone: settings.storePhone,
+          email: settings.storeEmail,
+        };
+
+        const windowTasks: Promise<void>[] = [];
+
+        if (settings.reminder24hEnabled) {
+          windowTasks.push(
+            this.processWindow(store, '24h', window24Start, window24End),
+          );
+        }
+
+        if (settings.reminder1hEnabled) {
+          windowTasks.push(
+            this.processWindow(store, '1h', window1hStart, window1hEnd),
+          );
+        }
+
+        if (windowTasks.length > 0) {
+          await Promise.all(windowTasks);
+        }
+      },
+    );
+
+    this.logger.log('Appointment reminder worker finished.');
   }
 
   private async processWindow(
@@ -82,82 +121,91 @@ export class AppointmentReminderWorker {
       return;
     }
 
-    for (const appointment of appointments) {
-      const claimed = await this.appointmentRepository.claimReminder(
-        appointment.id,
-        type,
-      );
+    const preload = await this.preloadReminderDependencies(appointments);
 
-      if (!claimed) {
-        continue;
-      }
-
-      try {
-        const variables = await this.buildTemplateVariables(appointment, store);
-
-        const customerUser = appointment.customerId
-          ? await this.userRepository.findById(appointment.customerId)
-          : null;
-
-        const recipientEmail = customerUser?.email || '';
-        const recipientPhone = customerUser?.phone || null;
-
-        if (!recipientEmail && !recipientPhone) {
-          this.logger.warn(
-            `Skipping reminder for appointment ${appointment.id} (no recipient)`,
-          );
-          continue;
-        }
-
-        if (type === '24h') {
-          await this.notificationService.sendAppointmentReminder24h(
-            store.id,
-            recipientEmail,
-            recipientPhone,
-            variables,
-          );
-        } else {
-          await this.notificationService.sendAppointmentReminder1h(
-            store.id,
-            recipientEmail,
-            recipientPhone,
-            variables,
-          );
-        }
-      } catch (error) {
-        this.logger.error(
-          `Failed to process ${type} reminder for appointment ${appointment.id}: ${error.message}`,
-          error,
-        );
-
-        // Allow re-processing on next run if sending failed
-        await this.appointmentRepository.resetReminderFlag(
+    await this.runWithConcurrency(
+      appointments,
+      this.appointmentConcurrency,
+      async (appointment) => {
+        const claimed = await this.appointmentRepository.claimReminder(
           appointment.id,
           type,
         );
-      }
-    }
+
+        if (!claimed) {
+          return;
+        }
+
+        try {
+          const customerUser = appointment.customerId
+            ? preload.userById.get(appointment.customerId)
+            : null;
+
+          const variables = await this.buildTemplateVariables(
+            appointment,
+            store,
+            preload,
+            customerUser,
+          );
+
+          const recipientEmail = customerUser?.email || '';
+          const recipientPhone = customerUser?.phone || null;
+
+          if (!recipientEmail && !recipientPhone) {
+            this.logger.warn(
+              `Skipping reminder for appointment ${appointment.id} (no recipient)`,
+            );
+            return;
+          }
+
+          if (type === '24h') {
+            await this.notificationService.sendAppointmentReminder24h(
+              store.id,
+              recipientEmail,
+              recipientPhone,
+              variables,
+            );
+          } else {
+            await this.notificationService.sendAppointmentReminder1h(
+              store.id,
+              recipientEmail,
+              recipientPhone,
+              variables,
+            );
+          }
+        } catch (error) {
+          this.logger.error(
+            `Failed to process ${type} reminder for appointment ${appointment.id}: ${error.message}`,
+            error,
+          );
+
+          await this.appointmentRepository.resetReminderFlag(
+            appointment.id,
+            type,
+          );
+        }
+      },
+    );
   }
 
-  private async buildTemplateVariables(appointment: any, store: any) {
+  private async buildTemplateVariables(
+    appointment: any,
+    store: ReminderStoreContext,
+    preload: ReminderPreload,
+    customerUser?: any,
+  ) {
     const service = appointment.serviceId
-      ? await this.serviceRepository.findById(appointment.serviceId)
+      ? preload.serviceById.get(appointment.serviceId)
       : null;
 
     const staff = appointment.staffId
-      ? await this.staffMemberRepository.findById(appointment.staffId)
+      ? preload.staffById.get(appointment.staffId)
       : null;
 
-    const staffUser = staff?.userId
-      ? await this.userRepository.findById(staff.userId)
-      : null;
-
-    const customerUser = appointment.customerId
-      ? await this.userRepository.findById(appointment.customerId)
-      : null;
+    const staffUser = staff?.userId ? preload.userById.get(staff.userId) : null;
 
     const location = appointment.locationId
-      ? await this.locationRepository.findById(appointment.locationId)
+      ? preload.locationById.get(appointment.locationId)
       : null;
 
     const now = new Date();
@@ -214,6 +262,69 @@ export class AppointmentReminderWorker {
     };
 
     return variables;
+  }
+
+  private async preloadReminderDependencies(
+    appointments: any[],
+  ): Promise<ReminderPreload> {
+    const serviceIds = Array.from(
+      new Set(appointments.map((a) => a.serviceId).filter(Boolean)),
+    );
+    const staffIds = Array.from(
+      new Set(appointments.map((a) => a.staffId).filter(Boolean)),
+    );
+    const locationIds = Array.from(
+      new Set(appointments.map((a) => a.locationId).filter(Boolean)),
+    );
+
+    const [services, staffMembers, locations] = await Promise.all([
+      this.serviceRepository.findByIds(serviceIds),
+      this.staffMemberRepository.findByIds(staffIds),
+      this.locationRepository.findByIds(locationIds),
+    ]);
+
+    const userIds = Array.from(
+      new Set([
+        ...appointments.map((a) => a.customerId).filter(Boolean),
+        ...staffMembers.map((staff) => staff.userId).filter(Boolean),
+      ]),
+    );
+    const users = await this.userRepository.findByIds(userIds);
+
+    return {
+      serviceById: new Map(services.map((service) => [service.id, service])),
+      staffById: new Map(staffMembers.map((staff) => [staff.id, staff])),
+      locationById: new Map(
+        locations.map((location) => [location.id, location]),
+      ),
+      userById: new Map(users.map((user) => [user.id, user])),
+    };
+  }
+
+  private async runWithConcurrency<T>(
+    items: T[],
+    concurrency: number,
+    task: (item: T) => Promise<void>,
+  ) {
+    if (!items.length) return;
+
+    const safeConcurrency = Math.max(1, Math.min(concurrency, items.length));
+    let index = 0;
+
+    const workers = Array.from({ length: safeConcurrency }, async () => {
+      while (true) {
+        const currentIndex = index;
+        index += 1;
+
+        if (currentIndex >= items.length) {
+          return;
+        }
+
+        await task(items[currentIndex]);
+      }
+    });
+
+    await Promise.all(workers);
   }
 
   private buildCancelLink(

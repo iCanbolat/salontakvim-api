@@ -1,5 +1,5 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, inArray } from 'drizzle-orm';
 import { DRIZZLE_ORM } from '../../db/drizzle.module';
 import * as schema from '../../db/schema';
 import {
@@ -10,6 +10,7 @@ import {
 export interface IServiceExtraRepository {
   create(data: NewServiceExtra): Promise<ServiceExtra>;
   findById(id: string): Promise<ServiceExtra | null>;
+  findByIds(ids: string[]): Promise<ServiceExtra[]>;
   findByServiceId(serviceId: string): Promise<ServiceExtra[]>;
   findByIdAndServiceId(
     id: string,
@@ -42,6 +43,17 @@ export class ServiceExtraRepository implements IServiceExtraRepository {
       .where(eq(schema.serviceExtras.id, id))
       .limit(1);
     return extra || null;
+  }
+
+  async findByIds(ids: string[]): Promise<ServiceExtra[]> {
+    if (!ids.length) {
+      return [];
+    }
+
+    return await this.db
+      .select()
+      .from(schema.serviceExtras)
+      .where(inArray(schema.serviceExtras.id, Array.from(new Set(ids))));
   }
 
   async findByServiceId(serviceId: string): Promise<ServiceExtra[]> {

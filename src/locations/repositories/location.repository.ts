@@ -1,5 +1,5 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 import { DRIZZLE_ORM } from '../../db/drizzle.module';
 import * as schema from '../../db/schema';
 import {
@@ -30,6 +30,17 @@ export class LocationRepository implements ILocationRepository {
       .where(eq(schema.locations.id, id))
       .limit(1);
     return location || null;
+  }
+
+  async findByIds(ids: string[]): Promise<Location[]> {
+    if (!ids.length) {
+      return [];
+    }
+
+    return await this.db
+      .select()
+      .from(schema.locations)
+      .where(inArray(schema.locations.id, Array.from(new Set(ids))));
   }
 
   async findByStoreId(storeId: string): Promise<Location[]> {

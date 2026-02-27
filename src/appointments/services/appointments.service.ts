@@ -134,10 +134,15 @@ export class AppointmentsService {
       duration: number;
     }> = [];
     if (extrasToProcess.length > 0) {
+      const serviceExtras = await this.serviceExtraRepository.findByIds(
+        extrasToProcess.map((extra) => extra.extraId),
+      );
+      const serviceExtraMap = new Map(
+        serviceExtras.map((serviceExtra) => [serviceExtra.id, serviceExtra]),
+      );
+
       for (const extra of extrasToProcess) {
-        const serviceExtra = await this.serviceExtraRepository.findById(
-          extra.extraId,
-        );
+        const serviceExtra = serviceExtraMap.get(extra.extraId);
         if (!serviceExtra || serviceExtra.serviceId !== dto.serviceId) {
           throw new BadRequestException(
             `Invalid extra with ID ${extra.extraId}`,
@@ -183,37 +188,37 @@ export class AppointmentsService {
 
     if (!assignedStaffId) {
       // If no staff specified, assign to first available staff for this service
-      const serviceStaff = await this.serviceRepository.findById(dto.serviceId);
-      if (serviceStaff) {
-        const availableStaff =
-          await this.staffMemberRepository.findVisibleByStoreId(storeId);
-        const assignments = await this.serviceStaffRepository.findByServiceId(
-          dto.serviceId,
+      const availableStaff =
+        await this.staffMemberRepository.findVisibleByStoreId(storeId);
+      const assignments = await this.serviceStaffRepository.findByServiceId(
+        dto.serviceId,
+      );
+      const staffIdsForService = new Set(
+        assignments.map((item) => item.staffId),
+      );
+
+      let eligibleStaff = availableStaff.filter((member) =>
+        staffIdsForService.has(member.id),
+      );
+
+      if (dto.locationId) {
+        eligibleStaff = eligibleStaff.filter(
+          (member) => member.locationId === dto.locationId,
         );
-        const staffIdsForService = new Set(
-          assignments.map((item) => item.staffId),
+      }
+
+      if (!eligibleStaff.length) {
+        throw new BadRequestException(
+          'No available staff members found for the selected service',
         );
+      }
 
-        let eligibleStaff = availableStaff.filter((member) =>
-          staffIdsForService.has(member.id),
-        );
-
-        if (dto.locationId) {
-          eligibleStaff = eligibleStaff.filter(
-            (member) => member.locationId === dto.locationId,
-          );
-        }
-
-        if (!eligibleStaff.length) {
-          throw new BadRequestException(
-            'No available staff members found for the selected service',
-          );
-        }
-
-        const [datePart, timePart] = dto.startDateTime.split('T');
-        const requestedTime = timePart?.slice(0, 5);
-
-        for (const member of eligibleStaff) {
+      const [datePart, timePart] = dto.startDateTime.split('T');
+      const requestedTime = timePart?.slice(0, 5);
+      const availabilityByStaff = await this.runWithConcurrency(
+        eligibleStaff,
+        4,
+        async (member) => {
           const slots = await this.availabilityService.getAvailableSlots(
             member.id,
             dto.serviceId,
@@ -223,26 +228,30 @@ export class AppointmentsService {
             service.bufferTimeAfter || 0,
           );
 
-          const isAvailable = requestedTime
+          return requestedTime
             ? slots.some(
                 (slot) => slot.startTime === requestedTime && slot.available,
               )
             : slots.some((slot) => slot.available);
+        },
+      );
 
-          if (isAvailable) {
-            assignedStaffId = member.id;
-            if (!resolvedLocationId && member.locationId) {
-              resolvedLocationId = member.locationId;
-            }
-            break;
-          }
-        }
+      const selectedStaffIndex = availabilityByStaff.findIndex(
+        (isAvailable) => isAvailable,
+      );
 
-        if (!assignedStaffId) {
-          throw new BadRequestException(
-            'No available staff members found for the selected time',
-          );
+      if (selectedStaffIndex >= 0) {
+        const selectedMember = eligibleStaff[selectedStaffIndex];
+        assignedStaffId = selectedMember.id;
+        if (!resolvedLocationId && selectedMember.locationId) {
+          resolvedLocationId = selectedMember.locationId;
         }
+      }
+
+      if (!assignedStaffId) {
+        throw new BadRequestException(
+          'No available staff members found for the selected time',
+        );
       }
     }
 
@@ -512,13 +521,21 @@ export class AppointmentsService {
     let extrasDurationMinutes = 0;
     let extrasTotalPrice = 0;
 
-    for (const extra of appointmentExtras) {
-      const serviceExtra = await this.serviceExtraRepository.findById(
-        extra.extraId,
-      );
+    const serviceExtras = await this.serviceExtraRepository.findByIds(
+      appointmentExtras.map((extra) => extra.extraId),
+    );
+    const serviceExtraDurationMap = new Map(
+      serviceExtras.map((serviceExtra) => [
+        serviceExtra.id,
+        serviceExtra.duration || 0,
+      ]),
+    );
 
-      if (serviceExtra) {
-        extrasDurationMinutes += (serviceExtra.duration || 0) * extra.quantity;
+    for (const extra of appointmentExtras) {
+      const extraDuration = serviceExtraDurationMap.get(extra.extraId);
+
+      if (extraDuration !== undefined) {
+        extrasDurationMinutes += extraDuration * extra.quantity;
       }
 
       extrasTotalPrice += parseFloat(extra.price || '0') * extra.quantity;
@@ -1600,6 +1617,37 @@ export class AppointmentsService {
 
     cache?.set(userId, name ?? null);
     return name;
+  }
+
+  private async runWithConcurrency<Item, Result>(
+    items: Item[],
+    concurrency: number,
+    task: (item: Item, index: number) => Promise<Result>,
+  ): Promise<Result[]> {
+    if (!items.length) {
+      return [];
+    }
+
+    const workerCount = Math.max(1, Math.min(concurrency, items.length));
+    const results = new Array<Result>(items.length);
+    let nextIndex = 0;
+
+    await Promise.all(
+      Array.from({ length: workerCount }, async () => {
+        while (true) {
+          const currentIndex = nextIndex;
+          nextIndex += 1;
+
+          if (currentIndex >= items.length) {
+            return;
+          }
+
+          results[currentIndex] = await task(items[currentIndex], currentIndex);
+        }
+      }),
+    );
+
+    return results;
   }
 
   private getStatusLabel(status: string): { verb: string; label: string } {

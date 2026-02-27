@@ -111,8 +111,16 @@ export class NotificationRepository {
           schema.notificationSettings.appointmentReminderChannel,
         reminder24hEnabled: schema.notificationSettings.reminder24hEnabled,
         reminder1hEnabled: schema.notificationSettings.reminder1hEnabled,
+        storeSlug: schema.stores.slug,
+        storeName: schema.stores.name,
+        storePhone: schema.stores.phone,
+        storeEmail: schema.stores.email,
       })
       .from(schema.notificationSettings)
+      .innerJoin(
+        schema.stores,
+        eq(schema.notificationSettings.storeId, schema.stores.id),
+      )
       .where(eq(schema.notificationSettings.appointmentReminderEnabled, true));
   }
 

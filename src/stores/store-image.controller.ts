@@ -90,7 +90,7 @@ export class StoreImageController {
     @Param('fileName') fileName: string,
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {
-    const fileInfo = this.storeImageService.getStoreImageFile(
+    const fileInfo = await this.storeImageService.getStoreImageFile(
       storeId,
       fileName,
     );

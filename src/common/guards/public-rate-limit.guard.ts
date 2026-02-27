@@ -25,7 +25,13 @@ export class PublicRateLimitGuard implements CanActivate {
   private readonly maxWriteRequests: number;
   private readonly blockTtlMs: number;
   private readonly auditTtlMs: number;
-  private readonly hits = new Map<string, number[]>();
+  private readonly maxInMemoryKeys: number;
+  private readonly sweepIntervalMs: number;
+  private readonly hits = new Map<
+    string,
+    { timestamps: number[]; lastSeen: number }
+  >();
+  private lastSweepAt = 0;
 
   constructor(
     private readonly configService: ConfigService,
@@ -43,22 +49,32 @@ export class PublicRateLimitGuard implements CanActivate {
     this.maxWriteRequests = Number(
       this.configService.get<string>('PUBLIC_RATE_LIMIT_WRITE_MAX') || '30',
     );
-    this.blockTtlMs = Number(
-      this.configService.get<string>('PUBLIC_WIDGET_BLOCK_TTL_SECONDS') ||
-        '3600',
-    ) * 1000;
-    this.auditTtlMs = Number(
-      this.configService.get<string>('PUBLIC_WIDGET_AUDIT_TTL_SECONDS') ||
-        '300',
-    ) * 1000;
-
+    this.blockTtlMs =
+      Number(
+        this.configService.get<string>('PUBLIC_WIDGET_BLOCK_TTL_SECONDS') ||
+          '3600',
+      ) * 1000;
+    this.auditTtlMs =
+      Number(
+        this.configService.get<string>('PUBLIC_WIDGET_AUDIT_TTL_SECONDS') ||
+          '300',
+      ) * 1000;
+    this.maxInMemoryKeys = Number(
+      this.configService.get<string>('PUBLIC_RATE_LIMIT_INMEMORY_MAX_KEYS') ||
+        '50000',
+    );
+    this.sweepIntervalMs = Number(
+      this.configService.get<string>('PUBLIC_RATE_LIMIT_INMEMORY_SWEEP_MS') ||
+        '60000',
+    );
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
     const ip = this.getClientIp(request);
     const route = request.route?.path || request.url || 'unknown';
-    const storeKey = request.params?.slug || request.params?.widgetKey || 'unknown';
+    const storeKey =
+      request.params?.slug || request.params?.widgetKey || 'unknown';
     const token = request.query?.token as string | undefined;
     const tokenHash = this.hashToken(token);
     const key = `public_rl:${route}:${storeKey}:${tokenHash}:${ip}`;
@@ -68,6 +84,17 @@ export class PublicRateLimitGuard implements CanActivate {
 
     if (this.redis) {
       const count = await this.incrementRedis(key, this.windowMs);
+      if (count === null) {
+        if (this.isWriteMethod(request.method)) {
+          throw new HttpException(
+            'Rate limit backend unavailable. Please retry shortly.',
+            HttpStatus.TOO_MANY_REQUESTS,
+          );
+        }
+
+        return this.applyInMemoryLimit(key, maxForRoute);
+      }
+
       if (count > maxForRoute) {
         await this.blockWidgetAccess(request, ip, route);
         throw new HttpException(
@@ -106,12 +133,18 @@ export class PublicRateLimitGuard implements CanActivate {
   private applyInMemoryLimit(key: string, max: number): boolean {
     const now = Date.now();
     const windowStart = now - this.windowMs;
+    this.sweepInMemoryHits(now);
 
-    const timestamps = (this.hits.get(key) || []).filter(
+    if (!this.hits.has(key) && this.hits.size >= this.maxInMemoryKeys) {
+      this.evictOldestInMemoryKey();
+    }
+
+    const existing = this.hits.get(key);
+    const timestamps = (existing?.timestamps || []).filter(
       (ts) => ts >= windowStart,
     );
     timestamps.push(now);
-    this.hits.set(key, timestamps);
+    this.hits.set(key, { timestamps, lastSeen: now });
 
     if (timestamps.length > max) {
       throw new HttpException(
@@ -120,11 +153,48 @@ export class PublicRateLimitGuard implements CanActivate {
       );
     }
 
-    if (!timestamps.length) {
-      this.hits.delete(key);
+    return true;
+  }
+
+  private sweepInMemoryHits(now: number) {
+    if (now - this.lastSweepAt < this.sweepIntervalMs) {
+      return;
     }
 
-    return true;
+    this.lastSweepAt = now;
+    const windowStart = now - this.windowMs;
+
+    for (const [key, entry] of this.hits.entries()) {
+      const recent = entry.timestamps.filter((ts) => ts >= windowStart);
+
+      if (!recent.length && entry.lastSeen < windowStart) {
+        this.hits.delete(key);
+        continue;
+      }
+
+      if (recent.length !== entry.timestamps.length) {
+        this.hits.set(key, {
+          timestamps: recent,
+          lastSeen: entry.lastSeen,
+        });
+      }
+    }
+  }
+
+  private evictOldestInMemoryKey() {
+    let oldestKey: string | null = null;
+    let oldestSeen = Number.POSITIVE_INFINITY;
+
+    for (const [key, entry] of this.hits.entries()) {
+      if (entry.lastSeen < oldestSeen) {
+        oldestSeen = entry.lastSeen;
+        oldestKey = key;
+      }
+    }
+
+    if (oldestKey) {
+      this.hits.delete(oldestKey);
+    }
   }
 
   private async blockWidgetAccess(
@@ -231,19 +301,21 @@ export class PublicRateLimitGuard implements CanActivate {
     }
 
     if (widgetKey) {
-      const settings = await this.widgetSettingsRepository.findByWidgetKey(
-        widgetKey,
-      );
+      const settings =
+        await this.widgetSettingsRepository.findByWidgetKey(widgetKey);
       return settings?.storeId;
     }
 
     return undefined;
   }
 
-  private async incrementRedis(key: string, windowMs: number): Promise<number> {
+  private async incrementRedis(
+    key: string,
+    windowMs: number,
+  ): Promise<number | null> {
     try {
       if (this.redis?.status === 'end') {
-        return 0;
+        return null;
       }
       if (this.redis?.status === 'wait') {
         await this.redis.connect();
@@ -256,7 +328,7 @@ export class PublicRateLimitGuard implements CanActivate {
       const count = Number(results?.[0]?.[1] ?? 0);
       return count;
     } catch {
-      return 0;
+      return null;
     }
   }
 }

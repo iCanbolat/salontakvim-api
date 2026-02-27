@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
+const fsp = fs.promises;
 
 export type FileCategory = 'customer-files' | 'store-images' | 'avatars';
 
@@ -79,19 +80,17 @@ export class FileUploadService {
    * Ensures that a directory exists for file storage
    * Pattern: uploads/{storeId}/{category}/[subPath]
    */
-  ensureDirectory(
+  async ensureDirectory(
     storeId: string,
     category: FileCategory,
     subPath?: string,
-  ): string {
+  ): Promise<string> {
     const parts = [this.uploadDir, storeId, category];
     if (subPath) {
       parts.push(subPath);
     }
     const dir = path.join(...parts);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
+    await fsp.mkdir(dir, { recursive: true });
     return dir;
   }
 
@@ -137,14 +136,14 @@ export class FileUploadService {
   /**
    * Saves a file to disk and returns the result
    */
-  saveFile(
+  async saveFile(
     file: Express.Multer.File,
     storeId: string,
     category: FileCategory,
     subPath?: string,
     customFileName?: string,
-  ): FileUploadResult {
-    const dir = this.ensureDirectory(storeId, category, subPath);
+  ): Promise<FileUploadResult> {
+    const dir = await this.ensureDirectory(storeId, category, subPath);
     const fileExt =
       path.extname(file.originalname) ||
       this.getExtensionFromMime(file.mimetype);
@@ -154,7 +153,7 @@ export class FileUploadService {
     const storagePath = path.join(dir, fileName);
 
     try {
-      fs.writeFileSync(storagePath, file.buffer);
+      await fsp.writeFile(storagePath, file.buffer);
     } catch (error) {
       throw new BadRequestException('Failed to save file');
     }
@@ -173,13 +172,10 @@ export class FileUploadService {
   /**
    * Deletes a file from disk
    */
-  deleteFile(storagePath: string): boolean {
+  async deleteFile(storagePath: string): Promise<boolean> {
     try {
-      if (fs.existsSync(storagePath)) {
-        fs.unlinkSync(storagePath);
-        return true;
-      }
-      return false;
+      await fsp.unlink(storagePath);
+      return true;
     } catch {
       return false;
     }
@@ -188,12 +184,12 @@ export class FileUploadService {
   /**
    * Deletes a file by storeId, category, and fileName
    */
-  deleteFileByPath(
+  async deleteFileByPath(
     storeId: string,
     category: FileCategory,
     fileName: string,
     subPath?: string,
-  ): boolean {
+  ): Promise<boolean> {
     const safeName = path.basename(fileName);
     const filePath = subPath
       ? path.join(this.uploadDir, storeId, category, subPath, safeName)
@@ -204,18 +200,19 @@ export class FileUploadService {
   /**
    * Gets file info for serving/downloading
    */
-  getFileInfo(
+  async getFileInfo(
     storeId: string,
     category: FileCategory,
     fileName: string,
     subPath?: string,
-  ): { path: string; mimeType: string; fileName: string } | null {
+  ): Promise<{ path: string; mimeType: string; fileName: string } | null> {
     const safeName = path.basename(fileName);
     const filePath = subPath
       ? path.join(this.uploadDir, storeId, category, subPath, safeName)
       : path.join(this.uploadDir, storeId, category, safeName);
 
-    if (!fs.existsSync(filePath)) {
+    const fileExists = await this.fileExists(filePath);
+    if (!fileExists) {
       return null;
     }
 
@@ -223,6 +220,15 @@ export class FileUploadService {
     const mimeType = this.getMimeTypeFromExtension(ext);
 
     return { path: filePath, mimeType, fileName: safeName };
+  }
+
+  private async fileExists(filePath: string): Promise<boolean> {
+    try {
+      await fsp.access(filePath, fs.constants.F_OK);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /**

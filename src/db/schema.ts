@@ -623,6 +623,18 @@ export const appointments = pgTable(
     index('appointments_staff_id_idx').on(table.staffId),
     index('appointments_start_date_time_idx').on(table.startDateTime),
     index('appointments_status_idx').on(table.status),
+    index('appointments_store_start_status_r24_idx').on(
+      table.storeId,
+      table.startDateTime,
+      table.status,
+      table.reminder24hSent,
+    ),
+    index('appointments_store_start_status_r1_idx').on(
+      table.storeId,
+      table.startDateTime,
+      table.status,
+      table.reminder1hSent,
+    ),
     index('appointments_cancel_token_idx').on(table.cancelToken),
   ],
 );
@@ -1108,6 +1120,17 @@ export const customerFiles = pgTable(
     index('customer_files_appointment_id_idx').on(table.appointmentId),
     index('customer_files_file_type_idx').on(table.fileType),
     index('customer_files_created_at_idx').on(table.createdAt),
+    index('customer_files_store_customer_created_idx').on(
+      table.storeId,
+      table.customerId,
+      table.createdAt,
+    ),
+    index('customer_files_store_customer_appointment_created_idx').on(
+      table.storeId,
+      table.customerId,
+      table.appointmentId,
+      table.createdAt,
+    ),
   ],
 );
 
