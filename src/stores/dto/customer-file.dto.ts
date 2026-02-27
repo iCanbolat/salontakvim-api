@@ -130,38 +130,6 @@ export class CustomerFileListResponseDto {
   totalSize: number; // Total size of all files in bytes
 }
 
-export class FolderStatsDto {
-  @Expose()
-  customerId: string;
-
-  @Expose()
-  fileCount: number;
-
-  @Expose()
-  totalSize: number;
-
-  @Expose()
-  lastUploadedAt: Date;
-}
-
-export class FolderListResponseDto {
-  @Expose()
-  @Type(() => FolderStatsDto)
-  data: FolderStatsDto[];
-
-  @Expose()
-  total: number;
-
-  @Expose()
-  page: number;
-
-  @Expose()
-  limit: number;
-
-  @Expose()
-  totalPages: number;
-}
-
 export class CustomerFilePreviewAppointmentDto {
   @Expose()
   id: string;
@@ -180,21 +148,4 @@ export class CustomerFilePreviewContextDto {
   @Expose()
   @Type(() => CustomerFilePreviewAppointmentDto)
   appointment: CustomerFilePreviewAppointmentDto | null;
-}
-
-export class CustomerFileCustomerSummaryDto {
-  @Expose()
-  id: string;
-
-  @Expose()
-  firstName: string | null;
-
-  @Expose()
-  lastName: string | null;
-
-  @Expose()
-  email: string | null;
-
-  @Expose()
-  fullName: string;
 }

@@ -1,7 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { StoreController } from './store.controller';
 import { CustomerFileController } from './customer-file.controller';
-import { StoreFilesController } from './store-files.controller';
 import { StoreImageController } from './store-image.controller';
 import { StoreService } from './services/store.service';
 import { CustomerFileService } from './services/customer-file.service';
@@ -18,12 +17,7 @@ import { UserRepository } from '../auth/repositories/user.repository';
     forwardRef(() => ActivitiesModule),
     forwardRef(() => NotificationsModule),
   ],
-  controllers: [
-    StoreController,
-    CustomerFileController,
-    StoreFilesController,
-    StoreImageController,
-  ],
+  controllers: [StoreController, CustomerFileController, StoreImageController],
   providers: [
     StoreService,
     CustomerFileService,

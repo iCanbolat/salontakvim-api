@@ -19,7 +19,6 @@ import {
   CustomerFileListResponseDto,
   UpdateCustomerFileDto,
   CustomerFilePreviewContextDto,
-  CustomerFileCustomerSummaryDto,
 } from '../dto';
 import { plainToInstance } from 'class-transformer';
 import * as fs from 'fs';
@@ -192,88 +191,6 @@ export class CustomerFileService {
     return this.toResponseDto(customerFile);
   }
 
-  /**
-   * Get all files for a store (paginated)
-   * Admin gets all files, staff only gets files from their assigned customers
-   */
-  async getAllStoreFiles(
-    storeId: string,
-    userId: string,
-    userRole: string,
-    options?: {
-      fileType?: string;
-      search?: string;
-      limit?: number;
-      page?: number;
-    },
-  ): Promise<CustomerFileListResponseDto> {
-    // Verify store ownership/access
-    await this.storeService.verifyStoreOwnership(storeId, userId);
-
-    let staffId: string | undefined;
-
-    // If user is staff, filter to only their customers' files
-    if (userRole === 'staff') {
-      const staffMember =
-        await this.staffMemberRepository.findByUserIdAndStoreId(
-          userId,
-          storeId,
-        );
-      if (!staffMember) {
-        throw new ForbiddenException('Staff member not found');
-      }
-      staffId = staffMember.id;
-    }
-
-    const result = await this.customerFileRepository.findByStore(storeId, {
-      ...options,
-      staffId,
-    });
-
-    return plainToInstance(
-      CustomerFileListResponseDto,
-      {
-        data: result.data.map((f) => this.toResponseDto(f)),
-        total: result.total,
-        page: result.page,
-        limit: result.limit,
-        totalPages: result.totalPages,
-        totalSize: result.totalSize,
-      },
-      { excludeExtraneousValues: true },
-    );
-  }
-
-  async getFolders(
-    storeId: string,
-    userId: string,
-    userRole: string,
-    options?: { search?: string; page?: number; limit?: number },
-  ) {
-    await this.storeService.verifyStoreOwnership(storeId, userId);
-
-    let staffId: string | undefined;
-    let locationId: string | undefined;
-
-    if (userRole === 'staff' || userRole === 'manager') {
-      const staffMember =
-        await this.staffMemberRepository.findByUserIdAndStoreId(
-          userId,
-          storeId,
-        );
-      if (staffMember) {
-        staffId = staffMember.id;
-        locationId = staffMember.locationId || undefined;
-      }
-    }
-
-    return this.customerFileRepository.getFolders(storeId, options, {
-      userRole,
-      staffId,
-      locationId,
-    });
-  }
-
   async getFiles(
     storeId: string,
     customerId: string,
@@ -329,33 +246,6 @@ export class CustomerFileService {
     }
 
     return this.toResponseDto(file);
-  }
-
-  async getCustomerSummary(
-    storeId: string,
-    customerId: string,
-    userId: string,
-  ): Promise<CustomerFileCustomerSummaryDto> {
-    await this.storeService.verifyStoreOwnership(storeId, userId);
-
-    const customer = await this.userRepository.findById(customerId);
-
-    if (!customer) {
-      throw new NotFoundException('Customer not found');
-    }
-
-    const fullName = [customer.firstName, customer.lastName]
-      .filter(Boolean)
-      .join(' ')
-      .trim();
-
-    return {
-      id: customer.id,
-      firstName: customer.firstName || null,
-      lastName: customer.lastName || null,
-      email: customer.email || null,
-      fullName: fullName || customer.email || 'Customer',
-    };
   }
 
   async getFilePreviewContext(
@@ -442,75 +332,6 @@ export class CustomerFileService {
 
     if (!file) {
       throw new NotFoundException('File not found');
-    }
-
-    // Check if file exists on disk
-    if (!fs.existsSync(file.storagePath)) {
-      throw new NotFoundException('File not found on disk');
-    }
-
-    return {
-      path: file.storagePath,
-      fileName: file.originalName,
-      mimeType: file.mimeType,
-    };
-  }
-
-  /**
-   * Get file for download by fileId only (store-level endpoint)
-   * Validates that staff can only download files from their assigned customers
-   */
-  async getFileForDownloadById(
-    storeId: string,
-    fileId: string,
-    userId: string,
-    userRole: string,
-  ): Promise<{ path: string; fileName: string; mimeType: string }> {
-    // Verify store ownership/access
-    await this.storeService.verifyStoreOwnership(storeId, userId);
-
-    const file = await this.customerFileRepository.findById(fileId);
-
-    if (!file || file.storeId !== storeId) {
-      throw new NotFoundException('File not found');
-    }
-
-    // If staff, verify they have access to this customer's files
-    if (userRole === 'staff') {
-      const staffMember =
-        await this.staffMemberRepository.findByUserIdAndStoreId(
-          userId,
-          storeId,
-        );
-      if (!staffMember) {
-        throw new ForbiddenException('Staff member not found');
-      }
-
-      // Check if staff has any appointments with this customer
-      const { data: files } = await this.customerFileRepository.findByStore(
-        storeId,
-        {
-          staffId: staffMember.id,
-          limit: 1,
-        },
-      );
-
-      const hasAccess = files.some((f) => f.customerId === file.customerId);
-      if (!hasAccess) {
-        // Do a more thorough check
-        const allStaffFiles = await this.customerFileRepository.findByStore(
-          storeId,
-          { staffId: staffMember.id },
-        );
-        const customerIds = new Set(
-          allStaffFiles.data.map((f) => f.customerId),
-        );
-        if (!customerIds.has(file.customerId)) {
-          throw new ForbiddenException(
-            "You do not have access to this customer's files",
-          );
-        }
-      }
     }
 
     // Check if file exists on disk
