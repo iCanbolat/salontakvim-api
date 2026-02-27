@@ -655,10 +655,8 @@ export class WidgetService {
       paidDepositAmount = Number(verification.paidAmount || 0);
     }
 
-    const appointment = await this.appointmentsService.createCustomerAppointment(
-      store.id,
-      dto,
-    );
+    const appointment =
+      await this.appointmentsService.createCustomerAppointment(store.id, dto);
 
     if (stripePaid) {
       const appointmentTotal = Number(appointment.totalPrice || 0);
@@ -758,10 +756,8 @@ export class WidgetService {
       paidDepositAmount = Number(verification.paidAmount || 0);
     }
 
-    const appointment = await this.appointmentsService.createCustomerAppointment(
-      store.id,
-      dto,
-    );
+    const appointment =
+      await this.appointmentsService.createCustomerAppointment(store.id, dto);
 
     if (stripePaid) {
       const appointmentTotal = Number(appointment.totalPrice || 0);
@@ -1309,14 +1305,17 @@ export class WidgetService {
         ...data.metadata,
       };
 
-      await this.notificationService.createInAppNotification(
-        store.ownerId,
-        storeId,
-        'Widget güvenlik uyarısı',
-        data.message,
-        'security',
-        metadata,
-      );
+      // Skip in-app notification for expired tokens as it is expected behavior
+      if (data.message !== 'Embed token expired') {
+        await this.notificationService.createInAppNotification(
+          store.ownerId,
+          storeId,
+          'Widget güvenlik uyarısı',
+          data.message,
+          'security',
+          metadata,
+        );
+      }
 
       this.logger.warn(
         `Widget security event: ${data.event} (${storeId}) ${data.message}`,

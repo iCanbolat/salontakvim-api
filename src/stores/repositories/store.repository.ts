@@ -1,5 +1,5 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { eq, sql, and, inArray } from 'drizzle-orm';
+import { eq, sql, and, inArray, desc } from 'drizzle-orm';
 import { DRIZZLE_ORM } from '../../db/drizzle.module';
 import * as schema from '../../db/schema';
 import {
@@ -162,7 +162,7 @@ export class StoreRepository
         .where(eq(schema.storeCustomers.storeId, storeId));
 
       const publicNumberCounter = next?.nextNumber ?? 1;
-      const publicNumber = String(publicNumberCounter).padStart(2, '0');
+      const publicNumber = String(publicNumberCounter).padStart(3, '0');
 
       const [inserted] = await tx
         .insert(schema.storeCustomers)
@@ -523,9 +523,32 @@ export class StoreRepository
       };
     });
 
+    const smsHistory = await this.db
+      .select({
+        id: schema.activities.id,
+        message: schema.activities.message,
+        createdAt: schema.activities.createdAt,
+        metadata: schema.activities.metadata,
+      })
+      .from(schema.activities)
+      .where(
+        and(
+          eq(schema.activities.storeId, storeId),
+          eq(schema.activities.type, 'customer'),
+          eq(sql<string>`${schema.activities.metadata} ->> 'channel'`, 'sms'),
+          eq(
+            sql<string>`${schema.activities.metadata} ->> 'customerId'`,
+            customerId,
+          ),
+        ),
+      )
+      .orderBy(desc(schema.activities.createdAt))
+      .limit(50);
+
     return {
       customer,
       appointments: formattedAppointments,
+      smsHistory,
     };
   }
 }

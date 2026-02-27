@@ -6,6 +6,7 @@ import { plainToInstance } from 'class-transformer';
 import { Store } from '../interfaces/repository.interface';
 import type { JwtPayload } from '../../auth/interfaces/auth.interface';
 import { SmsService } from '../../notifications/services/sms.service';
+import { ActivitiesService } from '../../activities/services/activities.service';
 import {
   StoreNotFoundException,
   StoreSlugAlreadyExistsException,
@@ -19,6 +20,7 @@ export class StoreService {
     private readonly storeRepository: StoreRepository,
     private readonly staffMemberRepository: StaffMemberRepository,
     private readonly smsService: SmsService,
+    private readonly activitiesService: ActivitiesService,
   ) {}
 
   async create(
@@ -405,32 +407,134 @@ export class StoreService {
     let sentCount = 0;
     let failedCount = 0;
     let noPhoneCount = 0;
-    const deliverablePhones: string[] = [];
+    const invalidPhoneCustomerIds: string[] = [];
+    const noPhoneCustomerIds: string[] = [];
+    const deliverableCustomers: Array<{ id: string; phone: string }> = [];
 
     for (const customer of customers) {
       if (!customer.phone) {
         noPhoneCount += 1;
+        noPhoneCustomerIds.push(customer.id);
         continue;
       }
 
       const formattedPhone = this.smsService.formatPhoneNumber(customer.phone);
       if (!this.smsService.isValidPhoneNumber(formattedPhone)) {
         failedCount += 1;
+        invalidPhoneCustomerIds.push(customer.id);
         continue;
       }
 
-      deliverablePhones.push(formattedPhone);
+      deliverableCustomers.push({
+        id: customer.id,
+        phone: formattedPhone,
+      });
     }
 
-    if (deliverablePhones.length > 0) {
+    if (deliverableCustomers.length > 0) {
       const bulkResult = await this.smsService.sendBulkSMS({
-        to: deliverablePhones,
+        to: deliverableCustomers.map((item) => item.phone),
         message: trimmedMessage,
       });
 
       sentCount = bulkResult.sent;
       failedCount += bulkResult.failed;
     }
+
+    const isSingleTarget = uniqueCustomerIds.length === 1;
+
+    const activityPromises: Array<Promise<any>> = [];
+
+    for (const customer of deliverableCustomers) {
+      const activityMessage = isSingleTarget
+        ? 'Müşteriye SMS gönderildi.'
+        : 'Toplu SMS kapsamında müşteriye SMS gönderildi.';
+
+      activityPromises.push(
+        this.activitiesService.recordActivity(
+          storeId,
+          'customer',
+          activityMessage,
+          {
+            action: 'sms_sent',
+            channel: 'sms',
+            customerId: customer.id,
+            senderUserId: user.sub,
+            senderRole: user.role,
+            isBulk: !isSingleTarget,
+            requestedCount: uniqueCustomerIds.length,
+            eligibleCount: customers.length,
+            sentCount,
+            failedCount,
+            noPhoneCount,
+            messageLength: trimmedMessage.length,
+            preview: trimmedMessage.slice(0, 80),
+          },
+        ),
+      );
+    }
+
+    for (const customerId of noPhoneCustomerIds) {
+      const activityMessage = isSingleTarget
+        ? 'Müşteriye SMS gönderilemedi: telefon numarası bulunamadı.'
+        : 'Toplu SMS kapsamında müşteriye SMS gönderilemedi: telefon numarası bulunamadı.';
+
+      activityPromises.push(
+        this.activitiesService.recordActivity(
+          storeId,
+          'customer',
+          activityMessage,
+          {
+            action: 'sms_failed',
+            reason: 'no_phone',
+            channel: 'sms',
+            customerId,
+            senderUserId: user.sub,
+            senderRole: user.role,
+            isBulk: !isSingleTarget,
+            requestedCount: uniqueCustomerIds.length,
+            eligibleCount: customers.length,
+            sentCount,
+            failedCount,
+            noPhoneCount,
+            messageLength: trimmedMessage.length,
+            preview: trimmedMessage.slice(0, 80),
+          },
+        ),
+      );
+    }
+
+    for (const customerId of invalidPhoneCustomerIds) {
+      const activityMessage = isSingleTarget
+        ? 'Müşteriye SMS gönderilemedi: telefon numarası geçersiz.'
+        : 'Toplu SMS kapsamında müşteriye SMS gönderilemedi: telefon numarası geçersiz.';
+
+      activityPromises.push(
+        this.activitiesService.recordActivity(
+          storeId,
+          'customer',
+          activityMessage,
+          {
+            action: 'sms_failed',
+            reason: 'invalid_phone',
+            channel: 'sms',
+            customerId,
+            senderUserId: user.sub,
+            senderRole: user.role,
+            isBulk: !isSingleTarget,
+            requestedCount: uniqueCustomerIds.length,
+            eligibleCount: customers.length,
+            sentCount,
+            failedCount,
+            noPhoneCount,
+            messageLength: trimmedMessage.length,
+            preview: trimmedMessage.slice(0, 80),
+          },
+        ),
+      );
+    }
+
+    await Promise.all(activityPromises);
 
     return {
       requested: uniqueCustomerIds.length,

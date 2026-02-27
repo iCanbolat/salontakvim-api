@@ -639,7 +639,7 @@ async function seed() {
     await db.insert(schema.storeCustomers).values({
       storeId: store.id,
       customerId: customerUser.id,
-      publicNumber: 'MÜŞ-001',
+      publicNumber: '001',
       publicNumberCounter: 1,
     });
 
@@ -1512,7 +1512,7 @@ async function seed() {
     await db.insert(schema.storeCustomers).values({
       storeId: ukStore.id,
       customerId: customerUser.id,
-      publicNumber: 'CUST-001',
+      publicNumber: '001',
       publicNumberCounter: 1,
     });
     console.log('✓ Customer registered to UK store');
