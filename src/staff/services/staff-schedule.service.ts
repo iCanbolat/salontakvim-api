@@ -10,6 +10,7 @@ import { StaffWorkingHoursRepository } from '../repositories/staff-working-hours
 import { StaffBreakRepository } from '../repositories/staff-break.repository';
 import { CreateWorkingHoursDto } from '../dto/create-working-hours.dto';
 import { UpdateWorkingHoursDto } from '../dto/update-working-hours.dto';
+import { BulkUpsertWorkingHoursDto } from '../dto/bulk-upsert-working-hours.dto';
 import { CreateStaffBreakDto } from '../dto/create-staff-break.dto';
 import { StaffBreakStatus } from '../dto/create-staff-break.dto';
 import { PaginationOptions } from '../../common/repositories/base.repository';
@@ -47,12 +48,79 @@ export class StaffScheduleService {
 
   // ============= Working Hours =============
 
+  /**
+   * Normalize time string to HH:MM for comparison
+   */
+  private normalizeTime(time: string): string {
+    return time.substring(0, 5);
+  }
+
+  /**
+   * Check if two time ranges overlap
+   */
+  private timeRangesOverlap(
+    start1: string,
+    end1: string,
+    start2: string,
+    end2: string,
+  ): boolean {
+    const s1 = this.normalizeTime(start1);
+    const e1 = this.normalizeTime(end1);
+    const s2 = this.normalizeTime(start2);
+    const e2 = this.normalizeTime(end2);
+    return s1 < e2 && e1 > s2;
+  }
+
+  /**
+   * Validate that new working hours don't overlap with existing ones
+   */
+  private async validateNoOverlap(
+    staffId: string,
+    dayOfWeek:
+      | 'monday'
+      | 'tuesday'
+      | 'wednesday'
+      | 'thursday'
+      | 'friday'
+      | 'saturday'
+      | 'sunday',
+    startTime: string,
+    endTime: string,
+    excludeId?: string,
+  ): Promise<void> {
+    const existingHours =
+      await this.staffWorkingHoursRepository.findActiveByStaffIdAndDay(
+        staffId,
+        dayOfWeek,
+      );
+
+    const overlapping = existingHours.filter(
+      (wh) =>
+        wh.id !== excludeId &&
+        this.timeRangesOverlap(startTime, endTime, wh.startTime, wh.endTime),
+    );
+
+    if (overlapping.length > 0) {
+      throw new ConflictException(
+        `Working hours overlap with existing schedule on ${dayOfWeek} (${overlapping[0].startTime} - ${overlapping[0].endTime})`,
+      );
+    }
+  }
+
   async createWorkingHours(
     storeId: string,
     staffId: string,
     dto: CreateWorkingHoursDto,
   ) {
     const staff = await this.getStaffMember(storeId, staffId);
+
+    // Validate no overlap with existing working hours
+    await this.validateNoOverlap(
+      staff.id,
+      dto.dayOfWeek,
+      dto.startTime,
+      dto.endTime,
+    );
 
     return await this.staffWorkingHoursRepository.create({
       staffId: staff.id,
@@ -83,6 +151,19 @@ export class StaffScheduleService {
       throw new NotFoundException('Working hours not found');
     }
 
+    // Validate no overlap if day or time is changing
+    const newDayOfWeek = dto.dayOfWeek ?? workingHours.dayOfWeek;
+    const newStartTime = dto.startTime ?? workingHours.startTime;
+    const newEndTime = dto.endTime ?? workingHours.endTime;
+
+    await this.validateNoOverlap(
+      staff.id,
+      newDayOfWeek,
+      newStartTime,
+      newEndTime,
+      workingHoursId, // exclude current record
+    );
+
     return await this.staffWorkingHoursRepository.update(workingHoursId, dto);
   }
 
@@ -104,6 +185,45 @@ export class StaffScheduleService {
     }
 
     await this.staffWorkingHoursRepository.delete(workingHoursId);
+  }
+
+  async bulkUpsertWorkingHours(
+    storeId: string,
+    staffId: string,
+    dto: BulkUpsertWorkingHoursDto,
+  ) {
+    const staff = await this.getStaffMember(storeId, staffId);
+
+    // Validate no overlaps within the submitted schedule itself
+    for (let i = 0; i < dto.schedule.length; i++) {
+      for (let j = i + 1; j < dto.schedule.length; j++) {
+        const a = dto.schedule[i];
+        const b = dto.schedule[j];
+        if (
+          a.dayOfWeek === b.dayOfWeek &&
+          this.timeRangesOverlap(a.startTime, a.endTime, b.startTime, b.endTime)
+        ) {
+          throw new ConflictException(
+            `Schedule contains overlapping hours on ${a.dayOfWeek} (${a.startTime}-${a.endTime} vs ${b.startTime}-${b.endTime})`,
+          );
+        }
+      }
+    }
+
+    // Delete all existing working hours and insert new ones
+    await this.staffWorkingHoursRepository.deleteByStaffId(staff.id);
+
+    const created = await this.staffWorkingHoursRepository.createMany(
+      dto.schedule.map((entry) => ({
+        staffId: staff.id,
+        dayOfWeek: entry.dayOfWeek,
+        startTime: entry.startTime,
+        endTime: entry.endTime,
+        isActive: entry.isActive ?? true,
+      })),
+    );
+
+    return created;
   }
 
   // ============= Breaks & Time Off =============

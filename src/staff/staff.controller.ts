@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Patch,
   Delete,
   Param,
@@ -33,6 +34,7 @@ import { InviteStaffDto } from './dto/invite-staff.dto';
 import { UpdateStaffProfileDto } from './dto/update-staff-profile.dto';
 import { CreateWorkingHoursDto } from './dto/create-working-hours.dto';
 import { UpdateWorkingHoursDto } from './dto/update-working-hours.dto';
+import { BulkUpsertWorkingHoursDto } from './dto/bulk-upsert-working-hours.dto';
 import {
   CreateStaffBreakDto,
   StaffBreakStatus,
@@ -361,6 +363,27 @@ export class StaffController {
       'view working hours',
     );
     return await this.staffScheduleService.getWorkingHours(storeId, staffId);
+  }
+
+  @Put('stores/:storeId/staff/:staffId/working-hours/bulk')
+  @Roles('admin', 'manager')
+  async bulkUpsertWorkingHours(
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('staffId', ParseUUIDPipe) staffId: string,
+    @Body() dto: BulkUpsertWorkingHoursDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    await this.assertManagerLocationAccess(
+      storeId,
+      staffId,
+      user,
+      'bulk update working hours',
+    );
+    return await this.staffScheduleService.bulkUpsertWorkingHours(
+      storeId,
+      staffId,
+      dto,
+    );
   }
 
   @Patch('stores/:storeId/staff/:staffId/working-hours/:workingHoursId')

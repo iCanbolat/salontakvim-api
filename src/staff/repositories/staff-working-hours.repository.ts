@@ -84,6 +84,43 @@ export class StaffWorkingHoursRepository {
     return updatedWorkingHours;
   }
 
+  async findActiveByStaffIdAndDay(
+    staffId: string,
+    dayOfWeek:
+      | 'monday'
+      | 'tuesday'
+      | 'wednesday'
+      | 'thursday'
+      | 'friday'
+      | 'saturday'
+      | 'sunday',
+  ): Promise<StaffWorkingHours[]> {
+    return await this.db
+      .select()
+      .from(schema.staffWorkingHours)
+      .where(
+        and(
+          eq(schema.staffWorkingHours.staffId, staffId),
+          eq(schema.staffWorkingHours.dayOfWeek, dayOfWeek),
+          eq(schema.staffWorkingHours.isActive, true),
+        ),
+      );
+  }
+
+  async deleteByStaffId(staffId: string): Promise<void> {
+    await this.db
+      .delete(schema.staffWorkingHours)
+      .where(eq(schema.staffWorkingHours.staffId, staffId));
+  }
+
+  async createMany(data: NewStaffWorkingHours[]): Promise<StaffWorkingHours[]> {
+    if (data.length === 0) return [];
+    return await this.db
+      .insert(schema.staffWorkingHours)
+      .values(data)
+      .returning();
+  }
+
   async delete(id: string): Promise<void> {
     const result = await this.db
       .delete(schema.staffWorkingHours)

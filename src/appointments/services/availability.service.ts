@@ -4,6 +4,15 @@ import { StaffWorkingHoursRepository } from '../../staff/repositories/staff-work
 import { StaffBreakRepository } from '../../staff/repositories/staff-break.repository';
 import { TimeSlotDto } from '../dto/availability-response.dto';
 
+type DayOfWeek =
+  | 'monday'
+  | 'tuesday'
+  | 'wednesday'
+  | 'thursday'
+  | 'friday'
+  | 'saturday'
+  | 'sunday';
+
 interface TimeRange {
   start: Date;
   end: Date;
@@ -27,7 +36,7 @@ export class AvailabilityService {
     excludeAppointmentId?: string,
   ): Promise<TimeSlotDto[]> {
     const targetDate = new Date(date);
-    const dayOfWeek = this.getDayOfWeek(targetDate);
+    const dayOfWeek = this.getDayOfWeek(targetDate) as DayOfWeek;
 
     // 1. Get staff working hours for this day
     const workingHours = await this.getWorkingHoursForDay(staffId, dayOfWeek);
@@ -111,10 +120,11 @@ export class AvailabilityService {
     return allSlots;
   }
 
-  private async getWorkingHoursForDay(staffId: string, dayOfWeek: string) {
-    const allWorkingHours =
-      await this.staffWorkingHoursRepository.findActiveByStaffId(staffId);
-    return allWorkingHours.filter((wh) => wh.dayOfWeek === dayOfWeek);
+  private async getWorkingHoursForDay(staffId: string, dayOfWeek: DayOfWeek) {
+    return await this.staffWorkingHoursRepository.findActiveByStaffIdAndDay(
+      staffId,
+      dayOfWeek,
+    );
   }
 
   private async getBreaksForDate(staffId: string, date: string) {

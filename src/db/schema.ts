@@ -509,7 +509,14 @@ export const staffWorkingHours = pgTable(
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
-  (table) => [index('staff_working_hours_staff_id_idx').on(table.staffId)],
+  (table) => [
+    index('staff_working_hours_staff_id_idx').on(table.staffId),
+    index('staff_working_hours_staff_day_active_idx').on(
+      table.staffId,
+      table.dayOfWeek,
+      table.isActive,
+    ),
+  ],
 );
 
 // Staff breaks/time off
