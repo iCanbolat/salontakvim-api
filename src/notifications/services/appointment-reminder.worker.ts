@@ -18,6 +18,13 @@ interface ReminderStoreContext {
   email: string | null;
 }
 
+interface ReminderSettingsSnapshot {
+  appointmentReminderEnabled: boolean;
+  appointmentReminderChannel: 'email' | 'sms' | 'both' | null;
+  reminder24hEnabled: boolean;
+  reminder1hEnabled: boolean;
+}
+
 interface ReminderPreload {
   serviceById: Map<string, any>;
   staffById: Map<string, any>;
@@ -81,17 +88,38 @@ export class AppointmentReminderWorker {
           email: settings.storeEmail,
         };
 
+        const reminderSettings: ReminderSettingsSnapshot = {
+          appointmentReminderEnabled: Boolean(
+            settings.appointmentReminderEnabled,
+          ),
+          appointmentReminderChannel: settings.appointmentReminderChannel,
+          reminder24hEnabled: Boolean(settings.reminder24hEnabled),
+          reminder1hEnabled: Boolean(settings.reminder1hEnabled),
+        };
+
         const windowTasks: Promise<void>[] = [];
 
         if (settings.reminder24hEnabled) {
           windowTasks.push(
-            this.processWindow(store, '24h', window24Start, window24End),
+            this.processWindow(
+              store,
+              reminderSettings,
+              '24h',
+              window24Start,
+              window24End,
+            ),
           );
         }
 
         if (settings.reminder1hEnabled) {
           windowTasks.push(
-            this.processWindow(store, '1h', window1hStart, window1hEnd),
+            this.processWindow(
+              store,
+              reminderSettings,
+              '1h',
+              window1hStart,
+              window1hEnd,
+            ),
           );
         }
 
@@ -105,7 +133,8 @@ export class AppointmentReminderWorker {
   }
 
   private async processWindow(
-    store: any,
+    store: ReminderStoreContext,
+    reminderSettings: ReminderSettingsSnapshot,
     type: '24h' | '1h',
     windowStart: Date,
     windowEnd: Date,
@@ -158,21 +187,16 @@ export class AppointmentReminderWorker {
             return;
           }
 
-          if (type === '24h') {
-            await this.notificationService.sendAppointmentReminder24h(
-              store.id,
+          await this.notificationService.sendAppointmentReminderWithResolvedSettings(
+            {
+              storeId: store.id,
               recipientEmail,
               recipientPhone,
               variables,
-            );
-          } else {
-            await this.notificationService.sendAppointmentReminder1h(
-              store.id,
-              recipientEmail,
-              recipientPhone,
-              variables,
-            );
-          }
+              type,
+              settings: reminderSettings,
+            },
+          );
         } catch (error) {
           this.logger.error(
             `Failed to process ${type} reminder for appointment ${appointment.id}: ${error.message}`,

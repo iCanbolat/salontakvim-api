@@ -115,12 +115,13 @@ export class AnalyticsRepository {
     }
 
     const result = await this.db
-      .select({ count: count() })
+      .select({
+        count: sql<number>`COUNT(DISTINCT ${schema.appointments.customerId})`,
+      })
       .from(schema.appointments)
-      .where(and(...conditions))
-      .groupBy(schema.appointments.customerId);
+      .where(and(...conditions));
 
-    return result.length;
+    return Number(result[0]?.count || 0);
   }
 
   async getAppointmentsByStatus(

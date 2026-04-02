@@ -12,6 +12,13 @@ import {
 } from '../dto';
 import { TemplateVariables } from '../interfaces/notification.interface';
 
+type ReminderSettingsSnapshot = {
+  appointmentReminderEnabled?: boolean | null;
+  reminder24hEnabled?: boolean | null;
+  reminder1hEnabled?: boolean | null;
+  appointmentReminderChannel?: 'email' | 'sms' | 'both' | null;
+};
+
 @Injectable()
 export class NotificationService {
   private readonly logger = new Logger(NotificationService.name);
@@ -165,19 +172,54 @@ export class NotificationService {
   ) {
     const settings = await this.getSettings(storeId);
 
+    return this.sendAppointmentReminderWithResolvedSettings({
+      storeId,
+      recipientEmail,
+      recipientPhone,
+      variables,
+      type: '24h',
+      settings,
+    });
+  }
+
+  async sendAppointmentReminderWithResolvedSettings(args: {
+    storeId: string;
+    recipientEmail: string;
+    recipientPhone: string | null;
+    variables: TemplateVariables;
+    type: '24h' | '1h';
+    settings: ReminderSettingsSnapshot;
+  }) {
+    const {
+      storeId,
+      recipientEmail,
+      recipientPhone,
+      variables,
+      type,
+      settings,
+    } = args;
+
     if (!settings.appointmentReminderEnabled) {
       this.logger.log('Appointment reminders are disabled');
       return { sent: false, reason: 'Notifications disabled' };
     }
 
-    if (!settings.reminder24hEnabled) {
+    if (type === '24h' && !settings.reminder24hEnabled) {
       this.logger.log('24h reminder notifications are disabled');
       return { sent: false, reason: '24h reminders disabled' };
     }
 
+    if (type === '1h' && !settings.reminder1hEnabled) {
+      this.logger.log('1h reminder notifications are disabled');
+      return { sent: false, reason: '1h reminders disabled' };
+    }
+
+    const templateType =
+      type === '24h' ? 'appointment_reminder_24h' : 'appointment_reminder_1h';
+
     return this.sendNotification(
       storeId,
-      'appointment_reminder_24h',
+      templateType,
       settings.appointmentReminderChannel || 'email',
       recipientEmail,
       recipientPhone,
@@ -196,24 +238,14 @@ export class NotificationService {
   ) {
     const settings = await this.getSettings(storeId);
 
-    if (!settings.appointmentReminderEnabled) {
-      this.logger.log('Appointment reminders are disabled');
-      return { sent: false, reason: 'Notifications disabled' };
-    }
-
-    if (!settings.reminder1hEnabled) {
-      this.logger.log('1h reminder notifications are disabled');
-      return { sent: false, reason: '1h reminders disabled' };
-    }
-
-    return this.sendNotification(
+    return this.sendAppointmentReminderWithResolvedSettings({
       storeId,
-      'appointment_reminder_1h',
-      settings.appointmentReminderChannel || 'email',
       recipientEmail,
       recipientPhone,
       variables,
-    );
+      type: '1h',
+      settings,
+    });
   }
 
   /**

@@ -113,6 +113,30 @@ export class CustomerFileRepository extends BaseRepository<CustomerFile> {
     return (file as CustomerFile) || null;
   }
 
+  async findByStoreAndCustomerAndIds(
+    storeId: string,
+    customerId: string,
+    ids: string[],
+  ): Promise<CustomerFile[]> {
+    const uniqueIds = Array.from(new Set(ids));
+    if (uniqueIds.length === 0) {
+      return [];
+    }
+
+    const files = await this.db
+      .select()
+      .from(customerFiles)
+      .where(
+        and(
+          eq(customerFiles.storeId, storeId),
+          eq(customerFiles.customerId, customerId),
+          inArray(customerFiles.id, uniqueIds),
+        ),
+      );
+
+    return files as CustomerFile[];
+  }
+
   async findAppointmentSummary(
     storeId: string,
     appointmentId: string,
@@ -145,6 +169,44 @@ export class CustomerFileRepository extends BaseRepository<CustomerFile> {
       .limit(1);
 
     return appointment || null;
+  }
+
+  async findAppointmentSummariesByIds(
+    storeId: string,
+    customerId: string,
+    appointmentIds: string[],
+  ): Promise<
+    {
+      id: string;
+      status: string;
+      serviceId: string | null;
+      staffId: string | null;
+      publicNumber: string | null;
+      startDateTime: Date | null;
+    }[]
+  > {
+    const uniqueIds = Array.from(new Set(appointmentIds));
+    if (uniqueIds.length === 0) {
+      return [];
+    }
+
+    return this.db
+      .select({
+        id: appointments.id,
+        status: appointments.status,
+        serviceId: appointments.serviceId,
+        staffId: appointments.staffId,
+        publicNumber: appointments.publicNumber,
+        startDateTime: appointments.startDateTime,
+      })
+      .from(appointments)
+      .where(
+        and(
+          inArray(appointments.id, uniqueIds),
+          eq(appointments.storeId, storeId),
+          eq(appointments.customerId, customerId),
+        ),
+      );
   }
 
   async findServiceNameById(serviceId: string): Promise<string | null> {

@@ -38,16 +38,35 @@ import {
   AppointmentResponseDto,
   GetStoreAppointmentsDto,
 } from '../dto';
-import { Appointment } from '../interfaces/repository.interface';
+import {
+  Appointment,
+  AppointmentExtra,
+} from '../interfaces/repository.interface';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 
 type AppointmentResponseCacheBundle = {
-  userNames: Map<string, string | null>;
-  serviceNames: Map<string, string | null>;
-  staffNames: Map<string, string | null>;
-  locationNames: Map<string, string | null>;
-  storeNames: Map<string, string | null>;
+  userNames: Map<string, Promise<string | null>>;
+  serviceNames: Map<string, Promise<string | null>>;
+  staffNames: Map<string, Promise<string | null>>;
+  locationNames: Map<string, Promise<string | null>>;
+  storeNames: Map<string, Promise<string | null>>;
+};
+
+type AppointmentUserSummary = {
+  firstName?: string | null;
+  lastName?: string | null;
+  email?: string | null;
+  phone?: string | null;
+};
+
+type AppointmentResponsePreloadBundle = {
+  extrasByAppointmentId: Map<string, AppointmentExtra[]>;
+  customersById: Map<string, AppointmentUserSummary>;
+  serviceNamesById: Map<string, string | null>;
+  staffNamesById: Map<string, string | null>;
+  locationNamesById: Map<string, string | null>;
+  storeNamesById: Map<string, string | null>;
 };
 
 type PaginatedAppointmentsResult = {
@@ -1441,46 +1460,218 @@ export class AppointmentsService {
 
   private createAppointmentCacheBundle(): AppointmentResponseCacheBundle {
     return {
-      userNames: new Map<string, string | null>(),
-      serviceNames: new Map<string, string | null>(),
-      staffNames: new Map<string, string | null>(),
-      locationNames: new Map<string, string | null>(),
-      storeNames: new Map<string, string | null>(),
+      userNames: new Map<string, Promise<string | null>>(),
+      serviceNames: new Map<string, Promise<string | null>>(),
+      staffNames: new Map<string, Promise<string | null>>(),
+      locationNames: new Map<string, Promise<string | null>>(),
+      storeNames: new Map<string, Promise<string | null>>(),
+    };
+  }
+
+  private toDistinctIds(values: Array<string | null | undefined>): string[] {
+    return Array.from(
+      new Set(values.filter((value): value is string => Boolean(value))),
+    );
+  }
+
+  private buildUserDisplayName(
+    user?: AppointmentUserSummary | null,
+  ): string | undefined {
+    if (!user) {
+      return undefined;
+    }
+
+    if (user.firstName || user.lastName) {
+      return `${user.firstName || ''} ${user.lastName || ''}`.trim();
+    }
+
+    return user.email || undefined;
+  }
+
+  private async preloadAppointmentResponseData(
+    appointments: Appointment[],
+  ): Promise<AppointmentResponsePreloadBundle> {
+    if (!appointments.length) {
+      return {
+        extrasByAppointmentId: new Map<string, AppointmentExtra[]>(),
+        customersById: new Map<string, AppointmentUserSummary>(),
+        serviceNamesById: new Map<string, string | null>(),
+        staffNamesById: new Map<string, string | null>(),
+        locationNamesById: new Map<string, string | null>(),
+        storeNamesById: new Map<string, string | null>(),
+      };
+    }
+
+    const appointmentIds = this.toDistinctIds(
+      appointments.map((appointment) => appointment.id),
+    );
+    const customerIds = this.toDistinctIds(
+      appointments.map((appointment) => appointment.customerId),
+    );
+    const serviceIds = this.toDistinctIds(
+      appointments.map((appointment) => appointment.serviceId),
+    );
+    const staffIds = this.toDistinctIds(
+      appointments.map((appointment) => appointment.staffId),
+    );
+    const locationIds = this.toDistinctIds(
+      appointments.map((appointment) => appointment.locationId),
+    );
+    const storeIds = this.toDistinctIds(
+      appointments.map((appointment) => appointment.storeId),
+    );
+
+    const [extras, customers, services, staffMembers, locations, stores] =
+      await Promise.all([
+        this.appointmentExtraRepository.findByAppointmentIds(appointmentIds),
+        this.userRepository.findByIds(customerIds),
+        this.serviceRepository.findByIds(serviceIds),
+        this.staffMemberRepository.findByIds(staffIds),
+        this.locationRepository.findByIds(locationIds),
+        this.storeRepository.findByIds(storeIds),
+      ]);
+
+    const staffUserIds = this.toDistinctIds(
+      staffMembers.map((staffMember) => staffMember.userId),
+    );
+    const staffUsers = staffUserIds.length
+      ? await this.userRepository.findByIds(staffUserIds)
+      : [];
+
+    const extrasByAppointmentId = new Map<string, AppointmentExtra[]>();
+    for (const extra of extras) {
+      const existing = extrasByAppointmentId.get(extra.appointmentId);
+      if (existing) {
+        existing.push(extra);
+        continue;
+      }
+
+      extrasByAppointmentId.set(extra.appointmentId, [extra]);
+    }
+
+    const customersById = new Map<string, AppointmentUserSummary>();
+    for (const customer of customers) {
+      customersById.set(customer.id, {
+        firstName: customer.firstName,
+        lastName: customer.lastName,
+        email: customer.email,
+        phone: customer.phone,
+      });
+    }
+
+    const serviceNamesById = new Map<string, string | null>(
+      serviceIds.map((id) => [id, null]),
+    );
+    for (const service of services) {
+      serviceNamesById.set(service.id, service.name ?? null);
+    }
+
+    const locationNamesById = new Map<string, string | null>(
+      locationIds.map((id) => [id, null]),
+    );
+    for (const location of locations) {
+      locationNamesById.set(location.id, location.name ?? null);
+    }
+
+    const storeNamesById = new Map<string, string | null>(
+      storeIds.map((id) => [id, null]),
+    );
+    for (const store of stores) {
+      storeNamesById.set(store.id, store.name ?? null);
+    }
+
+    const staffUsersById = new Map<string, AppointmentUserSummary>(
+      staffUsers.map((user) => [
+        user.id,
+        {
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          phone: user.phone,
+        },
+      ]),
+    );
+
+    const staffNamesById = new Map<string, string | null>(
+      staffIds.map((id) => [id, null]),
+    );
+    for (const staffMember of staffMembers) {
+      if (!staffMember.userId) {
+        staffNamesById.set(staffMember.id, null);
+        continue;
+      }
+
+      const staffUser = staffUsersById.get(staffMember.userId);
+      const staffName = this.buildUserDisplayName(staffUser);
+      staffNamesById.set(staffMember.id, staffName ?? null);
+    }
+
+    return {
+      extrasByAppointmentId,
+      customersById,
+      serviceNamesById,
+      staffNamesById,
+      locationNamesById,
+      storeNamesById,
     };
   }
 
   private async buildAppointmentResponse(
     appointment: Appointment,
     cacheBundle?: AppointmentResponseCacheBundle,
+    preloadBundle?: AppointmentResponsePreloadBundle,
   ): Promise<AppointmentResponseDto> {
     const bundle = cacheBundle ?? this.createAppointmentCacheBundle();
-    const extras = await this.appointmentExtraRepository.findByAppointmentId(
-      appointment.id,
-    );
-    const customerName = await this.resolveUserName(
-      appointment.customerId,
-      bundle.userNames,
-    );
-    const serviceName = await this.resolveServiceName(
-      appointment.serviceId,
-      bundle.serviceNames,
-    );
-    const staffName = await this.resolveStaffName(
-      appointment.staffId,
-      bundle.staffNames,
-      bundle.userNames,
-    );
-    const locationName = await this.resolveLocationName(
-      appointment.locationId,
-      bundle.locationNames,
-    );
-    const storeName = await this.resolveStoreName(
-      appointment.storeId,
-      bundle.storeNames,
-    );
+    const extras = preloadBundle?.extrasByAppointmentId.get(appointment.id)
+      ? [...(preloadBundle.extrasByAppointmentId.get(appointment.id) || [])]
+      : await this.appointmentExtraRepository.findByAppointmentId(
+          appointment.id,
+        );
+
     const customer = appointment.customerId
-      ? await this.userRepository.findById(appointment.customerId)
+      ? preloadBundle?.customersById.get(appointment.customerId) ||
+        (await this.userRepository.findById(appointment.customerId))
       : null;
+
+    const customerName = preloadBundle
+      ? this.buildUserDisplayName(customer)
+      : await this.resolveUserName(appointment.customerId, bundle.userNames);
+
+    const serviceName = preloadBundle
+      ? appointment.serviceId
+        ? (preloadBundle.serviceNamesById.get(appointment.serviceId) ??
+          undefined)
+        : undefined
+      : await this.resolveServiceName(
+          appointment.serviceId,
+          bundle.serviceNames,
+        );
+
+    const staffName = preloadBundle
+      ? appointment.staffId
+        ? (preloadBundle.staffNamesById.get(appointment.staffId) ?? undefined)
+        : undefined
+      : await this.resolveStaffName(
+          appointment.staffId,
+          bundle.staffNames,
+          bundle.userNames,
+        );
+
+    const locationName = preloadBundle
+      ? appointment.locationId
+        ? (preloadBundle.locationNamesById.get(appointment.locationId) ??
+          undefined)
+        : undefined
+      : await this.resolveLocationName(
+          appointment.locationId,
+          bundle.locationNames,
+        );
+
+    const storeName = preloadBundle
+      ? appointment.storeId
+        ? (preloadBundle.storeNamesById.get(appointment.storeId) ?? undefined)
+        : undefined
+      : await this.resolveStoreName(appointment.storeId, bundle.storeNames);
 
     return new AppointmentResponseDto({
       ...appointment,
@@ -1505,118 +1696,162 @@ export class AppointmentsService {
     appointments: Appointment[],
     cacheBundle?: AppointmentResponseCacheBundle,
   ): Promise<AppointmentResponseDto[]> {
+    if (!appointments.length) {
+      return [];
+    }
+
     const bundle = cacheBundle ?? this.createAppointmentCacheBundle();
+    const preloadBundle =
+      await this.preloadAppointmentResponseData(appointments);
+
     return Promise.all(
       appointments.map((appointment) =>
-        this.buildAppointmentResponse(appointment, bundle),
+        this.buildAppointmentResponse(appointment, bundle, preloadBundle),
       ),
     );
   }
 
   private async resolveServiceName(
     serviceId?: string | null,
-    cache?: Map<string, string | null>,
+    cache?: Map<string, Promise<string | null>>,
   ): Promise<string | undefined> {
     if (!serviceId) {
       return undefined;
     }
 
     if (cache?.has(serviceId)) {
-      const cached = cache.get(serviceId);
+      const cached = await cache.get(serviceId);
       return cached ?? undefined;
     }
 
-    const service = await this.serviceRepository.findById(serviceId);
-    const name = service?.name;
+    const loadPromise = this.serviceRepository
+      .findById(serviceId)
+      .then((service) => service?.name ?? null);
+    cache?.set(serviceId, loadPromise);
 
-    cache?.set(serviceId, name ?? null);
-    return name;
+    try {
+      const name = await loadPromise;
+      return name ?? undefined;
+    } catch (error) {
+      cache?.delete(serviceId);
+      throw error;
+    }
   }
 
   private async resolveStaffName(
     staffId?: string | null,
-    staffCache?: Map<string, string | null>,
-    userCache?: Map<string, string | null>,
+    staffCache?: Map<string, Promise<string | null>>,
+    userCache?: Map<string, Promise<string | null>>,
   ): Promise<string | undefined> {
     if (!staffId) {
       return undefined;
     }
 
     if (staffCache?.has(staffId)) {
-      const cached = staffCache.get(staffId);
+      const cached = await staffCache.get(staffId);
       return cached ?? undefined;
     }
 
-    const staff = await this.staffMemberRepository.findById(staffId);
-    if (!staff?.userId) {
-      staffCache?.set(staffId, null);
-      return undefined;
-    }
+    const loadPromise = (async () => {
+      const staff = await this.staffMemberRepository.findById(staffId);
+      if (!staff?.userId) {
+        return null;
+      }
 
-    const userName = await this.resolveUserName(staff.userId, userCache);
-    staffCache?.set(staffId, userName ?? null);
-    return userName;
+      return (await this.resolveUserName(staff.userId, userCache)) ?? null;
+    })();
+
+    staffCache?.set(staffId, loadPromise);
+
+    try {
+      const staffName = await loadPromise;
+      return staffName ?? undefined;
+    } catch (error) {
+      staffCache?.delete(staffId);
+      throw error;
+    }
   }
 
   private async resolveLocationName(
     locationId?: string | null,
-    cache?: Map<string, string | null>,
+    cache?: Map<string, Promise<string | null>>,
   ): Promise<string | undefined> {
     if (!locationId) {
       return undefined;
     }
 
     if (cache?.has(locationId)) {
-      const cached = cache.get(locationId);
+      const cached = await cache.get(locationId);
       return cached ?? undefined;
     }
 
-    const location = await this.locationRepository.findById(locationId);
-    const name = location?.name;
-    cache?.set(locationId, name ?? null);
-    return name;
+    const loadPromise = this.locationRepository
+      .findById(locationId)
+      .then((location) => location?.name ?? null);
+    cache?.set(locationId, loadPromise);
+
+    try {
+      const name = await loadPromise;
+      return name ?? undefined;
+    } catch (error) {
+      cache?.delete(locationId);
+      throw error;
+    }
   }
 
   private async resolveStoreName(
     storeId?: string | null,
-    cache?: Map<string, string | null>,
+    cache?: Map<string, Promise<string | null>>,
   ): Promise<string | undefined> {
     if (!storeId) {
       return undefined;
     }
 
     if (cache?.has(storeId)) {
-      const cached = cache.get(storeId);
+      const cached = await cache.get(storeId);
       return cached ?? undefined;
     }
 
-    const store = await this.storeRepository.findById(storeId);
-    const name = store?.name;
-    cache?.set(storeId, name ?? null);
-    return name;
+    const loadPromise = this.storeRepository
+      .findById(storeId)
+      .then((store) => store?.name ?? null);
+    cache?.set(storeId, loadPromise);
+
+    try {
+      const name = await loadPromise;
+      return name ?? undefined;
+    } catch (error) {
+      cache?.delete(storeId);
+      throw error;
+    }
   }
 
   private async resolveUserName(
     userId?: string | null,
-    cache?: Map<string, string | null>,
+    cache?: Map<string, Promise<string | null>>,
   ): Promise<string | undefined> {
     if (!userId) {
       return undefined;
     }
 
     if (cache?.has(userId)) {
-      const cached = cache.get(userId);
+      const cached = await cache.get(userId);
       return cached ?? undefined;
     }
 
-    const user = await this.userRepository.findById(userId);
-    const name =
-      user && (user.firstName || user.lastName)
-        ? `${user.firstName || ''} ${user.lastName || ''}`.trim()
-        : user?.email || undefined;
+    const loadPromise = this.userRepository.findById(userId).then((user) => {
+      return this.buildUserDisplayName(user) ?? null;
+    });
 
-    cache?.set(userId, name ?? null);
-    return name;
+    cache?.set(userId, loadPromise);
+
+    try {
+      const userName = await loadPromise;
+      return userName ?? undefined;
+    } catch (error) {
+      cache?.delete(userId);
+      throw error;
+    }
   }
 
   private async runWithConcurrency<Item, Result>(

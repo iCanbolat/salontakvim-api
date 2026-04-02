@@ -41,6 +41,17 @@ export class StoreRepository
     return store || null;
   }
 
+  async findByIds(ids: string[]): Promise<Store[]> {
+    if (!ids.length) {
+      return [];
+    }
+
+    return await this.db
+      .select()
+      .from(schema.stores)
+      .where(inArray(schema.stores.id, Array.from(new Set(ids))));
+  }
+
   async findBySlug(slug: string): Promise<Store | null> {
     const [store] = await this.db
       .select()

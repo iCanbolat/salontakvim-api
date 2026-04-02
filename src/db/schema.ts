@@ -240,6 +240,14 @@ export const storeCustomers = pgTable(
   ],
 );
 
+export const appointmentCounters = pgTable('appointment_counters', {
+  storeId: uuid('store_id')
+    .references(() => stores.id, { onDelete: 'cascade' })
+    .primaryKey(),
+  counter: integer('counter').notNull().default(0),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 // ================================
 // ACTIVITIES (Timeline)
 // ================================
@@ -258,6 +266,18 @@ export const activities = pgTable(
   (table) => [
     index('activities_store_id_idx').on(table.storeId),
     index('activities_created_at_idx').on(table.createdAt),
+    index('activities_store_location_created_idx').using(
+      'btree',
+      table.storeId,
+      sql`(${table.metadata} ->> 'locationId')`,
+      table.createdAt,
+    ),
+    index('activities_store_appointment_created_idx').using(
+      'btree',
+      table.storeId,
+      sql`(${table.metadata} ->> 'appointmentId')`,
+      table.createdAt,
+    ),
   ],
 );
 
@@ -1164,6 +1184,7 @@ export const storesRelations = relations(stores, ({ one, many }) => ({
   services: many(services),
   staffMembers: many(staffMembers),
   appointments: many(appointments),
+  appointmentCounter: one(appointmentCounters),
   storeCustomers: many(storeCustomers),
   widgetSettings: one(widgetSettings),
   staffInvitations: many(staffInvitations),
@@ -1226,6 +1247,16 @@ export const storeCustomersRelations = relations(storeCustomers, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+export const appointmentCountersRelations = relations(
+  appointmentCounters,
+  ({ one }) => ({
+    store: one(stores, {
+      fields: [appointmentCounters.storeId],
+      references: [stores.id],
+    }),
+  }),
+);
 
 export const staffMembersRelations = relations(
   staffMembers,

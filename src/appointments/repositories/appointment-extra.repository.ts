@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { DRIZZLE_ORM } from '../../db/drizzle.module';
 import * as schema from '../../db/schema';
 import {
@@ -38,6 +38,24 @@ export class AppointmentExtraRepository {
       .select()
       .from(schema.appointmentExtras)
       .where(eq(schema.appointmentExtras.appointmentId, appointmentId));
+  }
+
+  async findByAppointmentIds(
+    appointmentIds: string[],
+  ): Promise<AppointmentExtra[]> {
+    if (!appointmentIds.length) {
+      return [];
+    }
+
+    return await this.db
+      .select()
+      .from(schema.appointmentExtras)
+      .where(
+        inArray(
+          schema.appointmentExtras.appointmentId,
+          Array.from(new Set(appointmentIds)),
+        ),
+      );
   }
 
   async deleteByAppointmentId(appointmentId: string): Promise<void> {

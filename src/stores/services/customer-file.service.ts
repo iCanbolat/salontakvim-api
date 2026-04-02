@@ -484,6 +484,11 @@ export class CustomerFileService {
     // Verify store ownership/access
     await this.storeService.verifyStoreOwnership(storeId, userId);
 
+    const uniqueFileIds = Array.from(new Set(fileIds));
+    if (uniqueFileIds.length === 0) {
+      return { deleted: 0 };
+    }
+
     const verifiedFileIds: string[] = [];
     const pathsToDelete: string[] = [];
 
@@ -517,50 +522,48 @@ export class CustomerFileService {
       roleLabelByUserRole[userRole] ||
       'Personel';
 
-    for (const fileId of fileIds) {
-      const file = await this.customerFileRepository.findByStoreAndId(
+    const files =
+      await this.customerFileRepository.findByStoreAndCustomerAndIds(
         storeId,
         customerId,
-        fileId,
+        uniqueFileIds,
       );
 
-      if (file) {
-        let appointmentSummary: any = null;
-        if (file.appointmentId) {
-          appointmentSummary =
-            await this.customerFileRepository.findAppointmentSummary(
-              storeId,
-              file.appointmentId,
-              customerId,
-            );
-        }
+    const appointmentIds = Array.from(
+      new Set(files.map((file) => file.appointmentId).filter(Boolean)),
+    ) as string[];
 
-        const sizeLabel = this.fileUploadService.formatFileSize(file.fileSize);
+    const appointmentSummaries =
+      await this.customerFileRepository.findAppointmentSummariesByIds(
+        storeId,
+        customerId,
+        appointmentIds,
+      );
+    const appointmentById = new Map(
+      appointmentSummaries.map((appointment) => [appointment.id, appointment]),
+    );
 
-        await this.activitiesService.recordActivity(
-          storeId,
-          'staff',
-          `${resolvedActorName} ${resolvedCustomerName} için dosya sildi: ${file.originalName} (${sizeLabel})`,
-          {
-            actorUserId: userId,
-            actorRole: userRole,
-            staffId: staffMember?.id || null,
-            staffUserId: staffMember?.userId || null,
-            staffName: resolvedActorName,
-            appointmentId: appointmentSummary?.id || null,
-            publicNumber: appointmentSummary?.publicNumber || null,
-            customerId,
-            customerName: resolvedCustomerName,
-            fileId: file.id,
-            fileName: file.originalName,
-            fileSize: file.fileSize,
-            fileSizeLabel: sizeLabel,
-            locationId: staffMember?.locationId || null,
-          },
+    let totalDeletedSize = 0;
+    const fileNameSamples: string[] = [];
+    const publicNumberSamples: string[] = [];
+
+    for (const file of files) {
+      verifiedFileIds.push(file.id);
+      pathsToDelete.push(file.storagePath);
+      totalDeletedSize += file.fileSize || 0;
+
+      if (fileNameSamples.length < 5) {
+        fileNameSamples.push(file.originalName);
+      }
+
+      if (
+        file.appointmentId &&
+        publicNumberSamples.length < 5 &&
+        appointmentById.get(file.appointmentId)?.publicNumber
+      ) {
+        publicNumberSamples.push(
+          String(appointmentById.get(file.appointmentId)?.publicNumber),
         );
-
-        pathsToDelete.push(file.storagePath);
-        verifiedFileIds.push(fileId);
       }
     }
 
@@ -578,6 +581,32 @@ export class CustomerFileService {
     // Delete records from database
     if (verifiedFileIds.length > 0) {
       await this.customerFileRepository.deleteMany(verifiedFileIds);
+
+      const sizeLabel = this.fileUploadService.formatFileSize(totalDeletedSize);
+
+      await this.activitiesService.recordActivity(
+        storeId,
+        'staff',
+        `${resolvedActorName} ${resolvedCustomerName} için ${verifiedFileIds.length} dosya sildi.`,
+        {
+          action: 'bulk_file_deleted',
+          actorUserId: userId,
+          actorRole: userRole,
+          staffId: staffMember?.id || null,
+          staffUserId: staffMember?.userId || null,
+          staffName: resolvedActorName,
+          customerId,
+          customerName: resolvedCustomerName,
+          deletedCount: verifiedFileIds.length,
+          requestedCount: uniqueFileIds.length,
+          deletedFileIds: verifiedFileIds,
+          deletedFileNamesSample: fileNameSamples,
+          relatedPublicNumbersSample: publicNumberSamples,
+          totalDeletedSize,
+          totalDeletedSizeLabel: sizeLabel,
+          locationId: staffMember?.locationId || null,
+        },
+      );
     }
 
     return { deleted: verifiedFileIds.length };

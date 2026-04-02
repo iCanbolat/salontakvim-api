@@ -26,6 +26,12 @@ import {
 type AppointmentStatusType =
   (typeof schema.appointmentStatusEnum.enumValues)[number];
 
+const APPOINTMENT_NUMBER_MAX_RETRIES = 3;
+const APPOINTMENT_NUMBER_RETRYABLE_CONSTRAINTS = new Set([
+  'appointments_store_public_number',
+  'appointments_store_public_number_counter',
+]);
+
 export interface AppointmentQueryFilters {
   status?: AppointmentStatusType;
   serviceId?: string;
@@ -60,28 +66,57 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
   async create(
     data: Omit<NewAppointment, 'publicNumber' | 'publicNumberCounter'>,
   ): Promise<Appointment> {
-    return await this.db.transaction(async (tx) => {
-      const [next] = await tx
-        .select({
-          nextNumber: sql<number>`COALESCE(MAX(${schema.appointments.publicNumberCounter}), 0) + 1`,
-        })
-        .from(schema.appointments)
-        .where(eq(schema.appointments.storeId, data.storeId));
+    for (
+      let attempt = 1;
+      attempt <= APPOINTMENT_NUMBER_MAX_RETRIES;
+      attempt++
+    ) {
+      try {
+        return await this.db.transaction(async (tx) => {
+          const [counterRow] = await tx
+            .insert(schema.appointmentCounters)
+            .values({
+              storeId: data.storeId,
+              counter: sql<number>`COALESCE((SELECT MAX(public_number_counter) FROM appointments WHERE store_id = ${data.storeId}), 0) + 1`,
+              updatedAt: new Date(),
+            })
+            .onConflictDoUpdate({
+              target: schema.appointmentCounters.storeId,
+              set: {
+                counter: sql`${schema.appointmentCounters.counter} + 1`,
+                updatedAt: new Date(),
+              },
+            })
+            .returning({ counter: schema.appointmentCounters.counter });
 
-      const publicNumberCounter = next?.nextNumber ?? 1;
-      const publicNumber = String(publicNumberCounter).padStart(3, '0');
+          const publicNumberCounter = counterRow?.counter ?? 1;
+          const publicNumber = String(publicNumberCounter).padStart(3, '0');
 
-      const [appointment] = await tx
-        .insert(schema.appointments)
-        .values({
-          ...data,
-          publicNumber,
-          publicNumberCounter,
-        })
-        .returning();
+          const [appointment] = await tx
+            .insert(schema.appointments)
+            .values({
+              ...data,
+              publicNumber,
+              publicNumberCounter,
+            })
+            .returning();
 
-      return appointment;
-    });
+          return appointment;
+        });
+      } catch (error) {
+        const shouldRetry =
+          attempt < APPOINTMENT_NUMBER_MAX_RETRIES &&
+          this.isRetryablePublicNumberConflict(error);
+
+        if (shouldRetry) {
+          continue;
+        }
+
+        throw error;
+      }
+    }
+
+    throw new Error('Failed to allocate appointment public number');
   }
 
   async findById(id: string): Promise<Appointment | null> {
@@ -502,6 +537,22 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
     if (result.length === 0) {
       throw new NotFoundException(`Appointment with ID ${id} not found`);
     }
+  }
+
+  private isRetryablePublicNumberConflict(error: unknown): boolean {
+    if (!error || typeof error !== 'object') {
+      return false;
+    }
+
+    const driverError = error as {
+      code?: string;
+      constraint?: string;
+    };
+
+    return (
+      driverError.code === '23505' &&
+      APPOINTMENT_NUMBER_RETRYABLE_CONSTRAINTS.has(driverError.constraint || '')
+    );
   }
 
   private buildWhereClause(

@@ -1,4 +1,10 @@
-import { ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import Redis from 'ioredis';
 import { WidgetSettingsRepository } from '../repositories/widget-settings.repository';
 import { StoreRepository } from '../../stores/repositories/store.repository';
@@ -31,6 +37,7 @@ import { CreateWidgetCheckoutDto } from '../../payments/dto';
 @Injectable()
 export class WidgetService {
   private readonly logger = new Logger(WidgetService.name);
+  private readonly localhostDomains = new Set(['localhost', '127.0.0.1']);
 
   constructor(
     private readonly widgetSettingsRepository: WidgetSettingsRepository,
@@ -91,9 +98,7 @@ export class WidgetService {
 
   async updateAllowedDomains(storeId: string, domains: string[]) {
     await this.ensureWidgetSettingsExists(storeId);
-    const sanitizedDomains = (domains || [])
-      .map((domain) => domain.trim())
-      .filter(Boolean);
+    const sanitizedDomains = this.sanitizeAllowedDomains(domains || []);
     await this.widgetSettingsRepository.update(storeId, {
       allowedDomains: sanitizedDomains,
     });
@@ -236,8 +241,18 @@ export class WidgetService {
     origin: string | undefined,
     allowedDomains: string[],
   ) {
+    const hostname = this.extractHostname(origin);
+
+    // localhost is always allowed for local development/integration.
+    if (this.isAlwaysAllowedDomain(hostname)) {
+      return true;
+    }
+
+    const customAllowedDomains =
+      this.getConfiguredCustomDomains(allowedDomains);
+
     // If no domains configured, allow all (including no origin for server-side requests)
-    if (!allowedDomains.length) {
+    if (!customAllowedDomains.length) {
       return true;
     }
 
@@ -246,12 +261,11 @@ export class WidgetService {
       return false;
     }
 
-    const hostname = this.extractHostname(origin);
     if (!hostname) {
       return false;
     }
 
-    return allowedDomains.some((domain) =>
+    return customAllowedDomains.some((domain) =>
       this.matchesDomain(hostname, domain),
     );
   }
@@ -286,6 +300,77 @@ export class WidgetService {
     }
 
     return normalizedHost === normalizedAllowed;
+  }
+
+  private isAlwaysAllowedDomain(hostname?: string) {
+    return !!hostname && this.localhostDomains.has(hostname.toLowerCase());
+  }
+
+  private normalizeDomainForStorage(domain: string): string | null {
+    const raw = domain.trim().toLowerCase();
+    if (!raw) {
+      return null;
+    }
+
+    const hasWildcard = raw.startsWith('*.');
+    const hostCandidate = hasWildcard ? raw.slice(2) : raw;
+
+    if (
+      !hostCandidate ||
+      hostCandidate.includes(' ') ||
+      hostCandidate.includes('/') ||
+      hostCandidate.includes(':')
+    ) {
+      throw new BadRequestException(`Invalid domain: ${domain}`);
+    }
+
+    let normalizedHost: string;
+    try {
+      normalizedHost = new URL(
+        `http://${hostCandidate}`,
+      ).hostname.toLowerCase();
+    } catch {
+      throw new BadRequestException(`Invalid domain: ${domain}`);
+    }
+
+    if (!normalizedHost || normalizedHost !== hostCandidate) {
+      throw new BadRequestException(`Invalid domain: ${domain}`);
+    }
+
+    return hasWildcard ? `*.${normalizedHost}` : normalizedHost;
+  }
+
+  private sanitizeAllowedDomains(domains: string[]) {
+    const normalized = Array.from(
+      new Set(
+        domains
+          .map((domain) => this.normalizeDomainForStorage(domain))
+          .filter((domain): domain is string => Boolean(domain)),
+      ),
+    );
+
+    const customDomains = normalized.filter(
+      (domain) => !this.localhostDomains.has(domain),
+    );
+
+    if (customDomains.length > 1) {
+      throw new BadRequestException(
+        'Only one custom domain can be configured. localhost is always allowed.',
+      );
+    }
+
+    // Persist only custom domain. localhost/127.0.0.1 are always allowed implicitly.
+    return customDomains;
+  }
+
+  private getConfiguredCustomDomains(allowedDomains: string[]) {
+    const normalized = allowedDomains
+      .map((domain) => domain.trim().toLowerCase())
+      .filter(Boolean)
+      .filter((domain) => !this.localhostDomains.has(domain));
+
+    // Enforce single-domain policy for legacy records without failing reads.
+    return normalized.length > 0 ? [normalized[0]] : [];
   }
 
   /**
@@ -954,9 +1039,13 @@ export class WidgetService {
       this.configService.get<string>('ENABLE_EMBED_DOMAIN_CHECK') === 'true';
 
     if (enableDomainCheck) {
+      const customAllowedDomains = this.getConfiguredCustomDomains(
+        widgetSettings.allowedDomains || [],
+      );
+
       // In production mode, enforce domain validation
       // If no origin provided (server-side call), check if allowedDomains is empty (allow all)
-      if (!origin && (widgetSettings.allowedDomains?.length ?? 0) > 0) {
+      if (!origin && customAllowedDomains.length > 0) {
         throw new ForbiddenException(
           'Origin header required when domain restrictions are configured',
         );

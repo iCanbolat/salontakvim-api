@@ -441,14 +441,24 @@ export class PaymentsService {
 
     let total = Number(service.price || 0);
 
-    for (const extra of params.extrasData || []) {
-      const serviceExtra = await this.serviceExtraRepository.findById(
-        extra.extraId,
+    const extrasData = params.extrasData || [];
+    if (extrasData.length > 0) {
+      const serviceExtras = await this.serviceExtraRepository.findByIds(
+        extrasData.map((extra) => extra.extraId),
       );
-      if (!serviceExtra || serviceExtra.serviceId !== params.serviceId) {
-        throw new BadRequestException(`Invalid extra with ID ${extra.extraId}`);
+      const serviceExtrasById = new Map(
+        serviceExtras.map((serviceExtra) => [serviceExtra.id, serviceExtra]),
+      );
+
+      for (const extra of extrasData) {
+        const serviceExtra = serviceExtrasById.get(extra.extraId);
+        if (!serviceExtra || serviceExtra.serviceId !== params.serviceId) {
+          throw new BadRequestException(
+            `Invalid extra with ID ${extra.extraId}`,
+          );
+        }
+        total += Number(serviceExtra.price || 0) * extra.quantity;
       }
-      total += Number(serviceExtra.price || 0) * extra.quantity;
     }
 
     if (params.couponCode) {

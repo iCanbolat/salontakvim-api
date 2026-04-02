@@ -14,6 +14,10 @@ import {
   UnauthorizedStoreAccessException,
 } from '../exceptions';
 
+const BULK_SMS_MAX_CUSTOMERS = 200;
+const BULK_SMS_SEND_CHUNK_SIZE = 50;
+const BULK_SMS_ACTIVITY_CHUNK_SIZE = 25;
+
 @Injectable()
 export class StoreService {
   constructor(
@@ -363,6 +367,12 @@ export class StoreService {
       throw new BadRequestException('At least one customer must be selected');
     }
 
+    if (uniqueCustomerIds.length > BULK_SMS_MAX_CUSTOMERS) {
+      throw new BadRequestException(
+        `You can send bulk SMS to at most ${BULK_SMS_MAX_CUSTOMERS} customers at once`,
+      );
+    }
+
     let customers: Array<{
       id: string;
       firstName: string | null;
@@ -432,25 +442,30 @@ export class StoreService {
     }
 
     if (deliverableCustomers.length > 0) {
-      const bulkResult = await this.smsService.sendBulkSMS({
-        to: deliverableCustomers.map((item) => item.phone),
-        message: trimmedMessage,
-      });
+      for (const chunk of this.chunkArray(
+        deliverableCustomers,
+        BULK_SMS_SEND_CHUNK_SIZE,
+      )) {
+        const bulkResult = await this.smsService.sendBulkSMS({
+          to: chunk.map((item) => item.phone),
+          message: trimmedMessage,
+        });
 
-      sentCount = bulkResult.sent;
-      failedCount += bulkResult.failed;
+        sentCount += bulkResult.sent;
+        failedCount += bulkResult.failed;
+      }
     }
 
     const isSingleTarget = uniqueCustomerIds.length === 1;
 
-    const activityPromises: Array<Promise<any>> = [];
+    const activityTasks: Array<() => Promise<any>> = [];
 
     for (const customer of deliverableCustomers) {
       const activityMessage = isSingleTarget
         ? 'Müşteriye SMS gönderildi.'
         : 'Toplu SMS kapsamında müşteriye SMS gönderildi.';
 
-      activityPromises.push(
+      activityTasks.push(() =>
         this.activitiesService.recordActivity(
           storeId,
           'customer',
@@ -479,7 +494,7 @@ export class StoreService {
         ? 'Müşteriye SMS gönderilemedi: telefon numarası bulunamadı.'
         : 'Toplu SMS kapsamında müşteriye SMS gönderilemedi: telefon numarası bulunamadı.';
 
-      activityPromises.push(
+      activityTasks.push(() =>
         this.activitiesService.recordActivity(
           storeId,
           'customer',
@@ -509,7 +524,7 @@ export class StoreService {
         ? 'Müşteriye SMS gönderilemedi: telefon numarası geçersiz.'
         : 'Toplu SMS kapsamında müşteriye SMS gönderilemedi: telefon numarası geçersiz.';
 
-      activityPromises.push(
+      activityTasks.push(() =>
         this.activitiesService.recordActivity(
           storeId,
           'customer',
@@ -534,7 +549,12 @@ export class StoreService {
       );
     }
 
-    await Promise.all(activityPromises);
+    for (const chunk of this.chunkArray(
+      activityTasks,
+      BULK_SMS_ACTIVITY_CHUNK_SIZE,
+    )) {
+      await Promise.all(chunk.map((task) => task()));
+    }
 
     return {
       requested: uniqueCustomerIds.length,
@@ -544,5 +564,20 @@ export class StoreService {
       noPhone: noPhoneCount,
       message: 'Bulk SMS operation completed',
     };
+  }
+
+  private chunkArray<T>(items: T[], chunkSize: number): T[][] {
+    if (items.length === 0) {
+      return [];
+    }
+
+    const safeChunkSize = Math.max(1, chunkSize);
+    const chunks: T[][] = [];
+
+    for (let index = 0; index < items.length; index += safeChunkSize) {
+      chunks.push(items.slice(index, index + safeChunkSize));
+    }
+
+    return chunks;
   }
 }

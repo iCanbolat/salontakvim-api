@@ -207,10 +207,32 @@ export class NotificationRepository {
   }
 
   async markAllAsRead(userId: string) {
-    return this.db
+    const [countResult] = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(schema.notifications)
+      .where(
+        and(
+          eq(schema.notifications.userId, userId),
+          eq(schema.notifications.isRead, false),
+        ),
+      );
+
+    const updatedCount = Number(countResult?.count ?? 0);
+
+    if (updatedCount === 0) {
+      return { updatedCount: 0 };
+    }
+
+    await this.db
       .update(schema.notifications)
       .set({ isRead: true })
-      .where(eq(schema.notifications.userId, userId))
-      .returning();
+      .where(
+        and(
+          eq(schema.notifications.userId, userId),
+          eq(schema.notifications.isRead, false),
+        ),
+      );
+
+    return { updatedCount };
   }
 }
