@@ -8,12 +8,12 @@ import {
 
 export class AssignCouponDto {
   @IsUUID()
-  couponId: string;
+  couponId!: string;
 
   @IsArray()
   @IsUUID('4', { each: true })
   @ArrayMinSize(1)
-  customerIds: string[];
+  customerIds!: string[];
 
   @IsBoolean()
   @IsOptional()
@@ -24,9 +24,10 @@ export class BulkAssignCouponDto {
   @IsArray()
   @IsUUID('4', { each: true })
   @ArrayMinSize(1)
-  customerIds: string[];
+  customerIds!: string[];
 
   @IsBoolean()
   @IsOptional()
   notifyCustomers?: boolean;
 }
+

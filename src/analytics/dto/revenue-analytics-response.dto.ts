@@ -2,113 +2,114 @@ import { Expose, Type } from 'class-transformer';
 
 export class RevenueByDateDto {
   @Expose()
-  date: string;
+  date!: string;
 
   @Expose()
-  revenue: string;
+  revenue!: string;
 
   @Expose()
-  appointmentCount: number;
+  appointmentCount!: number;
 
   @Expose()
-  averageValue: string;
+  averageValue!: string;
 }
 
 export class RevenueByServiceDto {
   @Expose()
-  serviceId: number;
+  serviceId!: number;
 
   @Expose()
-  serviceName: string;
+  serviceName!: string;
 
   @Expose()
-  revenue: string;
+  revenue!: string;
 
   @Expose()
-  appointmentCount: number;
+  appointmentCount!: number;
 
   @Expose()
-  percentage: string;
+  percentage!: string;
 }
 
 export class RevenueByStaffDto {
   @Expose()
-  staffId: number;
+  staffId!: number;
 
   @Expose()
-  staffName: string;
+  staffName!: string;
 
   @Expose()
-  revenue: string;
+  revenue!: string;
 
   @Expose()
-  appointmentCount: number;
+  appointmentCount!: number;
 
   @Expose()
-  percentage: string;
+  percentage!: string;
 }
 
 export class RevenueByPaymentMethodDto {
   @Expose()
-  paymentMethod: string;
+  paymentMethod!: string;
 
   @Expose()
-  revenue: string;
+  revenue!: string;
 
   @Expose()
-  appointmentCount: number;
+  appointmentCount!: number;
 
   @Expose()
-  percentage: string;
+  percentage!: string;
 }
 
 export class RevenueSummaryDto {
   @Expose()
-  totalRevenue: string;
+  totalRevenue!: string;
 
   @Expose()
-  averageAppointmentValue: string;
+  averageAppointmentValue!: string;
 
   @Expose()
-  totalAppointments: number;
+  totalAppointments!: number;
 
   @Expose()
-  paidAppointments: number;
+  paidAppointments!: number;
 
   @Expose()
-  unpaidAppointments: number;
+  unpaidAppointments!: number;
 
   @Expose()
-  collectionRate: string; // percentage
+  collectionRate!: string; // percentage
 }
 
 export class RevenueAnalyticsResponseDto {
   @Expose()
   @Type(() => RevenueSummaryDto)
-  summary: RevenueSummaryDto;
+  summary!: RevenueSummaryDto;
 
   @Expose()
   @Type(() => RevenueByDateDto)
-  byDate: RevenueByDateDto[];
+  byDate!: RevenueByDateDto[];
 
   @Expose()
   @Type(() => RevenueByServiceDto)
-  byService: RevenueByServiceDto[];
+  byService!: RevenueByServiceDto[];
 
   @Expose()
   @Type(() => RevenueByStaffDto)
-  byStaff: RevenueByStaffDto[];
+  byStaff!: RevenueByStaffDto[];
 
   @Expose()
   @Type(() => RevenueByPaymentMethodDto)
-  byPaymentMethod: RevenueByPaymentMethodDto[];
+  byPaymentMethod!: RevenueByPaymentMethodDto[];
 
   @Expose()
-  startDate: string;
+  startDate!: string;
 
   @Expose()
-  endDate: string;
+  endDate!: string;
 
   @Expose()
-  calculatedAt: Date;
+  calculatedAt!: Date;
 }
+

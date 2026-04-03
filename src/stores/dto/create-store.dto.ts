@@ -13,7 +13,7 @@ export class CreateStoreDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(255)
-  name: string;
+  name!: string;
 
   @IsString()
   @MinLength(3)
@@ -22,7 +22,7 @@ export class CreateStoreDto {
     message:
       'Slug must be lowercase alphanumeric with hyphens (e.g., my-store-name)',
   })
-  slug: string;
+  slug!: string;
 
   @IsString()
   @IsOptional()
@@ -75,3 +75,4 @@ export class CreateStoreDto {
   @IsOptional()
   staffIsVisible?: boolean;
 }
+

@@ -2,95 +2,96 @@ import { Expose, Type } from 'class-transformer';
 
 export class CustomerGrowthDto {
   @Expose()
-  date: string;
+  date!: string;
 
   @Expose()
-  newCustomers: number;
+  newCustomers!: number;
 
   @Expose()
-  totalCustomers: number;
+  totalCustomers!: number;
 }
 
 export class TopCustomerDto {
   @Expose()
-  customerId: number;
+  customerId!: number;
 
   @Expose()
-  customerName: string;
+  customerName!: string;
 
   @Expose()
-  customerEmail: string;
+  customerEmail!: string;
 
   @Expose()
-  appointmentCount: number;
+  appointmentCount!: number;
 
   @Expose()
-  totalSpent: string;
+  totalSpent!: string;
 
   @Expose()
-  averageSpent: string;
+  averageSpent!: string;
 
   @Expose()
-  lastAppointmentDate: Date;
+  lastAppointmentDate!: Date;
 }
 
 export class CustomerRetentionDto {
   @Expose()
-  newCustomers: number;
+  newCustomers!: number;
 
   @Expose()
-  returningCustomers: number;
+  returningCustomers!: number;
 
   @Expose()
-  retentionRate: string; // percentage
+  retentionRate!: string; // percentage
 
   @Expose()
-  averageAppointmentsPerCustomer: string;
+  averageAppointmentsPerCustomer!: string;
 }
 
 export class CustomerBySourceDto {
   @Expose()
-  source: string;
+  source!: string;
 
   @Expose()
-  count: number;
+  count!: number;
 
   @Expose()
-  percentage: string;
+  percentage!: string;
 }
 
 export class CustomerAnalyticsResponseDto {
   @Expose()
-  totalCustomers: number;
+  totalCustomers!: number;
 
   @Expose()
-  newCustomersInPeriod: number;
+  newCustomersInPeriod!: number;
 
   @Expose()
-  activeCustomers: number;
+  activeCustomers!: number;
 
   @Expose()
   @Type(() => CustomerRetentionDto)
-  retention: CustomerRetentionDto;
+  retention!: CustomerRetentionDto;
 
   @Expose()
   @Type(() => CustomerGrowthDto)
-  growth: CustomerGrowthDto[];
+  growth!: CustomerGrowthDto[];
 
   @Expose()
   @Type(() => TopCustomerDto)
-  topCustomers: TopCustomerDto[];
+  topCustomers!: TopCustomerDto[];
 
   @Expose()
   @Type(() => CustomerBySourceDto)
-  bySource: CustomerBySourceDto[];
+  bySource!: CustomerBySourceDto[];
 
   @Expose()
-  startDate: string;
+  startDate!: string;
 
   @Expose()
-  endDate: string;
+  endDate!: string;
 
   @Expose()
-  calculatedAt: Date;
+  calculatedAt!: Date;
 }
+

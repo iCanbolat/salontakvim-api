@@ -11,7 +11,7 @@ export enum AppointmentStatus {
 
 export class UpdateAppointmentStatusDto {
   @IsEnum(AppointmentStatus)
-  status: AppointmentStatus;
+  status!: AppointmentStatus;
 
   @IsString()
   @IsOptional()
@@ -21,3 +21,4 @@ export class UpdateAppointmentStatusDto {
   @IsOptional()
   internalNotes?: string;
 }
+

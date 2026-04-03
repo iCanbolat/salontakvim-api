@@ -18,14 +18,14 @@ import {
 export class WorkingHourEntry {
   @IsEnum(DayOfWeekEnum)
   @IsNotEmpty()
-  dayOfWeek: DayOfWeekEnum;
+  dayOfWeek!: DayOfWeekEnum;
 
   @IsString()
   @IsNotEmpty()
   @Matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/, {
     message: 'Start time must be in HH:MM or HH:MM:SS format',
   })
-  startTime: string;
+  startTime!: string;
 
   @IsString()
   @IsNotEmpty()
@@ -33,7 +33,7 @@ export class WorkingHourEntry {
     message: 'End time must be in HH:MM or HH:MM:SS format',
   })
   @Validate(IsTimeBeforeConstraint)
-  endTime: string;
+  endTime!: string;
 
   @IsOptional()
   @IsBoolean()
@@ -44,5 +44,6 @@ export class BulkUpsertWorkingHoursDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => WorkingHourEntry)
-  schedule: WorkingHourEntry[];
+  schedule!: WorkingHourEntry[];
 }
+

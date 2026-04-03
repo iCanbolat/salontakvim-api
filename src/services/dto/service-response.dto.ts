@@ -2,58 +2,58 @@ import { Exclude, Expose, Type } from 'class-transformer';
 
 class ServiceExtraResponse {
   @Expose()
-  id: number;
+  id!: number;
 
   @Expose()
-  name: string;
+  name!: string;
 
   @Expose()
   description?: string;
 
   @Expose()
-  price: string;
+  price!: string;
 
   @Expose()
-  duration: number;
+  duration!: number;
 
   @Expose()
-  maxQuantity: number;
+  maxQuantity!: number;
 
   @Expose()
-  position: number;
+  position!: number;
 }
 
 @Exclude()
 export class ServiceResponseDto {
   @Expose()
-  id: number;
+  id!: number;
 
   @Expose()
-  storeId: number;
+  storeId!: number;
 
   @Expose()
   categoryId?: number;
 
   @Expose()
-  name: string;
+  name!: string;
 
   @Expose()
   description?: string;
 
   @Expose()
-  duration: number;
+  duration!: number;
 
   @Expose()
-  price: string;
+  price!: string;
 
   @Expose()
-  capacity: number;
+  capacity!: number;
 
   @Expose()
-  bufferTimeBefore: number;
+  bufferTimeBefore!: number;
 
   @Expose()
-  bufferTimeAfter: number;
+  bufferTimeAfter!: number;
 
   @Expose()
   categoryColor?: string;
@@ -65,24 +65,25 @@ export class ServiceResponseDto {
   image?: string;
 
   @Expose()
-  isVisible: boolean;
+  isVisible!: boolean;
 
   @Expose()
-  showBringingAnyoneOption: boolean;
+  showBringingAnyoneOption!: boolean;
 
   @Expose()
-  allowRecurring: boolean;
+  allowRecurring!: boolean;
 
   @Expose()
-  position: number;
+  position!: number;
 
   @Expose()
-  createdAt: Date;
+  createdAt!: Date;
 
   @Expose()
-  updatedAt: Date;
+  updatedAt!: Date;
 
   @Expose()
   @Type(() => ServiceExtraResponse)
   extras?: ServiceExtraResponse[];
 }
+

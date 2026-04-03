@@ -5,9 +5,10 @@ export class SettleAppointmentPaymentDto {
   @Type(() => Number)
   @IsNumber()
   @Min(0)
-  finalTotalPrice: number;
+  finalTotalPrice!: number;
 
   @IsOptional()
   @IsBoolean()
   markAsPaid?: boolean;
 }
+

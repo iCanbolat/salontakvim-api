@@ -2,122 +2,123 @@ import { Expose, Type } from 'class-transformer';
 
 export class ServicePopularityDto {
   @Expose()
-  serviceId: number;
+  serviceId!: number;
 
   @Expose()
-  serviceName: string;
+  serviceName!: string;
 
   @Expose()
-  categoryName: string;
+  categoryName!: string;
 
   @Expose()
-  appointmentCount: number;
+  appointmentCount!: number;
 
   @Expose()
-  revenue: string;
+  revenue!: string;
 
   @Expose()
-  averagePrice: string;
+  averagePrice!: string;
 
   @Expose()
-  percentage: string;
+  percentage!: string;
 
   @Expose()
-  trend: 'up' | 'down' | 'stable';
+  trend!: 'up' | 'down' | 'stable';
 
   @Expose()
-  trendPercentage: string;
+  trendPercentage!: string;
 }
 
 export class ServiceByTimeDto {
   @Expose()
-  date: string;
+  date!: string;
 
   @Expose()
-  serviceId: number;
+  serviceId!: number;
 
   @Expose()
-  serviceName: string;
+  serviceName!: string;
 
   @Expose()
-  count: number;
+  count!: number;
 
   @Expose()
-  revenue: string;
+  revenue!: string;
 }
 
 export class ServiceCategoryPerformanceDto {
   @Expose()
-  categoryId: number;
+  categoryId!: number;
 
   @Expose()
-  categoryName: string;
+  categoryName!: string;
 
   @Expose()
-  serviceCount: number;
+  serviceCount!: number;
 
   @Expose()
-  appointmentCount: number;
+  appointmentCount!: number;
 
   @Expose()
-  revenue: string;
+  revenue!: string;
 
   @Expose()
-  percentage: string;
+  percentage!: string;
 }
 
 export class ServiceExtrasAnalyticsDto {
   @Expose()
-  extraId: number;
+  extraId!: number;
 
   @Expose()
-  extraName: string;
+  extraName!: string;
 
   @Expose()
-  serviceName: string;
+  serviceName!: string;
 
   @Expose()
-  timesAdded: number;
+  timesAdded!: number;
 
   @Expose()
-  revenue: string;
+  revenue!: string;
 
   @Expose()
-  attachRate: string; // percentage of appointments that include this extra
+  attachRate!: string; // percentage of appointments that include this extra
 }
 
 export class ServiceAnalyticsResponseDto {
   @Expose()
-  totalServices: number;
+  totalServices!: number;
 
   @Expose()
-  activeServices: number;
+  activeServices!: number;
 
   @Expose()
-  totalRevenue: string;
+  totalRevenue!: string;
 
   @Expose()
   @Type(() => ServicePopularityDto)
-  popularity: ServicePopularityDto[];
+  popularity!: ServicePopularityDto[];
 
   @Expose()
   @Type(() => ServiceByTimeDto)
-  byTime: ServiceByTimeDto[];
+  byTime!: ServiceByTimeDto[];
 
   @Expose()
   @Type(() => ServiceCategoryPerformanceDto)
-  byCategory: ServiceCategoryPerformanceDto[];
+  byCategory!: ServiceCategoryPerformanceDto[];
 
   @Expose()
   @Type(() => ServiceExtrasAnalyticsDto)
-  extras: ServiceExtrasAnalyticsDto[];
+  extras!: ServiceExtrasAnalyticsDto[];
 
   @Expose()
-  startDate: string;
+  startDate!: string;
 
   @Expose()
-  endDate: string;
+  endDate!: string;
 
   @Expose()
-  calculatedAt: Date;
+  calculatedAt!: Date;
 }
+

@@ -3,65 +3,66 @@ import { NotificationChannel } from './notification-settings.dto';
 
 export class NotificationSettingsResponseDto {
   @Expose()
-  id: number;
+  id!: number;
 
   @Expose()
-  storeId: number;
+  storeId!: number;
 
   @Expose()
-  appointmentConfirmationEnabled: boolean;
+  appointmentConfirmationEnabled!: boolean;
 
   @Expose()
-  appointmentConfirmationChannel: NotificationChannel;
+  appointmentConfirmationChannel!: NotificationChannel;
 
   @Expose()
-  appointmentReminderEnabled: boolean;
+  appointmentReminderEnabled!: boolean;
 
   @Expose()
-  appointmentReminderChannel: NotificationChannel;
+  appointmentReminderChannel!: NotificationChannel;
 
   @Expose()
-  reminder24hEnabled: boolean;
+  reminder24hEnabled!: boolean;
 
   @Expose()
-  reminder1hEnabled: boolean;
+  reminder1hEnabled!: boolean;
 
   @Expose()
-  appointmentCancellationEnabled: boolean;
+  appointmentCancellationEnabled!: boolean;
 
   @Expose()
-  appointmentCancellationChannel: NotificationChannel;
+  appointmentCancellationChannel!: NotificationChannel;
 
   @Expose()
-  appointmentRescheduledEnabled: boolean;
+  appointmentRescheduledEnabled!: boolean;
 
   @Expose()
-  appointmentRescheduledChannel: NotificationChannel;
+  appointmentRescheduledChannel!: NotificationChannel;
 
   @Expose()
-  feedbackRequestSmsEnabled: boolean;
+  feedbackRequestSmsEnabled!: boolean;
 
   @Expose()
-  staffInvitationEnabled: boolean;
+  staffInvitationEnabled!: boolean;
 
   @Expose()
-  senderEmail: string;
+  senderEmail!: string;
 
   @Expose()
-  senderName: string;
+  senderName!: string;
 
   @Expose()
   replyToEmail?: string;
 
   @Expose()
-  emailProvider: string;
+  emailProvider!: string;
 
   @Expose()
   smsProvider?: string;
 
   @Expose()
-  createdAt: Date;
+  createdAt!: Date;
 
   @Expose()
-  updatedAt: Date;
+  updatedAt!: Date;
 }
+

@@ -14,20 +14,20 @@ import { Expose, Transform } from 'class-transformer';
 export class RegisterDto {
   @IsEmail()
   @IsNotEmpty()
-  email: string;
+  email!: string;
 
   @IsString()
   @IsNotEmpty()
-  firstName: string;
+  firstName!: string;
 
   @IsString()
   @IsNotEmpty()
-  lastName: string;
+  lastName!: string;
 
   @IsString()
   @IsNotEmpty()
   @MaxLength(255)
-  storeName: string;
+  storeName!: string;
 
   @IsString()
   @IsOptional()
@@ -46,7 +46,7 @@ export class RegisterDto {
   @IsString()
   @MinLength(8, { message: 'Password must be at least 8 characters long' })
   @IsNotEmpty()
-  password: string;
+  password!: string;
 
   @IsEnum(['local', 'google', 'facebook', 'apple'])
   @IsOptional()
@@ -83,11 +83,11 @@ export class RegisterDto {
 export class LoginDto {
   @IsEmail()
   @IsNotEmpty()
-  email: string;
+  email!: string;
 
   @IsString()
   @IsNotEmpty()
-  password: string;
+  password!: string;
 
   @IsOptional()
   @IsBoolean()
@@ -99,42 +99,42 @@ export class LoginDto {
 export class RefreshTokenDto {
   @IsString()
   @IsNotEmpty()
-  refreshToken: string;
+  refreshToken!: string;
 }
 
 export class ForgotPasswordDto {
   @IsEmail()
   @IsNotEmpty()
-  email: string;
+  email!: string;
 }
 
 export class ResetPasswordDto {
   @IsString()
   @IsNotEmpty()
-  token: string;
+  token!: string;
 
   @IsString()
   @IsNotEmpty()
   @MinLength(8, { message: 'Password must be at least 8 characters long' })
-  password: string;
+  password!: string;
 }
 
 export class SocialAuthDto {
   @IsEmail()
   @IsNotEmpty()
-  email: string;
+  email!: string;
 
   @IsString()
   @IsNotEmpty()
-  providerId: string;
+  providerId!: string;
 
   @IsEnum(['google', 'facebook', 'apple'])
   @IsNotEmpty()
-  provider: 'google' | 'facebook' | 'apple';
+  provider!: 'google' | 'facebook' | 'apple';
 
   @IsString()
   @IsNotEmpty()
-  firstName: string;
+  firstName!: string;
 
   @IsString()
   @IsOptional()
@@ -144,3 +144,4 @@ export class SocialAuthDto {
   @IsOptional()
   avatar?: string;
 }
+

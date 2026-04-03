@@ -3,32 +3,33 @@ import { Exclude, Expose } from 'class-transformer';
 @Exclude()
 export class ServiceExtraResponseDto {
   @Expose()
-  id: number;
+  id!: number;
 
   @Expose()
-  serviceId: number;
+  serviceId!: number;
 
   @Expose()
-  name: string;
+  name!: string;
 
   @Expose()
   description?: string;
 
   @Expose()
-  price: string;
+  price!: string;
 
   @Expose()
-  duration: number;
+  duration!: number;
 
   @Expose()
-  maxQuantity: number;
+  maxQuantity!: number;
 
   @Expose()
-  position: number;
+  position!: number;
 
   @Expose()
-  createdAt: Date;
+  createdAt!: Date;
 
   @Expose()
-  updatedAt: Date;
+  updatedAt!: Date;
 }
+

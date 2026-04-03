@@ -2,13 +2,13 @@ import { IsInt, IsDateString, IsOptional, Min, IsUUID } from 'class-validator';
 
 export class GetAvailabilityDto {
   @IsUUID()
-  serviceId: string;
+  serviceId!: string;
 
   @IsUUID()
-  staffId: string;
+  staffId!: string;
 
   @IsDateString()
-  date: string; // Format: YYYY-MM-DD
+  date!: string; // Format: YYYY-MM-DD
 
   @IsUUID()
   @IsOptional()
@@ -19,3 +19,4 @@ export class GetAvailabilityDto {
   @Min(0)
   extrasDurationMinutes?: number;
 }
+

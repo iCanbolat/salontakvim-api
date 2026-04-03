@@ -3,13 +3,13 @@ import { Expose, Type } from 'class-transformer';
 // Store basic info for widget
 class WidgetStoreInfo {
   @Expose()
-  id: string;
+  id!: string;
 
   @Expose()
-  name: string;
+  name!: string;
 
   @Expose()
-  slug: string;
+  slug!: string;
 
   @Expose()
   description?: string;
@@ -24,7 +24,7 @@ class WidgetStoreInfo {
   phone?: string;
 
   @Expose()
-  currency: string;
+  currency!: string;
 
   @Expose()
   storeImages?: string[];
@@ -37,19 +37,19 @@ export class WidgetConfigResponseDto {
 
   @Expose()
   @Type(() => WidgetStoreInfo)
-  store: WidgetStoreInfo;
+  store!: WidgetStoreInfo;
 
   @Expose()
-  layout: string;
+  layout!: string;
 
   @Expose()
-  showCompanyEmail: boolean;
+  showCompanyEmail!: boolean;
 
   @Expose()
   companyEmail?: string;
 
   @Expose()
-  sidebarMenuItems: {
+  sidebarMenuItems!: {
     service: boolean;
     employee: boolean;
     location: boolean;
@@ -60,7 +60,7 @@ export class WidgetConfigResponseDto {
   };
 
   @Expose()
-  payment: {
+  payment!: {
     enabled: boolean;
     canProcessPayments: boolean;
     provider: 'stripe_connect' | null;
@@ -71,7 +71,7 @@ export class WidgetConfigResponseDto {
   };
 
   @Expose()
-  styling: {
+  styling!: {
     primaryColor: string;
     secondaryColor: string;
     sidebarBackgroundColor: string;
@@ -84,7 +84,7 @@ export class WidgetConfigResponseDto {
   };
 
   @Expose()
-  settings: {
+  settings!: {
     showProgressBar: boolean;
     allowGuestBooking: boolean;
     redirectUrlAfterBooking?: string;
@@ -94,3 +94,4 @@ export class WidgetConfigResponseDto {
     Object.assign(this, partial);
   }
 }
+

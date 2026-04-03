@@ -65,44 +65,44 @@ export class UpdateCustomerFileDto {
 
 export class CustomerFileResponseDto {
   @Expose()
-  id: string;
+  id!: string;
 
   @Expose()
-  storeId: string;
+  storeId!: string;
 
   @Expose()
-  customerId: string;
+  customerId!: string;
 
   @Expose()
-  uploadedBy: string | null;
+  uploadedBy!: string | null;
 
   @Expose()
-  appointmentId: string | null;
+  appointmentId!: string | null;
 
   @Expose()
-  fileName: string;
+  fileName!: string;
 
   @Expose()
-  originalName: string;
+  originalName!: string;
 
   @Expose()
-  mimeType: string;
+  mimeType!: string;
 
   @Expose()
-  fileType: string;
+  fileType!: string;
 
   @Expose()
-  fileSize: number;
+  fileSize!: number;
 
   @Expose()
-  description: string | null;
+  description!: string | null;
 
   @Expose()
   @Type(() => Array)
-  tags: string[] | null;
+  tags!: string[] | null;
 
   @Expose()
-  createdAt: Date;
+  createdAt!: Date;
 
   @Expose()
   // URL for downloading the file (generated, not stored)
@@ -112,40 +112,41 @@ export class CustomerFileResponseDto {
 export class CustomerFileListResponseDto {
   @Expose()
   @Type(() => CustomerFileResponseDto)
-  data: CustomerFileResponseDto[];
+  data!: CustomerFileResponseDto[];
 
   @Expose()
-  total: number;
+  total!: number;
 
   @Expose()
-  page: number;
+  page!: number;
 
   @Expose()
-  limit: number;
+  limit!: number;
 
   @Expose()
-  totalPages: number;
+  totalPages!: number;
 
   @Expose()
-  totalSize: number; // Total size of all files in bytes
+  totalSize!: number; // Total size of all files in bytes
 }
 
 export class CustomerFilePreviewAppointmentDto {
   @Expose()
-  id: string;
+  id!: string;
 
   @Expose()
-  startDateTime: Date;
+  startDateTime!: Date;
 
   @Expose()
-  serviceName: string | null;
+  serviceName!: string | null;
 
   @Expose()
-  staffName: string | null;
+  staffName!: string | null;
 }
 
 export class CustomerFilePreviewContextDto {
   @Expose()
   @Type(() => CustomerFilePreviewAppointmentDto)
-  appointment: CustomerFilePreviewAppointmentDto | null;
+  appointment!: CustomerFilePreviewAppointmentDto | null;
 }
+

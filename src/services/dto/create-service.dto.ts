@@ -15,7 +15,7 @@ export class CreateServiceDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(255)
-  name: string;
+  name!: string;
 
   @IsString()
   @IsOptional()
@@ -27,11 +27,11 @@ export class CreateServiceDto {
 
   @IsInt()
   @Min(1)
-  duration: number; // minutes
+  duration!: number; // minutes
 
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
-  price: number;
+  price!: number;
 
   @IsInt()
   @IsOptional()
@@ -69,3 +69,4 @@ export class CreateServiceDto {
   @Min(0)
   position?: number;
 }
+

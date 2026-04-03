@@ -2,63 +2,63 @@ import { Expose, Type } from 'class-transformer';
 
 export class DashboardStatsDto {
   @Expose()
-  totalAppointments: number;
+  totalAppointments!: number;
 
   @Expose()
-  totalRevenue: string;
+  totalRevenue!: string;
 
   @Expose()
-  totalCustomers: number;
+  totalCustomers!: number;
 
   @Expose()
-  totalStaff: number;
+  totalStaff!: number;
 
   @Expose()
-  appointmentsToday: number;
+  appointmentsToday!: number;
 
   @Expose()
-  appointmentsTomorrow: number;
+  appointmentsTomorrow!: number;
 
   @Expose()
-  revenueToday: string;
+  revenueToday!: string;
 
   @Expose()
-  pendingAppointments: number;
+  pendingAppointments!: number;
 
   @Expose()
-  confirmedAppointments: number;
+  confirmedAppointments!: number;
 
   @Expose()
-  completedAppointments: number;
+  completedAppointments!: number;
 
   @Expose()
-  cancelledAppointments: number;
+  cancelledAppointments!: number;
 
   @Expose()
-  noShowAppointments: number;
+  noShowAppointments!: number;
 
   @Expose()
-  expiredAppointments: number;
+  expiredAppointments!: number;
 
   @Expose()
-  cancellationRate: string; // percentage
+  cancellationRate!: string; // percentage
 
   @Expose()
-  averageAppointmentValue: string;
+  averageAppointmentValue!: string;
 
   @Expose()
-  popularTimeSlot: string;
+  popularTimeSlot!: string;
 }
 
 export class RecentActivityDto {
   @Expose()
-  type: 'appointment' | 'customer' | 'staff';
+  type!: 'appointment' | 'customer' | 'staff';
 
   @Expose()
-  message: string;
+  message!: string;
 
   @Expose()
-  timestamp: Date;
+  timestamp!: Date;
 
   @Expose()
   metadata?: any;
@@ -67,12 +67,13 @@ export class RecentActivityDto {
 export class DashboardResponseDto {
   @Expose()
   @Type(() => DashboardStatsDto)
-  stats: DashboardStatsDto;
+  stats!: DashboardStatsDto;
 
   @Expose()
   @Type(() => RecentActivityDto)
-  recentActivity: RecentActivityDto[];
+  recentActivity!: RecentActivityDto[];
 
   @Expose()
-  calculatedAt: Date;
+  calculatedAt!: Date;
 }
+

@@ -2,96 +2,97 @@ import { Expose, Type } from 'class-transformer';
 
 class SidebarMenuItemsResponse {
   @Expose()
-  service: boolean;
+  service!: boolean;
 
   @Expose()
-  employee: boolean;
+  employee!: boolean;
 
   @Expose()
-  location: boolean;
+  location!: boolean;
 
   @Expose()
-  extras: boolean;
+  extras!: boolean;
 
   @Expose()
-  dateTime: boolean;
+  dateTime!: boolean;
 
   @Expose()
-  customerInfo: boolean;
+  customerInfo!: boolean;
 
   @Expose()
-  payment: boolean;
+  payment!: boolean;
 }
 
 export class WidgetSettingsResponseDto {
   @Expose()
-  id: number;
+  id!: number;
 
   @Expose()
-  storeId: number;
+  storeId!: number;
 
   @Expose()
-  layout: string;
+  layout!: string;
 
   @Expose()
-  showCompanyEmail: boolean;
+  showCompanyEmail!: boolean;
 
   @Expose()
   companyEmail?: string;
 
   @Expose()
   @Type(() => SidebarMenuItemsResponse)
-  sidebarMenuItems: SidebarMenuItemsResponse;
+  sidebarMenuItems!: SidebarMenuItemsResponse;
 
   @Expose()
-  primaryColor: string;
+  primaryColor!: string;
 
   @Expose()
-  secondaryColor: string;
+  secondaryColor!: string;
 
   @Expose()
-  sidebarBackgroundColor: string;
+  sidebarBackgroundColor!: string;
 
   @Expose()
-  contentBackgroundColor: string;
+  contentBackgroundColor!: string;
 
   @Expose()
-  textColor: string;
+  textColor!: string;
 
   @Expose()
-  headingColor: string;
+  headingColor!: string;
 
   @Expose()
-  fontFamily: string;
+  fontFamily!: string;
 
   @Expose()
-  fontSize: number;
+  fontSize!: number;
 
   @Expose()
-  buttonBorderRadius: number;
+  buttonBorderRadius!: number;
 
   @Expose()
-  showProgressBar: boolean;
+  showProgressBar!: boolean;
 
   @Expose()
-  allowGuestBooking: boolean;
+  allowGuestBooking!: boolean;
 
   @Expose()
   redirectUrlAfterBooking?: string;
 
   @Expose()
-  widgetKey: string;
+  widgetKey!: string;
 
   @Expose()
-  allowedDomains: string[];
+  allowedDomains!: string[];
 
   @Expose()
-  createdAt: Date;
+  createdAt!: Date;
 
   @Expose()
-  updatedAt: Date;
+  updatedAt!: Date;
 
   constructor(partial: Partial<WidgetSettingsResponseDto>) {
     Object.assign(this, partial);
   }
 }
+

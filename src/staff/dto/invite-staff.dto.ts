@@ -11,7 +11,7 @@ export class InviteStaffDto {
   @IsEmail()
   @IsNotEmpty()
   @MaxLength(255)
-  email: string;
+  email!: string;
 
   @IsOptional()
   @IsIn(['admin', 'manager', 'staff'])
@@ -25,3 +25,4 @@ export class InviteStaffDto {
   @IsUUID()
   locationId?: string;
 }
+

@@ -13,10 +13,11 @@ export class SendBulkSmsDto {
   @IsUUID('4', { each: true })
   @ArrayMinSize(1)
   @ArrayMaxSize(200)
-  customerIds: string[];
+  customerIds!: string[];
 
   @IsString()
   @MinLength(1)
   @MaxLength(160)
-  message: string;
+  message!: string;
 }
+

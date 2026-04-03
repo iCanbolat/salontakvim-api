@@ -2,30 +2,30 @@ import { Expose, Type } from 'class-transformer';
 
 class AppointmentExtraResponse {
   @Expose()
-  id: string;
+  id!: string;
 
   @Expose()
-  extraId: string;
+  extraId!: string;
 
   @Expose()
-  quantity: number;
+  quantity!: number;
 
   @Expose()
-  price: string;
+  price!: string;
 
   @Expose()
-  createdAt: Date;
+  createdAt!: Date;
 }
 
 export class AppointmentResponseDto {
   @Expose()
-  id: string;
+  id!: string;
 
   @Expose()
-  publicNumber: string;
+  publicNumber!: string;
 
   @Expose()
-  storeId: string;
+  storeId!: string;
 
   @Expose()
   customerId?: string;
@@ -67,19 +67,19 @@ export class AppointmentResponseDto {
   storeName?: string;
 
   @Expose()
-  startDateTime: Date;
+  startDateTime!: Date;
 
   @Expose()
-  endDateTime: Date;
+  endDateTime!: Date;
 
   @Expose()
-  numberOfPeople: number;
+  numberOfPeople!: number;
 
   @Expose()
-  status: string;
+  status!: string;
 
   @Expose()
-  totalPrice: string;
+  totalPrice!: string;
 
   @Expose()
   depositAmount?: string;
@@ -91,7 +91,7 @@ export class AppointmentResponseDto {
   paymentMethod?: string;
 
   @Expose()
-  isPaid: boolean;
+  isPaid!: boolean;
 
   @Expose()
   paidAt?: Date;
@@ -109,7 +109,7 @@ export class AppointmentResponseDto {
   cancellationReason?: string;
 
   @Expose()
-  isRecurring: boolean;
+  isRecurring!: boolean;
 
   @Expose()
   parentAppointmentId?: number;
@@ -119,10 +119,10 @@ export class AppointmentResponseDto {
   extras?: AppointmentExtraResponse[];
 
   @Expose()
-  createdAt: Date;
+  createdAt!: Date;
 
   @Expose()
-  updatedAt: Date;
+  updatedAt!: Date;
 
   @Expose()
   feedback?: any;
@@ -137,3 +137,4 @@ export class AppointmentResponseDto {
     Object.assign(this, partial);
   }
 }
+

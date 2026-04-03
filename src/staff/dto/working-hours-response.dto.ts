@@ -3,26 +3,27 @@ import { Exclude, Expose } from 'class-transformer';
 @Exclude()
 export class WorkingHoursResponseDto {
   @Expose()
-  id: number;
+  id!: number;
 
   @Expose()
-  staffId: number;
+  staffId!: number;
 
   @Expose()
-  dayOfWeek: string;
+  dayOfWeek!: string;
 
   @Expose()
-  startTime: string;
+  startTime!: string;
 
   @Expose()
-  endTime: string;
+  endTime!: string;
 
   @Expose()
-  isActive: boolean;
+  isActive!: boolean;
 
   @Expose()
-  createdAt: Date;
+  createdAt!: Date;
 
   @Expose()
-  updatedAt: Date;
+  updatedAt!: Date;
 }
+

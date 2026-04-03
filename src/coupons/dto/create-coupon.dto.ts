@@ -17,24 +17,24 @@ export class CreateCouponDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(50)
-  code: string;
+  code!: string;
 
   @IsString()
   @IsNotEmpty()
   @MaxLength(255)
-  name: string;
+  name!: string;
 
   @IsString()
   @IsOptional()
   description?: string;
 
   @IsEnum(['percentage', 'fixed_amount'])
-  type: 'percentage' | 'fixed_amount';
+  type!: 'percentage' | 'fixed_amount';
 
   @IsNumber()
   @Min(0)
   @Max(100) // For percentage, max 100
-  value: number;
+  value!: number;
 
   @IsNumber()
   @IsOptional()
@@ -57,10 +57,10 @@ export class CreateCouponDto {
   usageLimitPerCustomer?: number;
 
   @IsDateString()
-  validFrom: string;
+  validFrom!: string;
 
   @IsDateString()
-  validUntil: string;
+  validUntil!: string;
 
   @IsBoolean()
   @IsOptional()
@@ -71,3 +71,4 @@ export class CreateCouponDto {
   @IsOptional()
   applicableServiceIds?: string[];
 }
+

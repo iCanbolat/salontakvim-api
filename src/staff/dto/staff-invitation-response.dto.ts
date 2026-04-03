@@ -3,29 +3,30 @@ import { Exclude, Expose } from 'class-transformer';
 @Exclude()
 export class StaffInvitationResponseDto {
   @Expose()
-  id: number;
+  id!: number;
 
   @Expose()
-  storeId: number;
+  storeId!: number;
 
   @Expose()
-  email: string;
+  email!: string;
 
   @Expose()
-  token: string;
+  token!: string;
 
   @Expose()
-  status: string;
+  status!: string;
 
   @Expose()
   invitedBy?: number;
 
   @Expose()
-  expiresAt: Date;
+  expiresAt!: Date;
 
   @Expose()
   acceptedAt?: Date;
 
   @Expose()
-  createdAt: Date;
+  createdAt!: Date;
 }
+

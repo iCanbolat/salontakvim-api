@@ -3,13 +3,13 @@ import { Exclude, Expose } from 'class-transformer';
 @Exclude()
 export class StaffMemberResponseDto {
   @Expose()
-  id: number;
+  id!: number;
 
   @Expose()
-  userId: number;
+  userId!: number;
 
   @Expose()
-  storeId: number;
+  storeId!: number;
 
   @Expose()
   locationId?: number;
@@ -21,13 +21,13 @@ export class StaffMemberResponseDto {
   title?: string;
 
   @Expose()
-  isVisible: boolean;
+  isVisible!: boolean;
 
   @Expose()
-  createdAt: Date;
+  createdAt!: Date;
 
   @Expose()
-  updatedAt: Date;
+  updatedAt!: Date;
 
   // User info (from join)
   @Expose()
@@ -48,3 +48,4 @@ export class StaffMemberResponseDto {
   @Expose()
   locationName?: string | null;
 }
+

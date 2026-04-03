@@ -13,16 +13,16 @@ import { Type } from 'class-transformer';
 
 class AppointmentExtraDto {
   @IsUUID()
-  extraId: string;
+  extraId!: string;
 
   @IsInt()
   @Min(1)
-  quantity: number;
+  quantity!: number;
 }
 
 export class CreateAppointmentDto {
   @IsUUID()
-  serviceId: string;
+  serviceId!: string;
 
   @IsUUID()
   @IsOptional()
@@ -33,7 +33,7 @@ export class CreateAppointmentDto {
   locationId?: string;
 
   @IsDateString()
-  startDateTime: string;
+  startDateTime!: string;
 
   @IsInt()
   @Min(1)
@@ -81,3 +81,4 @@ export class CreateAppointmentDto {
   @IsOptional()
   paymentSessionId?: string;
 }
+

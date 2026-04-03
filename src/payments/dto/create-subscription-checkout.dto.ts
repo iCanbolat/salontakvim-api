@@ -2,13 +2,13 @@ import { IsIn, IsOptional, IsUrl, IsUUID } from 'class-validator';
 
 export class CreateSubscriptionCheckoutDto {
   @IsUUID()
-  storeId: string;
+  storeId!: string;
 
   @IsUrl({ require_tld: false })
-  successUrl: string;
+  successUrl!: string;
 
   @IsUrl({ require_tld: false })
-  cancelUrl: string;
+  cancelUrl!: string;
 
   @IsOptional()
   @IsIn(['pro', 'business'])

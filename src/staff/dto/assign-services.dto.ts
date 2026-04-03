@@ -4,5 +4,6 @@ export class AssignServicesDto {
   @IsArray()
   @ArrayNotEmpty()
   @IsUUID('4', { each: true })
-  serviceIds: string[];
+  serviceIds!: string[];
 }
+

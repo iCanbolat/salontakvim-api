@@ -2,18 +2,19 @@ import { Expose } from 'class-transformer';
 
 export class WidgetEmbedCodeResponseDto {
   @Expose()
-  widgetKey: string;
+  widgetKey!: string;
 
   @Expose()
-  embedCode: string;
+  embedCode!: string;
 
   @Expose()
-  scriptUrl: string;
+  scriptUrl!: string;
 
   @Expose()
-  iframeCode: string;
+  iframeCode!: string;
 
   constructor(partial: Partial<WidgetEmbedCodeResponseDto>) {
     Object.assign(this, partial);
   }
 }
+

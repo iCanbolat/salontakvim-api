@@ -2,11 +2,11 @@ import { IsUrl, IsUUID } from 'class-validator';
 
 export class CreateConnectOnboardingDto {
   @IsUUID()
-  storeId: string;
+  storeId!: string;
 
   @IsUrl({ require_tld: false })
-  refreshUrl: string;
+  refreshUrl!: string;
 
   @IsUrl({ require_tld: false })
-  returnUrl: string;
+  returnUrl!: string;
 }

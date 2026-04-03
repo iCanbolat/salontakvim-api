@@ -2,107 +2,108 @@ import { Expose, Type } from 'class-transformer';
 
 export class AppointmentByStatusDto {
   @Expose()
-  status: string;
+  status!: string;
 
   @Expose()
-  count: number;
+  count!: number;
 
   @Expose()
-  percentage: string;
+  percentage!: string;
 }
 
 export class AppointmentByDateDto {
   @Expose()
-  date: string;
+  date!: string;
 
   @Expose()
-  count: number;
+  count!: number;
 
   @Expose()
-  revenue: string;
+  revenue!: string;
 }
 
 export class AppointmentByTimeSlotDto {
   @Expose()
-  timeSlot: string;
+  timeSlot!: string;
 
   @Expose()
-  count: number;
+  count!: number;
 
   @Expose()
-  percentage: string;
+  percentage!: string;
 }
 
 export class AppointmentByServiceDto {
   @Expose()
-  serviceId: number;
+  serviceId!: number;
 
   @Expose()
-  serviceName: string;
+  serviceName!: string;
 
   @Expose()
-  count: number;
+  count!: number;
 
   @Expose()
-  revenue: string;
+  revenue!: string;
 
   @Expose()
-  percentage: string;
+  percentage!: string;
 }
 
 export class AppointmentByStaffDto {
   @Expose()
-  staffId: number;
+  staffId!: number;
 
   @Expose()
-  staffName: string;
+  staffName!: string;
 
   @Expose()
-  count: number;
+  count!: number;
 
   @Expose()
-  revenue: string;
+  revenue!: string;
 
   @Expose()
-  percentage: string;
+  percentage!: string;
 }
 
 export class AppointmentAnalyticsResponseDto {
   @Expose()
-  totalAppointments: number;
+  totalAppointments!: number;
 
   @Expose()
-  totalRevenue: string;
+  totalRevenue!: string;
 
   @Expose()
-  averageAppointmentValue: string;
+  averageAppointmentValue!: string;
 
   @Expose()
   @Type(() => AppointmentByStatusDto)
-  byStatus: AppointmentByStatusDto[];
+  byStatus!: AppointmentByStatusDto[];
 
   @Expose()
   @Type(() => AppointmentByDateDto)
-  byDate: AppointmentByDateDto[];
+  byDate!: AppointmentByDateDto[];
 
   @Expose()
   @Type(() => AppointmentByTimeSlotDto)
-  byTimeSlot: AppointmentByTimeSlotDto[];
+  byTimeSlot!: AppointmentByTimeSlotDto[];
 
   @Expose()
   @Type(() => AppointmentByServiceDto)
-  byService: AppointmentByServiceDto[];
+  byService!: AppointmentByServiceDto[];
 
   @Expose()
   @Type(() => AppointmentByStaffDto)
-  byStaff: AppointmentByStaffDto[];
+  byStaff!: AppointmentByStaffDto[];
 
   @Expose()
-  startDate: string;
+  startDate!: string;
 
   @Expose()
-  endDate: string;
+  endDate!: string;
 
   @Expose()
-  calculatedAt: Date;
+  calculatedAt!: Date;
 }
+

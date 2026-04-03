@@ -3,13 +3,13 @@ import { Exclude, Expose } from 'class-transformer';
 @Exclude()
 export class CategoryResponseDto {
   @Expose()
-  id: number;
+  id!: number;
 
   @Expose()
-  storeId: number;
+  storeId!: number;
 
   @Expose()
-  name: string;
+  name!: string;
 
   @Expose()
   description?: string;
@@ -21,14 +21,15 @@ export class CategoryResponseDto {
   icon?: string;
 
   @Expose()
-  position: number;
+  position!: number;
 
   @Expose()
-  isVisible: boolean;
+  isVisible!: boolean;
 
   @Expose()
-  createdAt: Date;
+  createdAt!: Date;
 
   @Expose()
-  updatedAt: Date;
+  updatedAt!: Date;
 }
+

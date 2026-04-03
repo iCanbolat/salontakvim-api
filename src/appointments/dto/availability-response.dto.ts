@@ -2,13 +2,13 @@ import { Expose } from 'class-transformer';
 
 export class TimeSlotDto {
   @Expose()
-  startTime: string; // Format: HH:MM
+  startTime!: string; // Format: HH:MM
 
   @Expose()
-  endTime: string; // Format: HH:MM
+  endTime!: string; // Format: HH:MM
 
   @Expose()
-  available: boolean;
+  available!: boolean;
 
   @Expose()
   reason?: string; // Why not available (e.g., "Staff on break", "Already booked")
@@ -16,13 +16,13 @@ export class TimeSlotDto {
 
 export class AvailabilityResponseDto {
   @Expose()
-  date: string; // Format: YYYY-MM-DD
+  date!: string; // Format: YYYY-MM-DD
 
   @Expose()
-  serviceId: string;
+  serviceId!: string;
 
   @Expose()
-  staffId: string;
+  staffId!: string;
 
   @Expose()
   locationId?: string;
@@ -31,5 +31,6 @@ export class AvailabilityResponseDto {
   extrasDurationMinutes?: number;
 
   @Expose()
-  slots: TimeSlotDto[];
+  slots!: TimeSlotDto[];
 }
+

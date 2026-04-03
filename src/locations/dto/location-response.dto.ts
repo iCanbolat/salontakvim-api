@@ -3,13 +3,13 @@ import { Exclude, Expose } from 'class-transformer';
 @Exclude()
 export class LocationResponseDto {
   @Expose()
-  id: number;
+  id!: number;
 
   @Expose()
-  storeId: number;
+  storeId!: number;
 
   @Expose()
-  name: string;
+  name!: string;
 
   @Expose()
   address?: string;
@@ -39,11 +39,12 @@ export class LocationResponseDto {
   longitude?: string;
 
   @Expose()
-  isVisible: boolean;
+  isVisible!: boolean;
 
   @Expose()
-  createdAt: Date;
+  createdAt!: Date;
 
   @Expose()
-  updatedAt: Date;
+  updatedAt!: Date;
 }
+

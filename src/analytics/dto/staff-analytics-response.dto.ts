@@ -2,34 +2,34 @@ import { Expose, Type } from 'class-transformer';
 
 export class StaffPerformanceDto {
   @Expose()
-  staffId: number;
+  staffId!: number;
 
   @Expose()
-  staffName: string;
+  staffName!: string;
 
   @Expose()
-  appointmentCount: number;
+  appointmentCount!: number;
 
   @Expose()
-  completedAppointments: number;
+  completedAppointments!: number;
 
   @Expose()
-  cancelledAppointments: number;
+  cancelledAppointments!: number;
 
   @Expose()
-  noShowAppointments: number;
+  noShowAppointments!: number;
 
   @Expose()
-  completionRate: string; // percentage
+  completionRate!: string; // percentage
 
   @Expose()
-  totalRevenue: string;
+  totalRevenue!: string;
 
   @Expose()
-  averageRevenue: string;
+  averageRevenue!: string;
 
   @Expose()
-  utilizationRate: string; // percentage of available hours used
+  utilizationRate!: string; // percentage of available hours used
 
   @Expose()
   rating?: string; // average rating if reviews exist
@@ -37,63 +37,64 @@ export class StaffPerformanceDto {
 
 export class StaffAvailabilityDto {
   @Expose()
-  staffId: number;
+  staffId!: number;
 
   @Expose()
-  staffName: string;
+  staffName!: string;
 
   @Expose()
-  totalHours: number;
+  totalHours!: number;
 
   @Expose()
-  bookedHours: number;
+  bookedHours!: number;
 
   @Expose()
-  availableHours: number;
+  availableHours!: number;
 
   @Expose()
-  utilizationRate: string; // percentage
+  utilizationRate!: string; // percentage
 }
 
 export class StaffComparisonDto {
   @Expose()
-  metric: string;
+  metric!: string;
 
   @Expose()
-  topPerformer: string;
+  topPerformer!: string;
 
   @Expose()
-  topValue: string;
+  topValue!: string;
 
   @Expose()
-  average: string;
+  average!: string;
 }
 
 export class StaffAnalyticsResponseDto {
   @Expose()
-  totalStaff: number;
+  totalStaff!: number;
 
   @Expose()
-  activeStaff: number;
+  activeStaff!: number;
 
   @Expose()
   @Type(() => StaffPerformanceDto)
-  performance: StaffPerformanceDto[];
+  performance!: StaffPerformanceDto[];
 
   @Expose()
   @Type(() => StaffAvailabilityDto)
-  availability: StaffAvailabilityDto[];
+  availability!: StaffAvailabilityDto[];
 
   @Expose()
   @Type(() => StaffComparisonDto)
-  comparison: StaffComparisonDto[];
+  comparison!: StaffComparisonDto[];
 
   @Expose()
-  startDate: string;
+  startDate!: string;
 
   @Expose()
-  endDate: string;
+  endDate!: string;
 
   @Expose()
-  calculatedAt: Date;
+  calculatedAt!: Date;
 }
+

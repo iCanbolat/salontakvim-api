@@ -12,7 +12,7 @@ export class CreateLocationDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(255)
-  name: string;
+  name!: string;
 
   @IsString()
   @IsOptional()
@@ -60,3 +60,4 @@ export class CreateLocationDto {
   @IsOptional()
   isVisible?: boolean;
 }
+

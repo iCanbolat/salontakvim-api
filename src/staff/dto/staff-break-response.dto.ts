@@ -3,16 +3,16 @@ import { Exclude, Expose } from 'class-transformer';
 @Exclude()
 export class StaffBreakResponseDto {
   @Expose()
-  id: number;
+  id!: number;
 
   @Expose()
-  staffId: number;
+  staffId!: number;
 
   @Expose()
-  startDate: string;
+  startDate!: string;
 
   @Expose()
-  endDate: string;
+  endDate!: string;
 
   @Expose()
   startTime?: string;
@@ -24,11 +24,12 @@ export class StaffBreakResponseDto {
   reason?: string;
 
   @Expose()
-  isRecurring: boolean;
+  isRecurring!: boolean;
 
   @Expose()
-  createdAt: Date;
+  createdAt!: Date;
 
   @Expose()
-  updatedAt: Date;
+  updatedAt!: Date;
 }
+

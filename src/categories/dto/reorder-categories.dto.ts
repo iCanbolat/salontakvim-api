@@ -4,5 +4,6 @@ export class ReorderCategoriesDto {
   @IsArray()
   @ArrayNotEmpty()
   @IsUUID('4', { each: true })
-  categoryIds: string[];
+  categoryIds!: string[];
 }
+

@@ -1,19 +1,19 @@
 export class FeedbackResponseDto {
-  id: string;
-  appointmentId: string;
-  storeId: string;
+  id!: string;
+  appointmentId!: string;
+  storeId!: string;
   customerId?: string | null;
   staffId?: string | null;
   serviceId?: string | null;
-  overallRating: number;
+  overallRating!: number;
   serviceRating?: number | null;
   staffRating?: number | null;
   cleanlinessRating?: number | null;
   valueRating?: number | null;
   comment?: string | null;
-  isVerified: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  isVerified!: boolean;
+  createdAt!: Date;
+  updatedAt!: Date;
 }
 
 export class FeedbackWithDetailsDto extends FeedbackResponseDto {
@@ -35,13 +35,13 @@ export class FeedbackWithDetailsDto extends FeedbackResponseDto {
 }
 
 export class FeedbackStatsDto {
-  totalFeedback: number;
-  averageOverallRating: number;
+  totalFeedback!: number;
+  averageOverallRating!: number;
   averageServiceRating?: number;
   averageStaffRating?: number;
   averageCleanlinessRating?: number;
   averageValueRating?: number;
-  ratingDistribution: {
+  ratingDistribution!: {
     1: number;
     2: number;
     3: number;
@@ -49,3 +49,4 @@ export class FeedbackStatsDto {
     5: number;
   };
 }
+

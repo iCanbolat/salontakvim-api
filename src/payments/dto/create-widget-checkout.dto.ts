@@ -12,16 +12,16 @@ import { Type } from 'class-transformer';
 
 class WidgetCheckoutExtraDto {
   @IsUUID()
-  extraId: string;
+  extraId!: string;
 
   @IsInt()
   @Min(1)
-  quantity: number;
+  quantity!: number;
 }
 
 export class CreateWidgetCheckoutDto {
   @IsUUID()
-  serviceId: string;
+  serviceId!: string;
 
   @IsOptional()
   @IsArray()
@@ -47,8 +47,8 @@ export class CreateWidgetCheckoutDto {
   depositPercentage?: number;
 
   @IsString()
-  successUrl: string;
+  successUrl!: string;
 
   @IsString()
-  cancelUrl: string;
+  cancelUrl!: string;
 }

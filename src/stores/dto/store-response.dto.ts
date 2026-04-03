@@ -3,16 +3,16 @@ import { Exclude, Expose } from 'class-transformer';
 @Exclude()
 export class StoreResponseDto {
   @Expose()
-  id: string;
+  id!: string;
 
   @Expose()
-  ownerId: string;
+  ownerId!: string;
 
   @Expose()
-  name: string;
+  name!: string;
 
   @Expose()
-  slug: string;
+  slug!: string;
 
   @Expose()
   description?: string;
@@ -27,13 +27,13 @@ export class StoreResponseDto {
   phone?: string;
 
   @Expose()
-  country: string;
+  country!: string;
 
   @Expose()
-  currency: string;
+  currency!: string;
 
   @Expose()
-  paymentStatus: 'freemium' | 'pro' | 'business';
+  paymentStatus!: 'freemium' | 'pro' | 'business';
 
   @Expose()
   stripeCustomerId?: string;
@@ -51,23 +51,24 @@ export class StoreResponseDto {
   stripeConnectOnboarded?: boolean;
 
   @Expose()
-  storeImages: string[];
+  storeImages!: string[];
 
   @Expose()
-  sendFeedbackViaSms: boolean;
+  sendFeedbackViaSms!: boolean;
 
   @Expose()
-  totalAppointments: number;
+  totalAppointments!: number;
 
   @Expose()
-  totalCustomers: number;
+  totalCustomers!: number;
 
   @Expose()
-  isActive: boolean;
+  isActive!: boolean;
 
   @Expose()
-  createdAt: Date;
+  createdAt!: Date;
 
   @Expose()
-  updatedAt: Date;
+  updatedAt!: Date;
 }
+

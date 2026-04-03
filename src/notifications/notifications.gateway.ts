@@ -24,7 +24,7 @@ export class NotificationsGateway
   private readonly logger = new Logger(NotificationsGateway.name);
 
   @WebSocketServer()
-  server: Server;
+  server!: Server;
 
   constructor(
     private readonly jwtService: JwtService,

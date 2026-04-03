@@ -22,25 +22,25 @@ export enum WidgetLayout {
 
 class SidebarMenuItemsDto {
   @IsBoolean()
-  service: boolean;
+  service!: boolean;
 
   @IsBoolean()
-  employee: boolean;
+  employee!: boolean;
 
   @IsBoolean()
-  location: boolean;
+  location!: boolean;
 
   @IsBoolean()
-  extras: boolean;
+  extras!: boolean;
 
   @IsBoolean()
-  dateTime: boolean;
+  dateTime!: boolean;
 
   @IsBoolean()
-  customerInfo: boolean;
+  customerInfo!: boolean;
 
   @IsBoolean()
-  payment: boolean;
+  payment!: boolean;
 }
 
 export class UpdateWidgetSettingsDto {
@@ -114,3 +114,4 @@ export class UpdateWidgetSettingsDto {
   @IsOptional()
   redirectUrlAfterBooking?: string;
 }
+

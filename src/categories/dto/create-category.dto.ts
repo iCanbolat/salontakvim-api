@@ -13,7 +13,7 @@ export class CreateCategoryDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(255)
-  name: string;
+  name!: string;
 
   @IsString()
   @IsOptional()
@@ -41,3 +41,4 @@ export class CreateCategoryDto {
   @IsOptional()
   isVisible?: boolean;
 }
+

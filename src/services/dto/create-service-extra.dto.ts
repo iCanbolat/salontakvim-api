@@ -12,7 +12,7 @@ export class CreateServiceExtraDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(255)
-  name: string;
+  name!: string;
 
   @IsString()
   @IsOptional()
@@ -20,7 +20,7 @@ export class CreateServiceExtraDto {
 
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
-  price: number;
+  price!: number;
 
   @IsInt()
   @IsOptional()
@@ -37,3 +37,4 @@ export class CreateServiceExtraDto {
   @Min(0)
   position?: number;
 }
+

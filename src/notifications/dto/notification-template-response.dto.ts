@@ -3,41 +3,42 @@ import { TemplateType } from './notification-template.dto';
 
 export class NotificationTemplateResponseDto {
   @Expose()
-  id: number;
+  id!: number;
 
   @Expose()
-  storeId: number;
+  storeId!: number;
 
   @Expose()
-  type: TemplateType;
+  type!: TemplateType;
 
   @Expose()
-  name: string;
+  name!: string;
 
   @Expose()
-  description: string;
+  description!: string;
 
   @Expose()
-  subject: string;
+  subject!: string;
 
   @Expose()
-  htmlContent: string;
+  htmlContent!: string;
 
   @Expose()
-  textContent: string;
+  textContent!: string;
 
   @Expose()
   smsContent?: string;
 
   @Expose()
-  availableVariables: string[];
+  availableVariables!: string[];
 
   @Expose()
-  isCustom: boolean;
+  isCustom!: boolean;
 
   @Expose()
-  createdAt: Date;
+  createdAt!: Date;
 
   @Expose()
-  updatedAt: Date;
+  updatedAt!: Date;
 }
+

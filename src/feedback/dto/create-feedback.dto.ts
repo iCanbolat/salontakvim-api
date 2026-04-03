@@ -10,12 +10,12 @@ import {
 
 export class CreateFeedbackDto {
   @IsUUID()
-  appointmentId: string;
+  appointmentId!: string;
 
   @IsInt()
   @Min(1)
   @Max(5)
-  overallRating: number;
+  overallRating!: number;
 
   @IsInt()
   @IsOptional()
@@ -46,3 +46,4 @@ export class CreateFeedbackDto {
   @MaxLength(2000)
   comment?: string;
 }
+

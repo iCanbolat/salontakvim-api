@@ -11,12 +11,12 @@ export class AcceptInvitationDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(255)
-  firstName: string;
+  firstName!: string;
 
   @IsString()
   @IsNotEmpty()
   @MaxLength(255)
-  lastName: string;
+  lastName!: string;
 
   @IsString()
   @IsOptional()
@@ -26,9 +26,10 @@ export class AcceptInvitationDto {
   @IsString()
   @IsNotEmpty()
   @MinLength(8, { message: 'Password must be at least 8 characters long' })
-  password: string;
+  password!: string;
 
   @IsEmail()
   @IsOptional()
   email?: string; // Optional override when we want to double-check on client, but server trusts invitation token
 }
+

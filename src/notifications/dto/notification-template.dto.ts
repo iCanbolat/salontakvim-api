@@ -33,13 +33,14 @@ export class UpdateTemplateDto {
 export class TestNotificationDto {
   @IsNotEmpty()
   @IsEnum(TemplateType)
-  templateType: TemplateType;
+  templateType!: TemplateType;
 
   @IsNotEmpty()
   @IsString()
-  recipient: string; // Email or phone number
+  recipient!: string; // Email or phone number
 
   @IsOptional()
   @IsString()
   channel?: 'email' | 'sms' | 'both';
 }
+
