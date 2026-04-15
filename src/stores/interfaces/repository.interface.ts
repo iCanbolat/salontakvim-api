@@ -12,6 +12,8 @@ export interface IStoreRepository {
   findByStripeSubscriptionId(
     stripeSubscriptionId: string,
   ): Promise<Store | null>;
+  findByCreemCustomerId(creemCustomerId: string): Promise<Store | null>;
+  findByCreemSubscriptionId(creemSubscriptionId: string): Promise<Store | null>;
   update(id: string, data: Partial<Store>): Promise<Store>;
   delete(id: string): Promise<void>;
   incrementAppointments(id: string): Promise<void>;

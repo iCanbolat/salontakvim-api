@@ -63,11 +63,12 @@ export class WidgetConfigResponseDto {
   payment!: {
     enabled: boolean;
     canProcessPayments: boolean;
-    provider: 'stripe_connect' | null;
+    provider: 'creem' | 'stripe_connect_legacy' | null;
     allowPartial: boolean;
     defaultDepositPercentage: number;
     fixedDepositAmount: number;
     publishableKey?: string;
+    checkoutMode?: 'redirect';
   };
 
   @Expose()
@@ -94,4 +95,3 @@ export class WidgetConfigResponseDto {
     Object.assign(this, partial);
   }
 }
-

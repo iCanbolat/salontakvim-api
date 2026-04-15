@@ -278,8 +278,8 @@ export class PublicRateLimitGuard implements CanActivate {
     await this.notificationService.createInAppNotification(
       store.ownerId,
       storeId,
-      'Widget güvenlik uyarısı',
-      'Widget endpointlerinde rate-limit aşıldı. Erişim geçici olarak bloklandı.',
+      'Widget security warning',
+      'Rate-limit exceeded on widget endpoints. Access temporarily blocked.',
       'security',
       {
         reason: 'rate_limit_exceeded',

@@ -87,9 +87,12 @@ export class AuthService {
 
     // Generate tokens
     const tokens = await this.generateTokens(user);
+    const subscriptionRequirement = this.resolveSubscriptionRequirement(store);
 
     return {
       user: this.sanitizeUser(user),
+      requiresSubscription: subscriptionRequirement.requiresSubscription,
+      trialEndsAt: subscriptionRequirement.trialEndsAt,
       ...tokens,
     };
   }
@@ -128,6 +131,7 @@ export class AuthService {
     // Check if user has a store (needs onboarding if not)
     const store = await this.storeService.findByOwnerIdSafe(user.id);
     const needsOnboarding = !store && user.role === 'admin';
+    const subscriptionRequirement = this.resolveSubscriptionRequirement(store);
 
     // Generate tokens
     const tokens = await this.generateTokens(user);
@@ -135,6 +139,8 @@ export class AuthService {
     return {
       user: this.sanitizeUser(user),
       needsOnboarding,
+      requiresSubscription: subscriptionRequirement.requiresSubscription,
+      trialEndsAt: subscriptionRequirement.trialEndsAt,
       ...tokens,
     };
   }
@@ -178,6 +184,7 @@ export class AuthService {
     // Check if user has a store (needs onboarding if not)
     const store = await this.storeService.findByOwnerIdSafe(user.id);
     const needsOnboarding = !store;
+    const subscriptionRequirement = this.resolveSubscriptionRequirement(store);
 
     // Generate tokens
     const tokens = await this.generateTokens(user);
@@ -185,6 +192,8 @@ export class AuthService {
     return {
       user: this.sanitizeUser(user),
       needsOnboarding,
+      requiresSubscription: subscriptionRequirement.requiresSubscription,
+      trialEndsAt: subscriptionRequirement.trialEndsAt,
       ...tokens,
     };
   }
@@ -214,9 +223,16 @@ export class AuthService {
 
     // Generate new tokens
     const tokens = await this.generateTokens(user);
+    const store =
+      user.role === 'admin'
+        ? await this.storeService.findByOwnerIdSafe(user.id)
+        : null;
+    const subscriptionRequirement = this.resolveSubscriptionRequirement(store);
 
     return {
       user: this.sanitizeUser(user),
+      requiresSubscription: subscriptionRequirement.requiresSubscription,
+      trialEndsAt: subscriptionRequirement.trialEndsAt,
       ...tokens,
     };
   }
@@ -452,6 +468,29 @@ export class AuthService {
       lastName: user.lastName,
       role: user.role,
       avatar: user.avatar,
+    };
+  }
+
+  private resolveSubscriptionRequirement(store: any | null): {
+    requiresSubscription: boolean;
+    trialEndsAt?: string;
+  } {
+    if (!store?.trialEndsAt) {
+      return { requiresSubscription: false };
+    }
+
+    const trialEndsAtDate = new Date(store.trialEndsAt);
+    if (Number.isNaN(trialEndsAtDate.getTime())) {
+      return { requiresSubscription: false };
+    }
+
+    const isTrialExpired =
+      store.paymentStatus === 'trial' &&
+      trialEndsAtDate.getTime() <= Date.now();
+
+    return {
+      requiresSubscription: isTrialExpired,
+      trialEndsAt: trialEndsAtDate.toISOString(),
     };
   }
 

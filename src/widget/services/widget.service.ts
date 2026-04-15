@@ -716,12 +716,11 @@ export class WidgetService {
       token,
       origin,
     );
-    const requiresStripePayment =
-      (store.country || 'TR').toUpperCase() !== 'TR';
+    const requiresOnlinePayment = this.isPaymentFeatureEnabled(store);
 
-    let stripePaid = false;
+    let paymentVerified = false;
     let paidDepositAmount = 0;
-    if (requiresStripePayment) {
+    if (requiresOnlinePayment) {
       if (!dto.paymentSessionId) {
         throw new ForbiddenException(
           'Payment is required before booking this appointment',
@@ -736,26 +735,28 @@ export class WidgetService {
         throw new ForbiddenException('Payment has not been completed yet');
       }
 
-      stripePaid = true;
+      paymentVerified = true;
       paidDepositAmount = Number(verification.paidAmount || 0);
     }
 
     const appointment =
       await this.appointmentsService.createCustomerAppointment(store.id, dto);
 
-    if (stripePaid) {
+    if (paymentVerified) {
       const appointmentTotal = Number(appointment.totalPrice || 0);
       const isFullyPaid = paidDepositAmount >= appointmentTotal;
 
       await this.appointmentRepository.update(appointment.id, {
-        paymentMethod: 'stripe' as any,
+        paymentMethod: 'online' as any,
+        paymentGateway: 'creem',
         depositAmount: paidDepositAmount.toFixed(2),
         isPaid: isFullyPaid,
         paidAt: isFullyPaid ? new Date() : null,
       });
       return {
         ...appointment,
-        paymentMethod: 'stripe',
+        paymentMethod: 'online',
+        paymentGateway: 'creem',
         depositAmount: paidDepositAmount.toFixed(2),
         isPaid: isFullyPaid,
         paidAt: isFullyPaid ? new Date() : undefined,
@@ -817,12 +818,11 @@ export class WidgetService {
     origin?: string,
   ) {
     const { store } = await this.resolveContextBySlug(slug, token, origin);
-    const requiresStripePayment =
-      (store.country || 'TR').toUpperCase() !== 'TR';
+    const requiresOnlinePayment = this.isPaymentFeatureEnabled(store);
 
-    let stripePaid = false;
+    let paymentVerified = false;
     let paidDepositAmount = 0;
-    if (requiresStripePayment) {
+    if (requiresOnlinePayment) {
       if (!dto.paymentSessionId) {
         throw new ForbiddenException(
           'Payment is required before booking this appointment',
@@ -837,26 +837,28 @@ export class WidgetService {
         throw new ForbiddenException('Payment has not been completed yet');
       }
 
-      stripePaid = true;
+      paymentVerified = true;
       paidDepositAmount = Number(verification.paidAmount || 0);
     }
 
     const appointment =
       await this.appointmentsService.createCustomerAppointment(store.id, dto);
 
-    if (stripePaid) {
+    if (paymentVerified) {
       const appointmentTotal = Number(appointment.totalPrice || 0);
       const isFullyPaid = paidDepositAmount >= appointmentTotal;
 
       await this.appointmentRepository.update(appointment.id, {
-        paymentMethod: 'stripe' as any,
+        paymentMethod: 'online' as any,
+        paymentGateway: 'creem',
         depositAmount: paidDepositAmount.toFixed(2),
         isPaid: isFullyPaid,
         paidAt: isFullyPaid ? new Date() : null,
       });
       return {
         ...appointment,
-        paymentMethod: 'stripe',
+        paymentMethod: 'online',
+        paymentGateway: 'creem',
         depositAmount: paidDepositAmount.toFixed(2),
         isPaid: isFullyPaid,
         paidAt: isFullyPaid ? new Date() : undefined,
@@ -1248,13 +1250,10 @@ export class WidgetService {
 
   private buildWidgetConfig(widgetSettings: any, store: any) {
     const fixedDepositAmount = Number(
-      this.configService.get<string>('STRIPE_WIDGET_FIXED_DEPOSIT_AMOUNT') ||
+      this.configService.get<string>('CREEM_WIDGET_FIXED_DEPOSIT_AMOUNT') ||
         '20',
     );
     const paymentFeatureEnabled = this.isPaymentFeatureEnabled(store);
-    const stripeConnectReady =
-      Boolean(store.stripeConnectAccountId) &&
-      Boolean(store.stripeConnectOnboarded);
 
     const normalizedSidebar = this.normalizeSidebarMenuItems(
       widgetSettings.sidebarMenuItems,
@@ -1282,13 +1281,13 @@ export class WidgetService {
       },
       payment: {
         enabled: normalizedSidebar.payment && paymentFeatureEnabled,
-        canProcessPayments: stripeConnectReady,
-        provider: paymentFeatureEnabled ? 'stripe_connect' : null,
+        canProcessPayments: normalizedSidebar.payment && paymentFeatureEnabled,
+        provider: paymentFeatureEnabled ? 'creem' : null,
         allowPartial: false,
         defaultDepositPercentage: 0,
         fixedDepositAmount,
-        publishableKey:
-          this.configService.get<string>('STRIPE_PUBLISHABLE_KEY') || undefined,
+        checkoutMode: 'redirect',
+        publishableKey: undefined,
       },
       styling: {
         primaryColor: widgetSettings.primaryColor ?? '#1A84EE',
@@ -1312,11 +1311,8 @@ export class WidgetService {
     });
   }
 
-  private isPaymentFeatureEnabled(store: any): boolean {
-    const isNonTurkishStore = (store.country || 'TR').toUpperCase() !== 'TR';
-    const hasPaidPlan =
-      store.paymentStatus === 'pro' || store.paymentStatus === 'business';
-    return isNonTurkishStore && hasPaidPlan;
+  private isPaymentFeatureEnabled(_store: any): boolean {
+    return false;
   }
 
   private normalizeSidebarMenuItems(
@@ -1399,7 +1395,7 @@ export class WidgetService {
         await this.notificationService.createInAppNotification(
           store.ownerId,
           storeId,
-          'Widget güvenlik uyarısı',
+          'Widget security warning',
           data.message,
           'security',
           metadata,

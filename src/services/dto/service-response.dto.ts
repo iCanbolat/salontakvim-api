@@ -14,6 +14,9 @@ class ServiceExtraResponse {
   price!: string;
 
   @Expose()
+  creemProductId?: string;
+
+  @Expose()
   duration!: number;
 
   @Expose()
@@ -86,4 +89,3 @@ export class ServiceResponseDto {
   @Type(() => ServiceExtraResponse)
   extras?: ServiceExtraResponse[];
 }
-

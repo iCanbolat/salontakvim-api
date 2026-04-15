@@ -17,6 +17,7 @@ import {
   UpdateStoreDto,
   StoreResponseDto,
   SendBulkSmsDto,
+  UpdateCustomerDto,
 } from './dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -123,6 +124,22 @@ export class StoreController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.storeService.getCustomerProfile(storeId, customerId, user);
+  }
+
+  @Patch(':storeId/customers/:customerId')
+  @Roles('admin', 'manager', 'staff')
+  async updateCustomer(
+    @Param('storeId', ParseUUIDPipe) storeId: string,
+    @Param('customerId', ParseUUIDPipe) customerId: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() updateCustomerDto: UpdateCustomerDto,
+  ) {
+    return this.storeService.updateCustomer(
+      storeId,
+      customerId,
+      user,
+      updateCustomerDto,
+    );
   }
 
   @Post(':storeId/customers/sms')

@@ -33,6 +33,11 @@ export class CreateServiceDto {
   @Min(0)
   price!: number;
 
+  @IsString()
+  @IsOptional()
+  @MaxLength(255)
+  creemProductId?: string;
+
   @IsInt()
   @IsOptional()
   @Min(1)
@@ -69,4 +74,3 @@ export class CreateServiceDto {
   @Min(0)
   position?: number;
 }
-

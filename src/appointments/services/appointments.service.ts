@@ -329,15 +329,15 @@ export class AppointmentsService {
           .trim() ||
         customerUser.email ||
         customerUser.phone ||
-        'Müşteri'
-      : 'Müşteri';
-    const appointmentDateTimeLabel = startDateTime.toLocaleString('tr-TR');
+        'Customer'
+      : 'Customer';
+    const appointmentDateTimeLabel = startDateTime.toLocaleString('en-US');
 
     await this.notifyStaffAndAdmin(
       storeId,
       assignedStaffId,
-      'Yeni Randevu',
-      `${customerName} için ${service.name} randevusu ${appointmentDateTimeLabel} tarihinde oluşturuldu.`,
+      'New Appointment',
+      `Appointment for ${service.name} for ${customerName} was created on ${appointmentDateTimeLabel}.`,
       'appointment_created',
       {
         appointmentId: appointment.id,
@@ -405,7 +405,7 @@ export class AppointmentsService {
       await this.activitiesService.recordActivity(
         storeId,
         'customer',
-        `${customerFirstName} ${customerLastName || ''} adlı yeni müşteri oluşturuldu`,
+        `${`${customerFirstName} ${customerLastName || ''}`.trim()} was added as a new customer`,
         {
           customerId: customer.id,
           email: customerEmail,
@@ -638,8 +638,8 @@ export class AppointmentsService {
           .filter(Boolean)
           .join(' \u2022 ');
         const message = details
-          ? `Randevu güncellendi: ${details}`
-          : 'Randevu güncellendi';
+          ? `Appointment updated: ${details}`
+          : 'Appointment updated';
         await this.activitiesService.recordActivity(
           storeId,
           'appointment',
@@ -759,10 +759,10 @@ export class AppointmentsService {
     });
 
     const activityMessage = markAsPaid
-      ? 'Randevu ödendi olarak işaretlendi.'
+      ? 'Appointment marked as paid.'
       : isPriceChanged
-        ? 'Randevu fiyatı güncellendi.'
-        : 'Randevu ödeme bilgisi güncellendi.';
+        ? 'Appointment price updated.'
+        : 'Appointment payment details updated.';
 
     await this.activitiesService.recordActivity(
       storeId,
@@ -841,8 +841,8 @@ export class AppointmentsService {
     await this.notifyStaffAndAdmin(
       appointment.storeId,
       appointment.staffId,
-      'Randevu İptal Edildi',
-      'Müşteri tarafından randevu iptal edildi.',
+      'Appointment Cancelled',
+      'Appointment was cancelled by the customer.',
       'appointment_cancelled',
       {
         appointmentId: id,
@@ -922,8 +922,8 @@ export class AppointmentsService {
     await this.notifyStaffAndAdmin(
       appointment.storeId,
       appointment.staffId,
-      'Randevu İptal Edildi',
-      `Müşteri randevusunu iptal linki üzerinden iptal etti.${reason ? ` Sebep: ${reason}` : ''}`,
+      'Appointment Cancelled',
+      `Customer cancelled the appointment via the cancellation link.${reason ? ` Reason: ${reason}` : ''}`,
       'appointment_cancelled',
       {
         appointmentId: appointment.id,
@@ -1450,7 +1450,7 @@ export class AppointmentsService {
           cancelLink,
         },
       );
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(
         `Failed to send appointment confirmation for ${appointment.id}: ${error.message}`,
         error,
@@ -1888,18 +1888,18 @@ export class AppointmentsService {
   private getStatusLabel(status: string): { verb: string; label: string } {
     switch (status) {
       case 'confirmed':
-        return { verb: 'onaylandı', label: 'Onaylandı' };
+        return { verb: 'confirmed', label: 'Confirmed' };
       case 'completed':
-        return { verb: 'tamamlandı', label: 'Tamamlandı' };
+        return { verb: 'completed', label: 'Completed' };
       case 'no_show':
-        return { verb: 'gelmedi olarak işaretlendi', label: 'Gelmedi' };
+        return { verb: 'marked as no-show', label: 'No-show' };
       case 'pending':
-        return { verb: 'beklemeye alındı', label: 'Beklemede' };
+        return { verb: 'moved to pending', label: 'Pending' };
       case 'expired':
-        return { verb: 'süresi doldu', label: 'Süresi Doldu' };
+        return { verb: 'expired', label: 'Expired' };
       default:
         return {
-          verb: `${status} olarak güncellendi`,
+          verb: `updated to ${status}`,
           label: status,
         };
     }
@@ -1914,7 +1914,7 @@ export class AppointmentsService {
     const customerName = await this.resolveUserName(appointment.customerId);
     const serviceName = await this.resolveServiceName(appointment.serviceId);
     const dateStr = appointment.startDateTime
-      ? appointment.startDateTime.toLocaleString('tr-TR', {
+      ? appointment.startDateTime.toLocaleString('en-GB', {
           day: '2-digit',
           month: '2-digit',
           year: 'numeric',
@@ -1927,6 +1927,6 @@ export class AppointmentsService {
       .filter(Boolean)
       .join(' \u2022 ');
 
-    return details ? `Randevu ${verb}: ${details}` : `Randevu ${verb}`;
+    return details ? `Appointment ${verb}: ${details}` : `Appointment ${verb}`;
   }
 }

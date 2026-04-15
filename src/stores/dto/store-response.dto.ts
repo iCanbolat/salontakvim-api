@@ -33,7 +33,13 @@ export class StoreResponseDto {
   currency!: string;
 
   @Expose()
-  paymentStatus!: 'freemium' | 'pro' | 'business';
+  paymentStatus!: 'trial' | 'starter' | 'pro' | 'enterprise';
+
+  @Expose()
+  trialStartedAt!: Date;
+
+  @Expose()
+  trialEndsAt!: Date;
 
   @Expose()
   stripeCustomerId?: string;
@@ -49,6 +55,18 @@ export class StoreResponseDto {
 
   @Expose()
   stripeConnectOnboarded?: boolean;
+
+  @Expose()
+  creemCustomerId?: string;
+
+  @Expose()
+  creemSubscriptionId?: string;
+
+  @Expose()
+  creemSubscriptionStatus?: string;
+
+  @Expose()
+  paymentGateway!: 'creem' | 'stripe' | 'stripe_legacy';
 
   @Expose()
   storeImages!: string[];
@@ -71,4 +89,3 @@ export class StoreResponseDto {
   @Expose()
   updatedAt!: Date;
 }
-

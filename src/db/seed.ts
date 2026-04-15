@@ -8,6 +8,7 @@ import { Pool } from 'pg';
 import * as schema from './schema';
 import * as bcrypt from 'bcrypt';
 import * as dotenv from 'dotenv';
+import { sql } from 'drizzle-orm';
 
 dotenv.config();
 
@@ -55,7 +56,7 @@ async function seed() {
         phone: '+90 555 987 6543',
         country: 'TR',
         currency: 'TRY',
-        paymentStatus: 'freemium',
+        paymentStatus: 'starter',
         isActive: true,
       })
       .returning();
@@ -617,7 +618,7 @@ async function seed() {
     console.log('✓ Notification settings created');
 
     // 13. Create Customer User
-    console.log('Creating customer user...');
+    console.log('Creating customer user (TR)...');
     const [customerUser] = await db
       .insert(schema.users)
       .values({
@@ -633,7 +634,7 @@ async function seed() {
       })
       .returning();
 
-    console.log('✓ Customer user created:', customerUser.email);
+    console.log('✓ Customer user (TR) created:', customerUser.email);
 
     // Register customer to store
     await db.insert(schema.storeCustomers).values({
@@ -1110,6 +1111,23 @@ async function seed() {
       })
       .returning();
 
+    // Create UK customer user
+    console.log('Creating UK customer user...');
+    const [ukCustomerUser] = await db
+      .insert(schema.users)
+      .values({
+        email: 'john.doe@example.com',
+        firstName: 'John',
+        lastName: 'Doe',
+        phone: '+44 7700 900555',
+        password: null,
+        role: 'customer',
+        authProvider: 'local',
+        isActive: true,
+        emailVerified: true,
+      })
+      .returning();
+
     const [ukStore] = await db
       .insert(schema.stores)
       .values({
@@ -1122,7 +1140,7 @@ async function seed() {
         phone: '+44 20 7946 1200',
         country: 'GB',
         currency: 'GBP',
-        paymentStatus: 'freemium',
+        paymentStatus: 'starter',
         stripeConnectOnboarded: false,
         isActive: true,
       })
@@ -1457,7 +1475,7 @@ async function seed() {
       publicNumber: '001',
       publicNumberCounter: 1,
       storeId: ukStore.id,
-      customerId: customerUser.id,
+      customerId: ukCustomerUser.id,
       serviceId: ukCheckupService.id,
       staffId: ukStaff1.id,
       locationId: ukLocation1.id,
@@ -1476,7 +1494,7 @@ async function seed() {
       publicNumber: '002',
       publicNumberCounter: 2,
       storeId: ukStore.id,
-      customerId: customerUser.id,
+      customerId: ukCustomerUser.id,
       serviceId: ukWhiteningService.id,
       staffId: ukStaff1.id,
       locationId: ukLocation1.id,
@@ -1493,7 +1511,7 @@ async function seed() {
       publicNumber: '003',
       publicNumberCounter: 3,
       storeId: ukStore.id,
-      customerId: customerUser.id,
+      customerId: ukCustomerUser.id,
       serviceId: ukInvisalignService.id,
       staffId: ukStaff2.id,
       locationId: ukLocation2.id,
@@ -1511,11 +1529,213 @@ async function seed() {
     // Register customer to UK store
     await db.insert(schema.storeCustomers).values({
       storeId: ukStore.id,
-      customerId: customerUser.id,
+      customerId: ukCustomerUser.id,
       publicNumber: '001',
       publicNumberCounter: 1,
     });
     console.log('✓ Customer registered to UK store');
+
+    // 19.6 Create more UK Customers and Appointments
+    console.log('Creating more UK customers and appointments...');
+    const [ukCustomer2] = await db
+      .insert(schema.users)
+      .values({
+        email: 'jane.smith@example.com',
+        firstName: 'Jane',
+        lastName: 'Smith',
+        phone: '+44 7700 900111',
+        role: 'customer',
+        authProvider: 'local',
+        isActive: true,
+        emailVerified: true,
+      })
+      .returning();
+
+    const [ukCustomer3] = await db
+      .insert(schema.users)
+      .values({
+        email: 'michael.ross@example.com',
+        firstName: 'Michael',
+        lastName: 'Ross',
+        phone: '+44 7700 900222',
+        role: 'customer',
+        authProvider: 'local',
+        isActive: true,
+        emailVerified: true,
+      })
+      .returning();
+
+    const [ukCustomer4] = await db
+      .insert(schema.users)
+      .values({
+        email: 'emily.white@example.com',
+        firstName: 'Emily',
+        lastName: 'White',
+        phone: '+44 7700 900333',
+        role: 'customer',
+        authProvider: 'local',
+        isActive: true,
+        emailVerified: true,
+      })
+      .returning();
+
+    await db.insert(schema.storeCustomers).values([
+      {
+        storeId: ukStore.id,
+        customerId: ukCustomer2.id,
+        publicNumber: '002',
+        publicNumberCounter: 2,
+      },
+      {
+        storeId: ukStore.id,
+        customerId: ukCustomer3.id,
+        publicNumber: '003',
+        publicNumberCounter: 3,
+      },
+      {
+        storeId: ukStore.id,
+        customerId: ukCustomer4.id,
+        publicNumber: '004',
+        publicNumberCounter: 4,
+      },
+    ]);
+
+    const ukApt4Start = daysAgo(1, 11, 0); // Yesterday
+    await db.insert(schema.appointments).values({
+      publicNumber: '004',
+      publicNumberCounter: 4,
+      storeId: ukStore.id,
+      customerId: ukCustomer2.id,
+      serviceId: ukCheckupService.id,
+      staffId: ukStaff1.id,
+      locationId: ukLocation1.id,
+      startDateTime: ukApt4Start,
+      endDateTime: addMinutes(ukApt4Start, 45),
+      status: 'completed',
+      totalPrice: '95.00',
+      paymentMethod: 'card',
+      isPaid: true,
+      paidAt: addMinutes(ukApt4Start, 45),
+    });
+
+    const ukApt5Start = daysFromNow(1, 15, 30); // Tomorrow
+    await db.insert(schema.appointments).values({
+      publicNumber: '005',
+      publicNumberCounter: 5,
+      storeId: ukStore.id,
+      customerId: ukCustomer3.id,
+      serviceId: ukEmergencyService.id,
+      staffId: ukStaff1.id,
+      locationId: ukLocation1.id,
+      startDateTime: ukApt5Start,
+      endDateTime: addMinutes(ukApt5Start, 30),
+      status: 'confirmed',
+      totalPrice: '120.00',
+      isPaid: false,
+    });
+
+    const ukApt6Start = daysFromNow(4, 10, 0);
+    await db.insert(schema.appointments).values({
+      publicNumber: '006',
+      publicNumberCounter: 6,
+      storeId: ukStore.id,
+      customerId: ukCustomer4.id,
+      serviceId: ukInvisalignService.id,
+      staffId: ukStaff2.id,
+      locationId: ukLocation2.id,
+      startDateTime: ukApt6Start,
+      endDateTime: addMinutes(ukApt6Start, 30),
+      status: 'pending',
+      totalPrice: '50.00',
+      isPaid: false,
+    });
+
+    console.log('✓ More UK customers and appointments created');
+
+    // 19.5 Create UK Appointment Feedback
+    console.log('Creating UK feedback...');
+
+    const [ukApt1] = await db
+      .select()
+      .from(schema.appointments)
+      .where(
+        sql`${schema.appointments.storeId} = ${ukStore.id} AND ${schema.appointments.status} = 'completed'`,
+      );
+
+    if (ukApt1) {
+      await db.insert(schema.appointmentFeedback).values([
+        {
+          appointmentId: ukApt1.id,
+          storeId: ukStore.id,
+          customerId: ukCustomerUser.id,
+          staffId: ukStaff1.id,
+          serviceId: ukCheckupService.id,
+          overallRating: 5,
+          serviceRating: 5,
+          staffRating: 5,
+          cleanlinessRating: 5,
+          valueRating: 5,
+          comment:
+            'Excellent service. Dr. Smith was very professional and the clinic is spotless. Highly recommend for routine check-ups.',
+          isVerified: true,
+        },
+      ]);
+      console.log('✓ UK Feedback created');
+    }
+
+    // 20. Create UK Activity Records
+    console.log('Creating UK activity records...');
+
+    await db.insert(schema.activities).values([
+      {
+        storeId: ukStore.id,
+        type: 'staff' as const,
+        message:
+          'Sarah Jenkins appointed as Clinic Manager (Marylebone Branch)',
+        metadata: {
+          userId: ukManagerUser.id,
+          role: 'manager',
+          locationId: ukLocation1.id,
+        },
+        createdAt: daysAgo(25),
+      },
+      {
+        storeId: ukStore.id,
+        type: 'customer' as const,
+        message: 'New customer registered: John Doe (john.doe@example.com)',
+        metadata: {
+          userId: ukCustomerUser.id,
+          email: 'john.doe@example.com',
+        },
+        createdAt: daysAgo(20),
+      },
+      {
+        storeId: ukStore.id,
+        type: 'appointment' as const,
+        message: 'Appointment completed: John Doe - Dental Check-up & Cleaning',
+        metadata: {
+          appointmentId: (
+            await db
+              .select()
+              .from(schema.appointments)
+              .where(
+                sql`${schema.appointments.storeId} = ${ukStore.id} AND ${schema.appointments.status} = 'completed'`,
+              )
+          )[0]?.id,
+          status: 'completed',
+        },
+        createdAt: daysAgo(2, 10, 45),
+      },
+      {
+        storeId: ukStore.id,
+        type: 'staff' as const,
+        message: 'Dr. Emma Smith added to Marylebone Branch',
+        metadata: { userId: ukStaff1User.id, locationId: ukLocation1.id },
+        createdAt: daysAgo(30),
+      },
+    ]);
+
+    console.log('✓ UK activity records created: 4');
 
     console.log('✓ UK Stripe-ready dental clinic store created:', ukStore.name);
     console.log('🔑 UK Widget Key:', ukWidgetSettings.widgetKey);
@@ -1524,18 +1744,18 @@ async function seed() {
     console.log('\n📋 Summary:');
     console.log('   - 2 Admin Users (TR + UK demo owners, password: admin123)');
     console.log('   - 6 Staff Users (3 TR + 3 UK)');
-    console.log('   - 1 Customer (fmc_canbolat@hotmail.com - Fatih Canbolat)');
+    console.log('   - 5 Customers (TR: Fatih, UK: John, Jane, Michael, Emily)');
     console.log('   - 2 Stores (Güzellik Salonu + London Dental Clinic)');
     console.log('   - 6 Categories (3 TR + 3 UK)');
     console.log('   - 4 Locations (2 TR + 2 UK)');
     console.log('   - 12 Services (8 TR + 4 UK)');
     console.log('   - 5 Service Extras (TR only)');
     console.log(
-      '   - 10 Appointments (4 completed, 2 cancelled, 2 confirmed, 2 pending)',
+      '   - 16 Appointments (6 completed, 2 cancelled, 4 confirmed, 4 pending)',
     );
-    console.log('   - 3 Feedback Records');
+    console.log('   - 4 Feedback Records (3 TR + 1 UK)');
     console.log('   - 11 Notifications');
-    console.log('   - 13 Activity Records');
+    console.log('   - 17 Activity Records (8 TR + 9 UK)');
     console.log('   - Widget Keys: demo-widget-key, demo-widget-key-uk');
     console.log('   - Allowed Domains: localhost');
     console.log('\n🚀 You can now test the widget at:');

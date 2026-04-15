@@ -44,6 +44,7 @@
     "bullmq": "^5.66.5",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
+    "creem": "^1.4.4",
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.44.7",
     "exceljs": "^4.4.0",

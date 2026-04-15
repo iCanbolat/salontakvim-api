@@ -267,7 +267,7 @@ export class StaffScheduleService {
     await this.activitiesService.recordActivity(
       storeId,
       'staff',
-      `Personel ${staff.firstName} ${staff.lastName} izin talebi oluşturdu`,
+      `Staff member ${staff.firstName} ${staff.lastName} created a time-off request`,
       {
         staffId: staff.id,
         breakId: createdBreak.id,
@@ -285,8 +285,8 @@ export class StaffScheduleService {
       await this.notificationService.createInAppNotification(
         store.ownerId,
         storeId,
-        'Yeni izin talebi',
-        `Personel ${staff.firstName} ${staff.lastName} izin talebi oluşturdu`,
+        'New time-off request',
+        `Staff member ${staff.firstName} ${staff.lastName} created a time-off request`,
         'staff_time_off',
         {
           breakId: createdBreak.id,
@@ -315,8 +315,8 @@ export class StaffScheduleService {
           this.notificationService.createInAppNotification(
             managerId,
             storeId,
-            'Yeni izin talebi',
-            `Personel ${staff.firstName} ${staff.lastName} izin talebi oluşturdu`,
+            'New time-off request',
+            `Staff member ${staff.firstName} ${staff.lastName} created a time-off request`,
             'staff_time_off',
             {
               breakId: createdBreak.id,

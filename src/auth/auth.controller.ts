@@ -94,7 +94,14 @@ export class AuthController {
       accessToken: authResponse.accessToken,
       refreshToken: authResponse.refreshToken,
       needsOnboarding: authResponse.needsOnboarding ? 'true' : 'false',
+      requiresSubscription: authResponse.requiresSubscription
+        ? 'true'
+        : 'false',
     });
+
+    if (authResponse.trialEndsAt) {
+      params.set('trialEndsAt', authResponse.trialEndsAt);
+    }
 
     return res.redirect(`${frontendUrl}/auth/callback?${params.toString()}`);
   }

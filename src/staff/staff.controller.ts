@@ -478,6 +478,8 @@ export class StaffController {
         throw new ForbiddenException('You can only create breaks for yourself');
       }
       dto.status = StaffBreakStatus.PENDING;
+    } else {
+      dto.status = dto.status ?? StaffBreakStatus.APPROVED;
     }
     return await this.staffScheduleService.createStaffBreak(
       storeId,

@@ -27,9 +27,10 @@ export const userRoleEnum = pgEnum('user_role', [
   'customer',
 ]);
 export const paymentStatusEnum = pgEnum('payment_status', [
-  'freemium',
+  'trial',
+  'starter',
   'pro',
-  'business',
+  'enterprise',
 ]);
 export const authProviderEnum = pgEnum('auth_provider', [
   'local',
@@ -164,7 +165,11 @@ export const stores = pgTable(
     country: varchar('country', { length: 2 }).default('TR').notNull(),
     currency: varchar('currency', { length: 3 }).default('TRY').notNull(),
     paymentStatus: paymentStatusEnum('payment_status')
-      .default('freemium')
+      .default('trial')
+      .notNull(),
+    trialStartedAt: timestamp('trial_started_at').defaultNow().notNull(),
+    trialEndsAt: timestamp('trial_ends_at')
+      .default(sql`now() + interval '14 days'`)
       .notNull(),
 
     // Stripe billing / connect
@@ -178,6 +183,16 @@ export const stores = pgTable(
     }),
     stripeConnectOnboarded: boolean('stripe_connect_onboarded')
       .default(false)
+      .notNull(),
+
+    // Creem billing
+    creemCustomerId: varchar('creem_customer_id', { length: 255 }),
+    creemSubscriptionId: varchar('creem_subscription_id', { length: 255 }),
+    creemSubscriptionStatus: varchar('creem_subscription_status', {
+      length: 50,
+    }),
+    paymentGateway: varchar('payment_gateway', { length: 30 })
+      .default('creem')
       .notNull(),
 
     // Store images for hosted widget page
@@ -221,6 +236,7 @@ export const storeCustomers = pgTable(
       .notNull(),
     publicNumber: varchar('public_number', { length: 20 }).notNull(),
     publicNumberCounter: integer('public_number_counter').notNull(),
+    generalNote: text('general_note'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (table) => [
@@ -247,6 +263,31 @@ export const appointmentCounters = pgTable('appointment_counters', {
   counter: integer('counter').notNull().default(0),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
+
+// Tenant payout ledger for platform-collected online transactions
+export const storePayouts = pgTable(
+  'store_payouts',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    storeId: uuid('store_id')
+      .references(() => stores.id, { onDelete: 'cascade' })
+      .notNull(),
+    transactionId: varchar('transaction_id', { length: 255 }).notNull(),
+    grossAmount: decimal('gross_amount', { precision: 10, scale: 2 }).notNull(),
+    platformFee: decimal('platform_fee', { precision: 10, scale: 2 }).notNull(),
+    netAmount: decimal('net_amount', { precision: 10, scale: 2 }).notNull(),
+    currency: varchar('currency', { length: 3 }).notNull(),
+    status: varchar('status', { length: 20 }).default('pending').notNull(),
+    paidAt: timestamp('paid_at'),
+    metadata: json('metadata'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    unique('store_payouts_transaction_id_uq').on(table.transactionId),
+    index('store_payouts_store_id_idx').on(table.storeId),
+    index('store_payouts_status_idx').on(table.status),
+  ],
+);
 
 // ================================
 // ACTIVITIES (Timeline)
@@ -409,6 +450,7 @@ export const services = pgTable(
     description: text('description'),
     duration: integer('duration').notNull(), // minutes
     price: decimal('price', { precision: 10, scale: 2 }).notNull(),
+    creemProductId: varchar('creem_product_id', { length: 255 }),
     capacity: integer('capacity').default(1).notNull(), // max people per appointment
     bufferTimeBefore: integer('buffer_time_before').default(0), // minutes
     bufferTimeAfter: integer('buffer_time_after').default(0), // minutes
@@ -599,6 +641,7 @@ export const appointments = pgTable(
       scale: 2,
     }).default('0.00'),
     paymentMethod: paymentMethodEnum('payment_method'),
+    paymentGateway: varchar('payment_gateway', { length: 30 }),
     isPaid: boolean('is_paid').default(false).notNull(),
     paidAt: timestamp('paid_at'),
 
@@ -1185,6 +1228,7 @@ export const storesRelations = relations(stores, ({ one, many }) => ({
   staffMembers: many(staffMembers),
   appointments: many(appointments),
   appointmentCounter: one(appointmentCounters),
+  storePayouts: many(storePayouts),
   storeCustomers: many(storeCustomers),
   widgetSettings: one(widgetSettings),
   staffInvitations: many(staffInvitations),
@@ -1257,6 +1301,13 @@ export const appointmentCountersRelations = relations(
     }),
   }),
 );
+
+export const storePayoutsRelations = relations(storePayouts, ({ one }) => ({
+  store: one(stores, {
+    fields: [storePayouts.storeId],
+    references: [stores.id],
+  }),
+}));
 
 export const staffMembersRelations = relations(
   staffMembers,

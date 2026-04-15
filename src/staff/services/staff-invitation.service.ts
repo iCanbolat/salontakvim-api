@@ -161,7 +161,7 @@ export class StaffInvitationService {
     await this.activitiesService.recordActivity(
       storeId,
       'staff',
-      `Personel daveti gönderildi: ${dto.email}`,
+      `Staff invitation sent: ${dto.email}`,
       {
         invitationId: invitation.id,
         email: dto.email,
@@ -302,7 +302,7 @@ export class StaffInvitationService {
     await this.activitiesService.recordActivity(
       invitation.storeId,
       'staff',
-      `Personel daveti kabul edildi: ${staffFullName || invitation.email}`,
+      `Staff invitation accepted: ${staffFullName || invitation.email}`,
       {
         staffId: staffMember.id,
         userId: user.id,

@@ -443,10 +443,10 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
   async purgeOldNonPendingAppointments(
     now: Date,
     defaultRetentionMonths = 1,
-    businessRetentionMonths = 6,
+    enterpriseRetentionMonths = 6,
   ): Promise<{
     deletedStandard: number;
-    deletedBusiness: number;
+    deletedEnterprise: number;
     total: number;
   }> {
     const defaultThreshold = new Date(now);
@@ -454,23 +454,23 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
       defaultThreshold.getMonth() - defaultRetentionMonths,
     );
 
-    const businessThreshold = new Date(now);
-    businessThreshold.setMonth(
-      businessThreshold.getMonth() - businessRetentionMonths,
+    const enterpriseThreshold = new Date(now);
+    enterpriseThreshold.setMonth(
+      enterpriseThreshold.getMonth() - enterpriseRetentionMonths,
     );
 
     const standardStoreIds = (
       await this.db
         .select({ id: schema.stores.id })
         .from(schema.stores)
-        .where(ne(schema.stores.paymentStatus, 'business'))
+        .where(ne(schema.stores.paymentStatus, 'enterprise'))
     ).map((row) => row.id);
 
-    const businessStoreIds = (
+    const enterpriseStoreIds = (
       await this.db
         .select({ id: schema.stores.id })
         .from(schema.stores)
-        .where(eq(schema.stores.paymentStatus, 'business'))
+        .where(eq(schema.stores.paymentStatus, 'enterprise'))
     ).map((row) => row.id);
 
     const standardResult =
@@ -487,15 +487,15 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
             .returning({ id: schema.appointments.id })
         : [];
 
-    const businessResult =
-      businessStoreIds.length > 0
+    const enterpriseResult =
+      enterpriseStoreIds.length > 0
         ? await this.db
             .delete(schema.appointments)
             .where(
               and(
-                inArray(schema.appointments.storeId, businessStoreIds),
+                inArray(schema.appointments.storeId, enterpriseStoreIds),
                 ne(schema.appointments.status, 'pending'),
-                lt(schema.appointments.endDateTime, businessThreshold),
+                lt(schema.appointments.endDateTime, enterpriseThreshold),
               ),
             )
             .returning({ id: schema.appointments.id })
@@ -503,8 +503,8 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
 
     return {
       deletedStandard: standardResult.length,
-      deletedBusiness: businessResult.length,
-      total: standardResult.length + businessResult.length,
+      deletedEnterprise: enterpriseResult.length,
+      total: standardResult.length + enterpriseResult.length,
     };
   }
 

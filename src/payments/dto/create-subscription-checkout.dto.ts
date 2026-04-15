@@ -11,6 +11,10 @@ export class CreateSubscriptionCheckoutDto {
   cancelUrl!: string;
 
   @IsOptional()
-  @IsIn(['pro', 'business'])
-  plan?: 'pro' | 'business';
+  @IsIn(['starter', 'pro', 'enterprise'])
+  plan?: 'starter' | 'pro' | 'enterprise';
+
+  @IsOptional()
+  @IsIn(['monthly', 'annual'])
+  billingCycle?: 'monthly' | 'annual';
 }

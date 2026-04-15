@@ -92,7 +92,7 @@ export class CustomerFileService {
       .join(' ')
       .trim();
     const resolvedCustomerName =
-      customerName || customerUser?.email || customerUser?.phone || 'Müşteri';
+      customerName || customerUser?.email || customerUser?.phone || 'Customer';
 
     const staffMember = await this.staffMemberRepository.findByUserIdAndStoreId(
       userId,
@@ -123,22 +123,19 @@ export class CustomerFileService {
       .trim();
     const roleLabelByUserRole: Record<string, string> = {
       admin: 'Admin',
-      manager: 'Yönetici',
-      staff: 'Personel',
+      manager: 'Manager',
+      staff: 'Staff',
     };
 
     const fileCount = 1;
     const sizeLabel = this.fileUploadService.formatFileSize(file.size);
     const resolvedActorName =
-      actorName ||
-      actorUser?.email ||
-      roleLabelByUserRole[userRole] ||
-      'Personel';
+      actorName || actorUser?.email || roleLabelByUserRole[userRole] || 'Staff';
 
     await this.activitiesService.recordActivity(
       storeId,
       'staff',
-      `${resolvedActorName} ${resolvedCustomerName} için dosya yükledi: ${customerFile.originalName} (${sizeLabel})`,
+      `${resolvedActorName} uploaded a file for ${resolvedCustomerName}: ${customerFile.originalName} (${sizeLabel})`,
       {
         actorUserId: userId,
         actorRole: userRole,
@@ -173,8 +170,8 @@ export class CustomerFileService {
           await this.notificationService.createInAppNotification(
             appointmentStaff.userId,
             storeId,
-            'Randevu dosyasi yuklendi',
-            `${resolvedCustomerName} icin ${customerFile.originalName} dosyasi eklendi.`,
+            'Appointment file uploaded',
+            `File ${customerFile.originalName} was added for ${resolvedCustomerName}.`,
             'appointment_file_uploaded',
             {
               appointmentId: appointment.id,
@@ -402,7 +399,7 @@ export class CustomerFileService {
       .join(' ')
       .trim();
     const resolvedCustomerName =
-      customerName || customerUser?.email || customerUser?.phone || 'Müşteri';
+      customerName || customerUser?.email || customerUser?.phone || 'Customer';
 
     const staffMember = await this.staffMemberRepository.findByUserIdAndStoreId(
       userId,
@@ -416,15 +413,12 @@ export class CustomerFileService {
       .trim();
     const roleLabelByUserRole: Record<string, string> = {
       admin: 'Admin',
-      manager: 'Yönetici',
-      staff: 'Personel',
+      manager: 'Manager',
+      staff: 'Staff',
     };
 
     const resolvedActorName =
-      actorName ||
-      actorUser?.email ||
-      roleLabelByUserRole[userRole] ||
-      'Personel';
+      actorName || actorUser?.email || roleLabelByUserRole[userRole] || 'Staff';
 
     let appointmentSummary: any = null;
     if (file.appointmentId) {
@@ -441,7 +435,7 @@ export class CustomerFileService {
     await this.activitiesService.recordActivity(
       storeId,
       'staff',
-      `${resolvedActorName} ${resolvedCustomerName} için dosya sildi: ${file.originalName} (${sizeLabel})`,
+      `${resolvedActorName} deleted a file for ${resolvedCustomerName}: ${file.originalName} (${sizeLabel})`,
       {
         actorUserId: userId,
         actorRole: userRole,
@@ -498,7 +492,7 @@ export class CustomerFileService {
       .join(' ')
       .trim();
     const resolvedCustomerName =
-      customerName || customerUser?.email || customerUser?.phone || 'Müşteri';
+      customerName || customerUser?.email || customerUser?.phone || 'Customer';
 
     const staffMember = await this.staffMemberRepository.findByUserIdAndStoreId(
       userId,
@@ -512,15 +506,12 @@ export class CustomerFileService {
       .trim();
     const roleLabelByUserRole: Record<string, string> = {
       admin: 'Admin',
-      manager: 'Yönetici',
-      staff: 'Personel',
+      manager: 'Manager',
+      staff: 'Staff',
     };
 
     const resolvedActorName =
-      actorName ||
-      actorUser?.email ||
-      roleLabelByUserRole[userRole] ||
-      'Personel';
+      actorName || actorUser?.email || roleLabelByUserRole[userRole] || 'Staff';
 
     const files =
       await this.customerFileRepository.findByStoreAndCustomerAndIds(
@@ -587,7 +578,7 @@ export class CustomerFileService {
       await this.activitiesService.recordActivity(
         storeId,
         'staff',
-        `${resolvedActorName} ${resolvedCustomerName} için ${verifiedFileIds.length} dosya sildi.`,
+        `${resolvedActorName} deleted ${verifiedFileIds.length} files for ${resolvedCustomerName}.`,
         {
           action: 'bulk_file_deleted',
           actorUserId: userId,

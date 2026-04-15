@@ -3,7 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { AppointmentRepository } from '../repositories/appointment.repository';
 
 // Runs monthly to purge historical, non-pending appointments.
-// Business-tier owners keep data for 6 months; others keep 1 month.
+// Enterprise-tier owners keep data for 6 months; others keep 1 month.
 @Injectable()
 export class AppointmentCleanupService {
   private readonly logger = new Logger(AppointmentCleanupService.name);
@@ -37,7 +37,7 @@ export class AppointmentCleanupService {
   async handleMonthlyCleanup(): Promise<void> {
     try {
       const now = new Date();
-      const { deletedStandard, deletedBusiness, total } =
+      const { deletedStandard, deletedEnterprise, total } =
         await this.appointmentRepository.purgeOldNonPendingAppointments(
           now,
           1,
@@ -46,7 +46,7 @@ export class AppointmentCleanupService {
 
       if (total > 0) {
         this.logger.log(
-          `Purged ${total} appointments (standard=${deletedStandard}, business=${deletedBusiness})`,
+          `Purged ${total} appointments (standard=${deletedStandard}, enterprise=${deletedEnterprise})`,
         );
       }
     } catch (error: unknown) {

@@ -92,6 +92,26 @@ export class StoreRepository
     return store || null;
   }
 
+  async findByCreemCustomerId(creemCustomerId: string): Promise<Store | null> {
+    const [store] = await this.db
+      .select()
+      .from(schema.stores)
+      .where(eq(schema.stores.creemCustomerId, creemCustomerId))
+      .limit(1);
+    return store || null;
+  }
+
+  async findByCreemSubscriptionId(
+    creemSubscriptionId: string,
+  ): Promise<Store | null> {
+    const [store] = await this.db
+      .select()
+      .from(schema.stores)
+      .where(eq(schema.stores.creemSubscriptionId, creemSubscriptionId))
+      .limit(1);
+    return store || null;
+  }
+
   async update(id: string, data: Partial<Store>): Promise<Store> {
     const [updatedStore] = await this.db
       .update(schema.stores)
@@ -195,6 +215,33 @@ export class StoreRepository
 
       return inserted;
     });
+  }
+
+  async updateCustomerGeneralNote(
+    storeId: string,
+    customerId: string,
+    generalNote: string | null,
+  ) {
+    await this.ensureStoreCustomer(storeId, customerId);
+
+    const [updatedStoreCustomer] = await this.db
+      .update(schema.storeCustomers)
+      .set({ generalNote })
+      .where(
+        and(
+          eq(schema.storeCustomers.storeId, storeId),
+          eq(schema.storeCustomers.customerId, customerId),
+        ),
+      )
+      .returning();
+
+    if (!updatedStoreCustomer) {
+      throw new NotFoundException(
+        `Store customer not found for store ${storeId} and customer ${customerId}`,
+      );
+    }
+
+    return updatedStoreCustomer;
   }
 
   async updateAnalytics(
@@ -419,6 +466,7 @@ export class StoreRepository
       .select({
         id: schema.users.id,
         publicNumber: schema.storeCustomers.publicNumber,
+        generalNote: schema.storeCustomers.generalNote,
         email: schema.users.email,
         firstName: schema.users.firstName,
         lastName: schema.users.lastName,
@@ -446,6 +494,7 @@ export class StoreRepository
       .groupBy(
         schema.users.id,
         schema.storeCustomers.publicNumber,
+        schema.storeCustomers.generalNote,
         schema.users.email,
         schema.users.firstName,
         schema.users.lastName,

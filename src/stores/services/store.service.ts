@@ -1,7 +1,16 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { StoreRepository } from '../repositories/store.repository';
 import { StaffMemberRepository } from '../../staff/repositories/staff-member.repository';
-import { CreateStoreDto, UpdateStoreDto, StoreResponseDto } from '../dto';
+import {
+  CreateStoreDto,
+  UpdateStoreDto,
+  StoreResponseDto,
+  UpdateCustomerDto,
+} from '../dto';
 import { plainToInstance } from 'class-transformer';
 import { Store } from '../interfaces/repository.interface';
 import type { JwtPayload } from '../../auth/interfaces/auth.interface';
@@ -345,6 +354,73 @@ export class StoreService {
     return null;
   }
 
+  async updateCustomer(
+    storeId: string,
+    customerId: string,
+    user: JwtPayload,
+    updateCustomerDto: UpdateCustomerDto,
+  ) {
+    await this.verifyStoreOwnership(storeId, user.sub);
+
+    let accessScope: { staffId?: string; locationId?: string } | undefined;
+
+    if (user.role === 'manager') {
+      if (!user.locationId) {
+        throw new NotFoundException('Customer not found');
+      }
+      accessScope = { locationId: user.locationId };
+    }
+
+    if (user.role === 'staff') {
+      const staffMember =
+        await this.staffMemberRepository.findByUserIdAndStoreId(
+          user.sub,
+          storeId,
+        );
+
+      if (!staffMember) {
+        throw new NotFoundException('Customer not found');
+      }
+
+      accessScope = { staffId: staffMember.id };
+    }
+
+    const existingProfile = await this.storeRepository.getCustomerProfile(
+      storeId,
+      customerId,
+      accessScope,
+    );
+
+    if (!existingProfile) {
+      throw new NotFoundException('Customer not found');
+    }
+
+    if (updateCustomerDto.generalNote !== undefined) {
+      const normalizedGeneralNote =
+        updateCustomerDto.generalNote.trim().length > 0
+          ? updateCustomerDto.generalNote.trim()
+          : null;
+
+      await this.storeRepository.updateCustomerGeneralNote(
+        storeId,
+        customerId,
+        normalizedGeneralNote,
+      );
+    }
+
+    const updatedProfile = await this.storeRepository.getCustomerProfile(
+      storeId,
+      customerId,
+      accessScope,
+    );
+
+    if (!updatedProfile) {
+      throw new NotFoundException('Customer not found');
+    }
+
+    return updatedProfile.customer;
+  }
+
   async sendBulkSms(
     storeId: string,
     user: JwtPayload,
@@ -462,8 +538,8 @@ export class StoreService {
 
     for (const customer of deliverableCustomers) {
       const activityMessage = isSingleTarget
-        ? 'Müşteriye SMS gönderildi.'
-        : 'Toplu SMS kapsamında müşteriye SMS gönderildi.';
+        ? 'SMS sent to customer.'
+        : 'SMS sent to customer via bulk campaign.';
 
       activityTasks.push(() =>
         this.activitiesService.recordActivity(
@@ -491,8 +567,8 @@ export class StoreService {
 
     for (const customerId of noPhoneCustomerIds) {
       const activityMessage = isSingleTarget
-        ? 'Müşteriye SMS gönderilemedi: telefon numarası bulunamadı.'
-        : 'Toplu SMS kapsamında müşteriye SMS gönderilemedi: telefon numarası bulunamadı.';
+        ? 'SMS could not be sent to customer: phone number is missing.'
+        : 'SMS could not be sent to customer via bulk campaign: phone number is missing.';
 
       activityTasks.push(() =>
         this.activitiesService.recordActivity(
@@ -521,8 +597,8 @@ export class StoreService {
 
     for (const customerId of invalidPhoneCustomerIds) {
       const activityMessage = isSingleTarget
-        ? 'Müşteriye SMS gönderilemedi: telefon numarası geçersiz.'
-        : 'Toplu SMS kapsamında müşteriye SMS gönderilemedi: telefon numarası geçersiz.';
+        ? 'SMS could not be sent to customer: phone number is invalid.'
+        : 'SMS could not be sent to customer via bulk campaign: phone number is invalid.';
 
       activityTasks.push(() =>
         this.activitiesService.recordActivity(

@@ -75,7 +75,7 @@ export class FeedbackService {
 
     managerUserIds.forEach((managerId) => recipients.add(managerId));
 
-    const message = `${customerName} ${feedback.overallRating} yıldız değerlendirme bıraktı`;
+    const message = `${customerName} left a ${feedback.overallRating}-star rating`;
     const metadata = {
       feedbackId: feedback.id,
       appointmentId: appointment.id,
@@ -91,7 +91,7 @@ export class FeedbackService {
         this.notificationService.createInAppNotification(
           userId,
           storeId,
-          'Yeni değerlendirme',
+          'New feedback',
           message,
           'appointment_feedback',
           metadata,
@@ -105,12 +105,12 @@ export class FeedbackService {
       const user = await this.userRepository.findById(appointment.customerId);
       if (user) {
         return (
-          `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Müşteri'
+          `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Customer'
         );
       }
     }
 
-    return 'Müşteri';
+    return 'Customer';
   }
 
   private async validateStoreAccess(storeId: string, userId: string) {
@@ -277,7 +277,7 @@ export class FeedbackService {
     await this.activitiesService.recordActivity(
       storeId,
       'appointment',
-      `${customerName} değerlendirmesi alındı: ${dto.overallRating} yıldız`,
+      `${customerName} left a ${dto.overallRating}-star review`,
       {
         feedbackId: feedback.id,
         appointmentId: appointment.id,
@@ -560,7 +560,7 @@ export class FeedbackService {
     await this.activitiesService.recordActivity(
       storeId,
       'appointment',
-      `${customerName} değerlendirmesi alındı: ${dto.overallRating} yıldız`,
+      `${customerName} left a ${dto.overallRating}-star review`,
       {
         feedbackId: feedback.id,
         appointmentId: appointment.id,
